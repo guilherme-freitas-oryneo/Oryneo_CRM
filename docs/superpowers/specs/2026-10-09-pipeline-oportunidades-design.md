@@ -90,6 +90,16 @@ Entregar o primeiro corte funcional do CRM ORYNEO: autenticação segura e um pi
 - Painéis laterais prendem o foco, fecham com Escape e devolvem foco ao acionador.
 - Estados de carregamento, vazio, erro e sem resultados possuem texto e ação útil.
 
+### Login e recuperação de acesso
+
+- Tela própria ORYNEO, sem cadastro público, com composição dividida no desktop e formulário único no mobile.
+- Benchmark aplicado: formulário direto e recuperação visível como Pipedrive; recuperação autônoma como RD Station; identificação clara do método de acesso como HubSpot.
+- Campos de e-mail e senha com mostrar/ocultar senha, estado de envio, mensagens acessíveis e foco no primeiro erro.
+- Recuperação envia o e-mail do Supabase e a rota `/redefinir-senha` permite definir nova senha.
+- A área de marca usa o wordmark oficial, uma mensagem curta sobre o próximo passo comercial e decoração discreta derivada do sistema ORYNEO.
+- Hovers, foco, estados desabilitados e redução de movimento são definidos desde o início.
+- Google, Microsoft, passkeys e SSO não aparecem até estarem configurados de verdade.
+
 ## Segurança
 
 - `.env`, `.env.local`, tokens, senhas e chaves privadas entram no `.gitignore`.
