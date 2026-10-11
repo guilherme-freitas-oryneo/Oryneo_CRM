@@ -14,7 +14,7 @@ const currencyCapital=(value:number|null|undefined)=>typeof value==='number'&&Nu
 const statusLabel=(x:string)=>x.toLowerCase().includes('ativa')?'Ativa':x;
 const initials=(s:string)=>s.trim().slice(0,1).toLocaleUpperCase('pt-BR')||'O';
 const fallbackCnpj=(notes:string)=>notes.match(/(?:^|\n)CNPJ:\s*([\d.\/-]{14,20})/i)?.[1]?.replace(/\D/g,'')||'';
-const formatCnpj=(s:string)=>s.replace(/\D/g,'').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5');
+const formatCnpj=(s:string)=>s.toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^([A-Z0-9]{2})([A-Z0-9]{3})([A-Z0-9]{3})([A-Z0-9]{4})([A-Z0-9]{2})$/,'$1.$2.$3/$4-$5');
 const normalizeContact=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
 function ContactLine({label,value,highlight=false}:{label:string;value?:string;highlight?:boolean}){
  if(!value)return null;
