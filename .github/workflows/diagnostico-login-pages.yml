@@ -39,32 +39,34 @@ jobs:
         run: |
           npm ci
           npm install --no-save --ignore-scripts playwright@1.56.1
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
       - name: Verificar renderização do login em navegador real
         shell: bash
         run: |
           node --input-type=module <<'JS'
-          import { chromium } from 'playwright';
-          const browser=await chromium.launch({headless:true});
-          const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-          const errors=[]; const events=[];
-          page.on('pageerror',e=>errors.push('JS ERROR: '+e.message));
-          page.on('console',m=>{if(m.type()==='error')errors.push('CONSOLE ERROR: '+m.text())});
-          page.on('requestfailed',r=>errors.push('REQUEST FAILED: '+r.url()+' '+r.failure()?.errorText));
-          page.on('response',r=>{if(r.status()>=400)errors.push('HTTP '+r.status()+' '+r.url())});
-          const url='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/';
-          const r=await page.goto(url,{waitUntil:'domcontentloaded',timeout:40000});
-          events.push('page_status='+r.status());
-          await page.waitForTimeout(10000);
-          const result={title:await page.title(),url:page.url(),loginFieldCount:await page.locator('input[name="email"]').count(),body:await page.locator('body').innerText().then(s=>s.slice(0,1000)).catch(()=>''),errors,events};
-          console.log(JSON.stringify(result,null,2));
-          await page.screenshot({path:'oryneo-pages-login-test.png',fullPage:true});
-          await browser.close();
-          if(!result.loginFieldCount)process.exit(1);
+          import { chromium, webkit } from 'playwright';
+          for(const [engine,label] of [[chromium,'chromium'],[webkit,'safari-webkit']]){
+            const browser=await engine.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true});
+            const errors=[]; const events=[];
+            page.on('pageerror',e=>errors.push('JS ERROR: '+e.message));
+            page.on('console',m=>{if(m.type()==='error')errors.push('CONSOLE ERROR: '+m.text())});
+            page.on('requestfailed',r=>errors.push('REQUEST FAILED: '+r.url()+' '+r.failure()?.errorText));
+            page.on('response',r=>{if(r.status()>=400)errors.push('HTTP '+r.status()+' '+r.url())});
+            const url='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/?qa=browser-test';
+            const r=await page.goto(url,{waitUntil:'domcontentloaded',timeout:40000});
+            events.push('page_status='+r.status());
+            await page.waitForTimeout(10000);
+            const result={engine:label,title:await page.title(),url:page.url(),loginFieldCount:await page.locator('input[name="email"]').count(),body:await page.locator('body').innerText().then(s=>s.slice(0,1000)).catch(()=>''),errors,events};
+            console.log(JSON.stringify(result,null,2));
+            await page.screenshot({path:'oryneo-pages-login-'+label+'.png',fullPage:true});
+            await browser.close();
+            if(!result.loginFieldCount)process.exit(1);
+          }
           JS
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: oryneo-diagnostico-login
-          path: oryneo-pages-login-test.png
+          path: oryneo-pages-login-*.png
           if-no-files-found: ignore
