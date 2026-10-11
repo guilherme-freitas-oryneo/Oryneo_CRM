@@ -1,0 +1,66 @@
+name: Homologacao publica ORYNEO
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/live-smoke.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar Chromium e WebKit
+        run: |
+          npm ci
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium webkit
+      - name: Testar sites publicos e cotacao sem enviar leads
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {chromium,webkit} from 'playwright';
+          const lp='https://guilherme-freitas-oryneo.github.io/Oryneo_Landing_Page/';
+          const crm='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/';
+          for(const [browserType,name] of [[chromium,'chromium'],[webkit,'webkit']]){
+           const browser=await browserType.launch({headless:true});
+           const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+           const errors=[];
+           page.on('pageerror',e=>errors.push(e.message));
+           const r=await page.goto(crm,{waitUntil:'domcontentloaded',timeout:50000});
+           await page.locator('input[name="email"]').waitFor({timeout:30000});
+           await page.locator('input[name="password"]').waitFor({timeout:10000});
+           console.log(name,'CRM',r.status(),'login-ok');
+           await page.screenshot({path:'qa-'+name+'-crm.png'});
+           if(r.status()!==200||errors.length)throw Error(name+' CRM '+JSON.stringify(errors));
+           errors.length=0;
+           const landing=await page.goto(lp,{waitUntil:'domcontentloaded',timeout:50000});
+           await page.waitForFunction(()=>Boolean(window.OryneoPricing&&window.OryneoLeadIntake&&window.OryneoCompany),{timeout:30000});
+           const test=await page.evaluate(()=>({
+             quote:window.OryneoPricing.orderQuote('Growth','monthly',['landing-page']).firstCharge,
+             cnpj:!!document.getElementById('cnpj'),
+             quickCnpj:!!document.getElementById('quick-cnpj'),
+             formPayload:document.documentElement.outerHTML.includes('cnpj:company.cnpj')
+           }));
+           console.log(name,'Landing',landing.status(),JSON.stringify(test));
+           await page.screenshot({path:'qa-'+name+'-landing.png'});
+           if(landing.status()!==200||test.quote!==337970||!test.cnpj||!test.quickCnpj||!test.formPayload||errors.length)throw Error(name+' Landing '+JSON.stringify({test,errors}));
+           await browser.close();
+          }
+          const options=await fetch('https://ucikrafwfzamxvweuvgk.supabase.co/functions/v1/lead-intake',{
+            method:'OPTIONS',headers:{Origin:'https://guilherme-freitas-oryneo.github.io','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'authorization,apikey,content-type'}
+          });
+          console.log('Edge CORS preflight',options.status,options.headers.get('access-control-allow-origin'));
+          if(options.status!==204||options.headers.get('access-control-allow-origin')!=='https://guilherme-freitas-oryneo.github.io')throw Error('CORS preflight failed');
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oryneo-public-smoke-screenshots
+          path: qa-*.png
+          if-no-files-found: ignore
