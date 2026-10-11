@@ -1,0 +1,24 @@
+name: Verificar CRM v2 antes de publicar
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: TypeScript e build GitHub Pages
+        run: npm run build -- --base=/Oryneo_CRM/
+      - name: Validar arquivos compilados
+        run: |
+          test -s dist/index.html
+          grep -q '/Oryneo_CRM/assets/' dist/index.html
+          test -n "$(find dist/assets -name '*.js' -print -quit)"
