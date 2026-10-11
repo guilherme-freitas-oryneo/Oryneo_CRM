@@ -94,6 +94,17 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
     <div className="cd-tabs" role="tablist" aria-label="Seções da oportunidade">{([['overview','Visão geral'],['history','Histórico'],['proposal','Proposta']] as const).map(([key,label])=><button key={key} role="tab" aria-selected={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{label}{key==='history'&&events.length>0&&<span>{events.length}</span>}</button>)}</div>
     {error&&<p role="alert" className="cd-error">{error}</p>}{notice&&<p role="status" className="cd-success">{notice}</p>}
     {tab==='overview'&&<div className="cd-content">
+      {(data.form_submission?.team_size||data.form_submission?.acquisition_channel||(data.form_submission?.goals||[]).length||data.form_submission?.intent)&&<section className="cd-diagnosis" aria-label="Diagnóstico inicial do lead">
+       <div className="cd-diagnosis-head"><div><small>QUALIFICAÇÃO COMERCIAL</small><h3><FileText size={17}/>Diagnóstico inicial</h3><p>Respostas declaradas pelo lead na landing page para orientar a primeira abordagem.</p></div><span>Formulário</span></div>
+       <div className="cd-diagnosis-content">
+         {(data.form_submission?.team_size||data.form_submission?.acquisition_channel)&&<div className="cd-diagnosis-grid">
+          {data.form_submission?.team_size&&<div className="cd-diagnosis-stat"><Users size={17}/><small>Tamanho da equipe comercial</small><strong>{data.form_submission.team_size}</strong></div>}
+          {data.form_submission?.acquisition_channel&&<div className="cd-diagnosis-stat"><Building2 size={17}/><small>Origem atual dos clientes</small><strong>{data.form_submission.acquisition_channel}</strong></div>}
+         </div>}
+         {(data.form_submission?.goals||[]).length>0&&<div className="cd-diagnosis-interests"><strong>Objetivos e interesses selecionados</strong><div className="cd-diagnosis-goals">{data.form_submission?.goals?.map((goal,i)=><span key={i}><Check size={13}/>{goal}</span>)}</div></div>}
+         {data.form_submission?.intent&&<div className="cd-diagnosis-intent"><span>Intenção declarada</span><strong>{data.form_submission.intent==='contract'?'Quero contratar':data.form_submission.intent==='conversation'?'Quero conversar':data.form_submission.intent}</strong></div>}
+       </div>
+      </section>}
       <section className="cd-company"><div className="cd-company-head"><div className="cd-company-mark"><Building2 size={18}/></div><div><small>IDENTIFICAÇÃO EMPRESARIAL</small><h3>{company?.legal_name||data.company}</h3>{company?.trade_name&&company.trade_name!==company.legal_name&&<p>{company.trade_name}</p>}</div>{company?.status&&<span className="cd-active">{statusLabel(company.status)}</span>}</div>
        <div className="cd-grid">
         <Stat label="CNPJ" value={cnpj?formatCnpj(cnpj):''}/>
@@ -109,7 +120,7 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
       {fullAddress&&<section><h3 className="cd-section-title"><MapPin size={17}/>Endereço da empresa</h3><div className="cd-address"><MapPin size={18}/><p>{fullAddress}</p><button onClick={()=>void navigator.clipboard.writeText(fullAddress).then(()=>setNotice('Endereço copiado.')).catch(()=>setError('Não foi possível copiar o endereço.'))}>Copiar</button></div></section>}
       {!!qsa.length&&<section><h3 className="cd-section-title"><Users size={17}/>Quadro societário <span>{qsa.length}</span></h3><div className="cd-partners">{qsa.map((s,i)=><div className="cd-partner" key={i}><div className="cd-person-avatar">{initials(s.name)}</div><div><strong>{s.name}</strong><span>{s.qualification||'Integrante do quadro societário'}</span></div></div>)}</div></section>}
       <section><h3 className="cd-section-title"><CalendarClock size={17}/>Próxima ação comercial</h3><div className="cd-action-summary"><strong>{next.title}</strong><span>{next.done?'Concluída':'Pendente'}{next.due_at?' · '+date(next.due_at):' · Prazo a definir'}</span><button onClick={()=>setTab('history')}>Gerenciar ação</button></div></section>
-      <section><h3 className="cd-section-title"><FileText size={17}/>Contexto do formulário</h3><div className="cd-grid"><Stat label="Equipe comercial" value={data.form_submission?.team_size}/><Stat label="Canal de aquisição" value={data.form_submission?.acquisition_channel}/></div>{(data.form_submission?.goals||[]).length>0&&<div className="cd-tags">{data.form_submission?.goals?.map((g,i)=><span key={i}>{g}</span>)}</div>}</section>
+      
      </div>}
     {tab==='history'&&<div className="cd-content">
       <section className="cd-action-editor"><h3 className="cd-section-title"><CalendarClock size={17}/>Próxima ação</h3><label>O que precisa acontecer?<input value={actionTitle} onChange={e=>setActionTitle(e.target.value)} maxLength={160}/></label><label>Prazo, se já definido<input type="datetime-local" value={actionDue} onChange={e=>setActionDue(e.target.value)}/></label><label className="cd-check"><input type="checkbox" checked={actionDone} onChange={e=>setActionDone(e.target.checked)}/>Marcar como concluída</label><button className="cd-primary" disabled={busy||!actionTitle.trim()} onClick={submitAction}><Check size={16}/>Salvar próxima ação</button></section>

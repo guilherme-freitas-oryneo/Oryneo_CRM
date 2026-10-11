@@ -1,0 +1,15 @@
+
+/* Navigation slots: Pipeline=1, reserved Contatos=2, Atividades=3. */
+.sidebar .nav-item{display:flex;align-items:center;justify-content:flex-start;gap:12px;width:100%;height:41px;min-height:41px;border:0;border-radius:7px;background:transparent;cursor:pointer;text-align:left;box-shadow:none;font:inherit;color:#a8afb9;font-size:12px;padding:11px 13px;margin:0;transition:background .16s,color .16s}
+.sidebar .nav-item:hover{background:#292f39;color:#e5ecf6}
+.sidebar .nav-item.active{background:#2b3546;color:#b6cef9}
+.sidebar .nav-item>svg{flex:none}.sidebar .nav-item .nav-link-text{display:inline;color:inherit;font-weight:550}.sidebar .nav-item .nav-counter{margin-left:auto;font-size:10px;color:#93a6c4;min-width:12px;text-align:right}
+.sidebar .nav-slot-reserved{height:41px;flex:none;pointer-events:none;visibility:hidden}
+.sidebar .nav-item:focus-visible{outline:2px solid #95aff3;outline-offset:3px}
+.brand .wordmark{height:auto;object-fit:contain;display:block}
+@media(max-width:760px){
+ .sidebar .nav-item{height:42px;min-height:42px;justify-content:center;padding:10px 0;margin:0;font-size:0}
+ .sidebar .nav-item .nav-link-text,.sidebar .nav-item .nav-counter{display:none}
+ .sidebar .nav-slot-reserved{height:42px}
+ .brand .wordmark{width:40px;height:40px;object-fit:contain}
+}
