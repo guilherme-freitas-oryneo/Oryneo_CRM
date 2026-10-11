@@ -8,6 +8,7 @@ type Plan=keyof typeof catalog;
 type Addon=keyof typeof additions;
 const clean=(s:unknown,max=200)=>typeof s==='string'?s.trim().slice(0,max):'';
 const digits=(v:unknown)=>clean(v,50).replace(/\D/g,'');
+const normalizedCnpj=(v:unknown)=>clean(v,50).toUpperCase().replace(/[^A-Z0-9]/g,'');
 const safeText=(v:unknown,max=180)=>clean(v,max);
 function companyProfile(data:Record<string,unknown>){
  const qsa=Array.isArray(data.qsa)?data.qsa.slice(0,40).map((s:Record<string,unknown>)=>({
@@ -29,7 +30,7 @@ async function lookupCnpj(cnpj:string){
   const r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+cnpj,{signal:controller.signal,headers:{Accept:'application/json'}});
   if(!r.ok)return null;
   const j=await r.json();
-  if(!j||typeof j!=='object'||digits(j.cnpj)!==cnpj)return null;
+  if(!j||typeof j!=='object'||normalizedCnpj(j.cnpj)!==cnpj)return null;
   return companyProfile(j);
  }catch{return null}finally{clearTimeout(timeout)}
 }
@@ -67,10 +68,10 @@ Deno.serve(async(req:Request)=>{
   const body=JSON.parse(new TextDecoder().decode(bytes)) as Record<string,unknown>;
   if(body.website)return response({ok:true});
   const contact=clean(body.contact,160),phone=clean(body.phone,40),email=clean(body.email,254).toLowerCase();
-  if(body.consent!==true||contact.length<2||!/^\S+@\S+\.\S+$/.test(email)||digits(phone).length<10||! /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(body.request_id||'')))return response({error:'Confira seus dados e autorize o contato.'},400);
+  if(body.consent!==true||contact.length<2||(email!==''&&!/^\S+@\S+\.\S+$/.test(email))||digits(phone).length<10||! /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(body.request_id||'')))return response({error:'Confira seus dados e autorize o contato.'},400);
   let quote:ReturnType<typeof quoteSelection>;
   try{quote=quoteSelection(body)}catch(e){return response({error:String(e instanceof Error?e.message:'Seleção inválida.')},400)}
-  const cnpj=digits(body.cnpj);const intent=clean(body.intent,30)||'conversation';
+  const cnpj=normalizedCnpj(body.cnpj);const intent=clean(body.intent,30)||'conversation';
   if(intent==='contract'&&cnpj.length!==14)return response({error:'Informe um CNPJ válido para contratar.'},400);
   if(cnpj&&cnpj.length!==14)return response({error:'Confira o CNPJ informado.'},400);
   const profile=cnpj?await lookupCnpj(cnpj):null;
