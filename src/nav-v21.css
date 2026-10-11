@@ -11,5 +11,5 @@
  .sidebar .nav-item{height:42px;min-height:42px;justify-content:center;padding:10px 0;margin:0;font-size:0}
  .sidebar .nav-item .nav-link-text,.sidebar .nav-item .nav-counter{display:none}
  .sidebar .nav-slot-reserved{height:42px}
- .brand .wordmark{width:40px;height:40px;object-fit:contain}
+ .brand .wordmark{width:36px;height:36px;object-fit:contain}
 }
