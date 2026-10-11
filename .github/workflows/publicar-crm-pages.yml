@@ -1,0 +1,70 @@
+name: Publicar ORYNEO CRM no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - '.github/workflows/publicar-crm-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: oryneo-crm-pages
+  cancel-in-progress: false
+
+jobs:
+  build-e-publicacao:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter codigo verificado
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependencias travadas
+        run: npm ci
+
+      - name: Compilar para a subpasta GitHub Pages
+        run: npm run build -- --base=/Oryneo_CRM/
+
+      - name: Verificar artefatos do CRM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -s dist/oryneo-wordmark.svg
+          test -s dist/oryneo-symbol.svg
+          test -n "$(find dist/assets -type f -name '*.js' -print -quit)"
+          grep -q "/Oryneo_CRM/assets/" dist/index.html
+          grep -q "/Oryneo_CRM/oryneo-symbol.svg" dist/index.html
+
+      - name: Publicar apenas o frontend compilado na branch gh-pages
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          touch dist/.nojekyll
+          cd dist
+          git init --initial-branch=gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit -m "deploy: ORYNEO CRM ${GITHUB_SHA}"
+          HEADER="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w 0)"
+          git -c http.extraheader="AUTHORIZATION: basic $HEADER" push --force "https://github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
