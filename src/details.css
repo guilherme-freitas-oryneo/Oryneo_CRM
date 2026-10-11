@@ -26,3 +26,19 @@
 @media(max-width:690px){.cd-panel{width:100vw}.cd-top{padding:10px 15px}.cd-lead-heading{padding:22px 17px}.cd-status{margin:0 17px 18px}.cd-financial{margin:0 17px 18px}.cd-tabs{padding:0 17px}.cd-content{padding:22px 17px 35px}.cd-footer{padding:10px 15px}.cd-footer span{display:none}.cd-lead-heading h2{font-size:19px}}
 @media(max-width:450px){.cd-grid{gap:14px}.cd-contact-grid{grid-template-columns:1fr}.cd-company-head{padding:12px}.cd-company .cd-grid{padding:15px 12px}.cd-financial{padding:16px 15px 0}.cd-financial-top strong{font-size:27px}.cd-status{flex-wrap:wrap}.cd-status label{min-width:100%}.cd-status button{margin-left:0}.cd-tabs{gap:18px}.cd-tabs button{font-size:11px}.cd-footer{padding:9px 12px}}
 @media(prefers-reduced-motion:reduce){.cd-root *{transition:none!important}}
+
+
+/* Diagnostico inicial: destaque estrategico sem modificar os dados empresariais. */
+.cd-diagnosis{padding:0!important;border:1px solid #dce6f4;border-radius:11px;overflow:hidden;background:#fff;box-shadow:0 3px 14px #15345b07}
+.cd-diagnosis-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:19px 18px;background:linear-gradient(115deg,#f7faff,#fff 84%);border-bottom:1px solid #edf1f7}
+.cd-diagnosis-head small{color:#8095b4;font-size:9px;font-weight:700;letter-spacing:1px}
+.cd-diagnosis-head h3{display:flex;align-items:center;gap:9px;margin-top:6px;color:#35445d;font-size:16px;font-weight:700}
+.cd-diagnosis-head h3 svg{color:#5a81bb}.cd-diagnosis-head p{font-size:10px;color:#8796a9;line-height:1.7;margin-top:8px;max-width:430px}
+.cd-diagnosis-head>span{flex:none;border-radius:5px;padding:5px 8px;color:#5b82b8;border:1px solid #d8e6f9;background:#eef5ff;font-size:9px;font-weight:650}
+.cd-diagnosis-content{padding:17px 18px 19px;display:flex;flex-direction:column;gap:18px}
+.cd-diagnosis-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.cd-diagnosis-stat{display:flex;flex-direction:column;align-items:flex-start;gap:9px;background:#f8fafc;border:1px solid #e9edf4;padding:15px;border-radius:9px;min-width:0}
+.cd-diagnosis-stat svg{color:#6484b1}.cd-diagnosis-stat small{font-size:10px;line-height:1.45;color:#8290a5}.cd-diagnosis-stat strong{color:#384961;font-size:12px;line-height:1.5;font-weight:700;overflow-wrap:anywhere}
+.cd-diagnosis-interests>strong{color:#586a81;font-size:11px;font-weight:700;display:block;margin-bottom:11px}.cd-diagnosis-goals{display:flex;flex-wrap:wrap;gap:8px}
+.cd-diagnosis-goals>span{display:inline-flex;align-items:center;gap:7px;color:#48678c;background:#f1f6ff;border:1px solid #e0eafb;border-radius:7px;padding:9px 11px;font-size:10px;line-height:1.5;max-width:100%}
+.cd-diagnosis-goals svg{flex:none;color:#478d74}.cd-diagnosis-intent{display:flex;justify-content:space-between;align-items:center;gap:14px;padding-top:14px;border-top:1px solid #eff2f6;font-size:11px}.cd-diagnosis-intent span{color:#8291a6}.cd-diagnosis-intent strong{color:#4173b9;font-weight:700;text-align:right}
+@media(max-width:480px){.cd-diagnosis-head{padding:15px 13px}.cd-diagnosis-content{padding:13px}.cd-diagnosis-grid{gap:7px}.cd-diagnosis-stat{padding:12px}.cd-diagnosis-head>span{font-size:8px}.cd-diagnosis-head h3{font-size:14px}}
