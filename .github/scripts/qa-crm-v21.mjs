@@ -60,7 +60,11 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  await page.screenshot({path:'qa-results/'+name+'-init.png'});
  await page.getByRole('heading',{name:/Pipeline comercial/}).waitFor({timeout:7000});
  if(mobile && !(await page.locator('.brand-image img').evaluate(img=>img.currentSrc.endsWith('/oryneo-y.svg'))))throw Error('marca compacta não usa Y oficial');
- if(mobile && !(await page.locator('.brand').evaluate(el=>getComputedStyle(el).backgroundColor==='rgb(248, 247, 244)')))throw Error('Y compacta precisa de superfície clara para contraste');
+ if(mobile){
+  const background=await page.locator('.brand').evaluate(el=>getComputedStyle(el).backgroundColor);
+  const rgb=background.match(/\d+/g)?.slice(0,3).map(Number);
+  if(!rgb||rgb.length!==3||rgb.some(channel=>channel<220))throw Error('Y compacta precisa de superfície clara para contraste: '+background);
+ }
  await page.locator('.sidebar').getByRole('button',{name:/Atividades/}).click();
  await page.getByRole('heading',{name:'Atividades'}).waitFor({timeout:10000});
  if(await page.locator('.activity-entry').count()!==2)throw Error(name+' lista inicial incorreta');

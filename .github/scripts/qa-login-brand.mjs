@@ -4,6 +4,19 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
 const root = 'http://127.0.0.1:4173/Oryneo_CRM/';
+const contrast = (foreground, background) => {
+  const luminance = color => {
+    const rgb = color.match(/\d+/g)?.slice(0, 3).map(Number);
+    assert.equal(rgb?.length, 3, `cor inesperada: ${color}`);
+    const channels = rgb.map(value => {
+      const normalized = value / 255;
+      return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+    });
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  };
+  const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+};
 const approvedAssets = [
   ['public/oryneo-y.svg', 'ba92ee6eb89d9cff08321e07d13a497e998a790dfa6c7b4d6ffc6c309759cfff'],
   ['public/oryneo-wordmark-master.png', 'a27039b50b2984352d4b92dcdf6332514c267595254bc66a28b393e35fbd28ef'],
@@ -46,7 +59,7 @@ for (const [name, engine, viewport] of browsers) {
     const rgb = storyColor.match(/\d+/g).map(Number);
     assert.ok(rgb.every(c => c >= 210), `painel ainda escuro: ${storyColor}`);
     const footerColor = await page.locator('.login-form footer').evaluate(el => getComputedStyle(el).color);
-    assert.equal(footerColor, 'rgb(92, 99, 111)', 'texto do rodapé deve ter contraste AA sobre branco');
+    assert.ok(contrast(footerColor, 'rgb(255, 255, 255)') >= 4.5, 'texto do rodapé deve ter contraste AA sobre branco');
     const metrics = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth }));
     assert.ok(metrics.width <= metrics.viewport + 1, `overflow horizontal: ${JSON.stringify(metrics)}`);
     const button = await page.getByRole('button', { name: 'Entrar no CRM' }).boundingBox();
