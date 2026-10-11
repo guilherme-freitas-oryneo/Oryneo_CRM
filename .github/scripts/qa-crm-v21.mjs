@@ -54,6 +54,9 @@ for(const [engine,name] of [[chromium,'chromium'],[webkit,'webkit']]){
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const response=await page.goto(root,{waitUntil:'domcontentloaded',timeout:30000});
  if(response.status()!==200)throw Error(name+' status '+response.status());
+ await page.waitForTimeout(1800);
+ console.log(name+' INIT:',JSON.stringify({body:(await page.locator('body').innerText()).slice(0,1100),errors,storage:await page.evaluate(()=>Object.keys(localStorage))}));
+ await page.screenshot({path:'qa-results/'+name+'-init.png'});
  await page.getByRole('heading',{name:/Pipeline comercial/}).waitFor({timeout:20000});
  await page.locator('.sidebar').getByRole('button',{name:/Atividades/}).click();
  await page.getByRole('heading',{name:'Atividades'}).waitFor({timeout:10000});
