@@ -129,3 +129,23 @@ end $$;
 revoke all on function public.crm_add_note(uuid,text),public.crm_set_action(uuid,bigint,text,timestamptz,boolean) from public,anon,authenticated;
 grant execute on function public.crm_add_note(uuid,text),public.crm_set_action(uuid,bigint,text,timestamptz,boolean) to authenticated;
 -- Existing mutate/intake grants stay restricted as before.
+
+-- Preserve the undo feature and make reversal visible to the team timeline.
+create or replace function public.crm_undo(p_operation uuid)
+returns void language plpgsql security definer set search_path='' as $$
+declare h public.crm_history; r public.crm_records;
+begin
+ if not exists(select 1 from public.crm_members where user_id=auth.uid()) then raise exception 'Acesso não autorizado.'; end if;
+ perform pg_advisory_xact_lock(784915);
+ select * into h from public.crm_history where id=p_operation and actor=auth.uid() and not undone for update;
+ if not found then raise exception 'Esta ação não pode mais ser desfeita.'; end if;
+ select * into r from public.crm_records where id=h.record_id for update;
+ if r.revision<>h.after_revision then raise exception 'Uma alteração posterior impede desfazer esta ação.'; end if;
+ update public.crm_records set data=coalesce(h.before_data,data),deleted=coalesce(h.before_deleted,true),revision=revision+1 where id=r.id;
+ update public.crm_history set undone=true where id=h.id;
+ if r.kind='deal' then
+  insert into public.crm_events(deal_id,event_type,actor,actor_label,detail)
+  values(r.id,'details_changed',auth.uid(),coalesce(nullif(auth.jwt()->>'email',''),'Usuário ORYNEO'),
+    jsonb_build_object('text','Alteração anterior desfeita','operation_id',p_operation,'previous_stage_id',r.data->>'stage_id','restored_stage_id',h.before_data->>'stage_id'));
+ end if;
+end $$;
