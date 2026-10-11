@@ -1,0 +1,36 @@
+name: Verificar CRM v2 antes de publicar
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: TypeScript e build GitHub Pages
+        run: npm run build -- --base=/Oryneo_CRM/
+      - name: Validar arquivos compilados
+        run: |
+          test -s dist/index.html
+          grep -q '/Oryneo_CRM/assets/' dist/index.html
+          test -n "$(find dist/assets -name '*.js' -print -quit)"
+
+  edge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck da API de captacao
+        run: |
+          deno check --node-modules-dir=auto supabase/functions/lead-intake/index.ts
+          deno check --node-modules-dir=auto supabase/functions/company-enrich/index.ts
