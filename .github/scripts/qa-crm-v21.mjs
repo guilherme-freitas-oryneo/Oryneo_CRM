@@ -26,7 +26,11 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  const browser=await engine.launch({headless:true});
  const mobile=name!=='chromium';
  const page=await browser.newPage({viewport:{width:mobile?390:1440,height:900},isMobile:mobile,hasTouch:mobile});
- let rows=createRows(),rpcCount=0;
+ await page.route('https://fonts.googleapis.com/**',route=>route.fulfill({status:200,contentType:'text/css',body:''}));
+ let suspended=false;
+ let presenceLeaves=0;
+ let passwordUpdates=0;
+ let rows=createRows(),rpcCount=0,directBoardReads=0;
  const exp=Math.floor(Date.now()/1000)+7200;
  const fakeJwt=[{alg:'HS256',typ:'JWT'},{sub:userId,email:'qa@example.com',role:'authenticated',aud:'authenticated',exp}].map(o=>Buffer.from(JSON.stringify(o)).toString('base64url')).join('.')+'.mock_signature';
  const session={access_token:fakeJwt,token_type:'bearer',expires_in:7200,expires_at:exp,refresh_token:'mock-refresh',user:{id:userId,aud:'authenticated',role:'authenticated',email:'qa@example.com',app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[],created_at:now}};
@@ -34,10 +38,21 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  await page.route(supabaseBase+'/**',async route=>{
   const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method();
   const respond=(body,status=200)=>route.fulfill({status,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(body)});
-  if(path.endsWith('/auth/v1/user'))return respond(session.user);
+  if(path.endsWith('/auth/v1/user')){if(method==='PUT'||method==='PATCH')passwordUpdates++;return respond(session.user)}
+  if(path.endsWith('/auth/v1/reauthenticate'))return respond({});
   if(path.endsWith('/auth/v1/token'))return respond(session);
-  if(path.includes('/rest/v1/crm_members'))return respond([{user_id:userId}]);
-  if(path.includes('/rest/v1/crm_records'))return respond(rows);
+  if(path.endsWith('/auth/v1/logout'))return respond({});
+  if(path.includes('/rest/v1/crm_members'))return respond(url.searchParams.get('select')==='role,status'?{role:'admin',status:suspended?'suspended':'active'}:[{user_id:userId,status:suspended?'suspended':'active'}]);
+  if(path.includes('/rest/v1/crm_records')){directBoardReads++;return respond({message:'Leitura direta indisponível'},403)}
+  if(path.includes('/rest/v1/rpc/crm_get_board'))return respond(rows);
+  if(path.includes('/rest/v1/rpc/crm_get_events'))return respond([]);
+  if(path.includes('/rest/v1/rpc/crm_get_company'))return respond([]);
+  if(path.includes('/rest/v1/rpc/crm_list_members'))return respond([{user_id:userId,display_name:'QA',directory_email:'qa@example.com',role:'admin',status:'active',created_at:now}]);
+  if(path.includes('/rest/v1/rpc/crm_presence_ping'))return respond(now);
+  if(path.includes('/rest/v1/rpc/crm_presence_leave')){presenceLeaves++;return respond(null)}
+  if(path.includes('/rest/v1/rpc/crm_list_presence'))return respond([{user_id:userId,display_name:'QA',directory_email:'qa@example.com',role:'admin',status:'active',avatar_path:null,online:true,last_seen_at:now,online_since_at:now,last_session_seconds:null},{user_id:'88888888-8888-4888-8888-888888888888',display_name:'Ana Rocha',directory_email:'ana@example.com',role:'support',status:'suspended',avatar_path:null,online:false,last_seen_at:now,online_since_at:null,last_session_seconds:120}]);
+  if(path.includes('/functions/v1/member-invite'))return respond({ok:true,invited:true});
+  if(path.includes('/functions/v1/member-avatar'))return respond({urls:{}});
   if(path.includes('/rest/v1/crm_companies'))return respond([]);
   if(path.includes('/rest/v1/crm_events'))return respond([]);
   if(path.includes('/rest/v1/rpc/crm_set_action')&&method==='POST'){
@@ -59,7 +74,12 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  console.log(name+' INIT:',JSON.stringify({body:(await page.locator('body').innerText()).slice(0,1100),root:await page.evaluate(()=>document.getElementById('root')?.innerHTML.slice(0,900)),scripts:await page.evaluate(()=>[...document.querySelectorAll('script')].map(x=>x.src)),title:await page.title(),errors,requests,storage:await page.evaluate(()=>Object.keys(localStorage))}));
  await page.screenshot({path:'qa-results/'+name+'-init.png'});
  await page.getByRole('heading',{name:/Pipeline comercial/}).waitFor({timeout:7000});
+ if(directBoardReads)throw Error(name+' consultou crm_records diretamente em vez da API com permissões');
  if(mobile && !(await page.locator('.brand-image img').evaluate(img=>img.currentSrc.endsWith('/oryneo-y.svg'))))throw Error('marca compacta não usa Y oficial');
+ await page.locator('.sidebar').getByRole('button',{name:'Usuários'}).hover();
+ await page.getByRole('dialog',{name:'Usuários do CRM'}).getByText('Ana Rocha').waitFor();
+ await page.getByRole('dialog',{name:'Usuários do CRM'}).getByText('Ficou online por 2 minutos',{exact:false}).waitFor();
+ await page.screenshot({path:'qa-results/'+name+'-usuarios.png',fullPage:false});
  if(mobile){
   const background=await page.locator('.brand').evaluate(el=>getComputedStyle(el).backgroundColor);
   const rgb=background.match(/\d+/g)?.slice(0,3).map(Number);
@@ -89,6 +109,29 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  });
  if(img.status!==200||img.bytes<50000)throw Error(name+' wordmark invalido '+JSON.stringify(img));
  await page.screenshot({path:'qa-results/'+name+'-atividades.png',fullPage:false});
+ await page.locator('.sidebar').getByRole('button',{name:'Configurações'}).click();
+ await page.getByRole('heading',{name:'Equipe e permissões'}).waitFor({timeout:10000});
+ await page.getByText('qa@example.com',{exact:true}).first().waitFor();
+ await page.getByText('Segunda a sexta, das 9h às 18h',{exact:false}).waitFor();
+ await page.getByPlaceholder('Mínimo de 12 caracteres').fill('SenhaForte123!');
+ await page.getByPlaceholder('Repita a nova senha').fill('SenhaForte123!');
+ await page.getByRole('button',{name:'Enviar código'}).click();
+ await page.getByPlaceholder('Código de confirmação').fill('123456');
+ await page.getByRole('button',{name:'Definir senha'}).click();
+ await page.getByText('Senha atualizada com segurança.').waitFor();
+ if(passwordUpdates!==1)throw Error(name+' senha atualizada fora do fluxo de confirmação');
+ await page.getByPlaceholder('nome@empresa.com').fill('colega@example.com');
+ await page.getByRole('button',{name:'Enviar convite'}).click();
+ await page.getByText('Convite enviado. A pessoa poderá definir a senha e entrar no CRM.').waitFor();
+ await page.screenshot({path:'qa-results/'+name+'-permissoes.png',fullPage:true});
+ suspended=true;
+ await page.locator('.sidebar').getByRole('button',{name:'Pipeline'}).click();
+ await page.getByRole('button',{name:'Atualizar pipeline'}).click();
+ await page.getByText('Sua conta não tem acesso ativo a este CRM.',{exact:false}).waitFor();
+ if(await page.locator('.deal-card').count())throw Error(name+' manteve dados após suspensão');
+ await page.getByRole('button',{name:'Sair do CRM'}).click();
+ await page.getByRole('heading',{name:'Bem-vindo de volta.'}).waitFor({timeout:10000});
+ if(presenceLeaves!==1)throw Error(name+' logout não registrou saída');
  if(errors.length)throw Error(name+' JS errors '+JSON.stringify(errors));
  console.log(name+' OK: dashboard, filtros, diagnóstico, RPC de atividade, asset do Drive. Wordmark bytes='+img.bytes);
  await browser.close();

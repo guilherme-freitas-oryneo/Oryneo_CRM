@@ -23,6 +23,11 @@ Deno.serve(async req=>{
  try{body=await req.json()}catch{return respond({error:'Solicitação inválida.'},400)}
  const cnpj=normalizedCnpj(body.cnpj);
  if(cnpj.length!==14)return respond({error:'CNPJ inválido.'},400);
+ const dealId=text(body.deal_id,40);
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dealId))return respond({error:'Oportunidade inválida.'},400);
+ const userDb=createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:`Bearer ${jwt}`}},auth:{persistSession:false,autoRefreshToken:false}});
+ const {data:allowed,error:scopeError}=await userDb.rpc('crm_can_enrich',{p_deal_id:dealId,p_cnpj:cnpj});
+ if(scopeError||!allowed)return respond({error:'Acesso não autorizado.'},403);
  const {data:cached}=await db.from('crm_companies').select('profile,enriched_at,legal_name').eq('cnpj',cnpj).maybeSingle();
  if(cached?.profile&&Object.keys(cached.profile).length>0&&cached.enriched_at&&Date.now()-new Date(cached.enriched_at).getTime()<24*60*60*1000)return respond({ok:true,updated:false});
  const ctrl=new AbortController();const timeout=setTimeout(()=>ctrl.abort(),7500);
