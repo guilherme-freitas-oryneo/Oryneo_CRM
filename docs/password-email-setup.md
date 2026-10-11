@@ -11,6 +11,8 @@ Arquivos HTML: `supabase/templates/reauthentication.html` e `supabase/templates/
 
 Configuração hospedada pendente de acesso à configuração do Auth e ao SMTP da caixa confirmada:
 
+Remetente previsto: `contato@oryneo.com.br`. Em 11/10/2026, a consulta pública de DNS retornou domínio inexistente para `orineo.com.br`, enquanto `oryneo.com.br` tinha MX da Hostinger e SPF `include:_spf.mail.hostinger.com`. Isso esclarece a grafia provável, mas DNS não comprova que a caixa `contato@oryneo.com.br` existe ou fornece credenciais SMTP. O DMARC publicado estava em `p=none`; a assinatura DKIM e a entrega devem ser verificadas no envio real.
+
 1. Em Authentication > Emails > SMTP Settings, configurar a caixa remetente, nome `ORYNEO`, servidor SMTP autenticado e TLS.
 2. Em Authentication > Emails > Templates, aplicar o assunto e HTML de reautenticação. Habilitar a notificação de senha alterada com o segundo assunto e HTML.
 3. Em Authentication > Providers > Email, exigir reautenticação para troca de senha. Confirmar a URL de redirecionamento do CRM para convites e recuperação.
