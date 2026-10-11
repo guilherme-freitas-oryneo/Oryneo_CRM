@@ -22,9 +22,10 @@ const createRows=()=>[
  sample('33333333-3333-4333-8333-333333333333','Segunda Empresa QA Ltda.',true)
 ];
 fs.mkdirSync('qa-results',{recursive:true});
-for(const [engine,name] of [[chromium,'chromium'],[webkit,'webkit']]){
+for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[webkit,'webkit']].filter(([,name])=>process.env.ORYNEO_SKIP_WEBKIT!=='1'||name!=='webkit')){
  const browser=await engine.launch({headless:true});
- const page=await browser.newPage({viewport:{width:name==='webkit'?390:1440,height:900},isMobile:name==='webkit',hasTouch:name==='webkit'});
+ const mobile=name!=='chromium';
+ const page=await browser.newPage({viewport:{width:mobile?390:1440,height:900},isMobile:mobile,hasTouch:mobile});
  let rows=createRows(),rpcCount=0;
  const exp=Math.floor(Date.now()/1000)+7200;
  const fakeJwt=[{alg:'HS256',typ:'JWT'},{sub:userId,email:'qa@example.com',role:'authenticated',aud:'authenticated',exp}].map(o=>Buffer.from(JSON.stringify(o)).toString('base64url')).join('.')+'.mock_signature';
@@ -58,6 +59,7 @@ for(const [engine,name] of [[chromium,'chromium'],[webkit,'webkit']]){
  console.log(name+' INIT:',JSON.stringify({body:(await page.locator('body').innerText()).slice(0,1100),root:await page.evaluate(()=>document.getElementById('root')?.innerHTML.slice(0,900)),scripts:await page.evaluate(()=>[...document.querySelectorAll('script')].map(x=>x.src)),title:await page.title(),errors,requests,storage:await page.evaluate(()=>Object.keys(localStorage))}));
  await page.screenshot({path:'qa-results/'+name+'-init.png'});
  await page.getByRole('heading',{name:/Pipeline comercial/}).waitFor({timeout:7000});
+ if(mobile && !(await page.locator('.brand-image img').evaluate(img=>img.currentSrc.endsWith('/oryneo-y.svg'))))throw Error('marca compacta não usa Y oficial');
  await page.locator('.sidebar').getByRole('button',{name:/Atividades/}).click();
  await page.getByRole('heading',{name:'Atividades'}).waitFor({timeout:10000});
  if(await page.locator('.activity-entry').count()!==2)throw Error(name+' lista inicial incorreta');
