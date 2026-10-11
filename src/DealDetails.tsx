@@ -46,7 +46,14 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
     if(eventResult.error)throw eventResult.error;
     setEvents((eventResult.data||[]) as CrmEvent[]);
     if(cnpj&&companyResult&&!companyResult.error){
-     const latest=(companyResult.data as {profile:CompanyProfile}[]|null)?.[0]?.profile;
+     let latest=(companyResult.data as {profile:CompanyProfile}[]|null)?.[0]?.profile;
+     if(!latest||!Object.keys(latest).length){
+      const result=await supabase.functions.invoke('company-enrich',{body:{cnpj}});
+      if(!result.error&&result.data?.ok){
+       const refreshed=await supabase.from('crm_companies').select('profile').eq('cnpj',cnpj).maybeSingle();
+       latest=(refreshed.data?.profile as CompanyProfile|undefined)||latest;
+      }
+     }
      setCompany(latest&&Object.keys(latest).length?latest:(data.company_profile||null));
     }else setCompany(data.company_profile||null);
    }catch(e){setError(errorText(e));setCompany(data.company_profile||null)}
