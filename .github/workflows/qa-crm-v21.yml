@@ -29,7 +29,7 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Iniciar preview
         run: |
-          npx vite preview --host 127.0.0.1 --port 4173 > /tmp/oryneo-qa-v21.log 2>&1 &
+          npx vite preview --host 127.0.0.1 --port 4173 --base=/Oryneo_CRM/ > /tmp/oryneo-qa-v21.log 2>&1 &
           for n in $(seq 1 40); do
             if curl -fsS http://127.0.0.1:4173/Oryneo_CRM/ > /dev/null; then exit 0; fi
             sleep 1
