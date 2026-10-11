@@ -31,4 +31,6 @@ jobs:
         with:
           deno-version: v2.x
       - name: Typecheck da API de captacao
-        run: deno check --node-modules-dir=auto supabase/functions/lead-intake/index.ts
+        run: |
+          deno check --node-modules-dir=auto supabase/functions/lead-intake/index.ts
+          deno check --node-modules-dir=auto supabase/functions/company-enrich/index.ts
