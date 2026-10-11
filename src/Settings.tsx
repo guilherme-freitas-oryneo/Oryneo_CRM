@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react';
 import {ShieldCheck,Users,RefreshCw} from 'lucide-react';
 import {supabase,errorText} from './data';
+import {prepareAvatar} from './avatar';
 import './settings.css';
 
 type Role='admin'|'commercial'|'support'|'viewer';
@@ -15,11 +16,12 @@ const matrix=[
  ['Caixa postal pessoal','Própria','—','—','—']
 ];
 
-export function Settings({role,email}:{role:Role;email:string}){
+export function Settings({role,email,userId}:{role:Role;email:string;userId:string}){
  const [members,setMembers]=useState<Member[]>([]),[loading,setLoading]=useState(role==='admin');
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[saving,setSaving]=useState<string|null>(null);
  const [inviteEmail,setInviteEmail]=useState(''),[inviteName,setInviteName]=useState(''),[inviteRole,setInviteRole]=useState<Role>('commercial'),[inviting,setInviting]=useState(false);
- const [newPassword,setNewPassword]=useState(''),[changingPassword,setChangingPassword]=useState(false);
+ const [newPassword,setNewPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState(''),[verificationCode,setVerificationCode]=useState(''),[codeSent,setCodeSent]=useState(false),[changingPassword,setChangingPassword]=useState(false);
+ const [avatarUrl,setAvatarUrl]=useState<string|null>(null),[uploadingAvatar,setUploadingAvatar]=useState(false);
  const load=async()=>{
   if(role!=='admin')return;
   setLoading(true);setError('');
@@ -28,6 +30,7 @@ export function Settings({role,email}:{role:Role;email:string}){
   setLoading(false);
  };
  useEffect(()=>{void load()},[role]);
+ useEffect(()=>{void supabase.functions.invoke('member-avatar',{body:{action:'read',user_ids:[userId]}}).then(({data})=>{if(data?.urls?.[userId])setAvatarUrl(data.urls[userId])})},[userId]);
  const save=async(member:Member)=>{
   setSaving(member.user_id);setError('');setNotice('');
   const {error}=await supabase.rpc('crm_set_member',{
@@ -44,16 +47,30 @@ export function Settings({role,email}:{role:Role;email:string}){
   else{setNotice(data.invited?'Convite enviado. A pessoa poderá definir a senha e entrar no CRM.':'Conta existente vinculada à equipe.');setInviteEmail('');setInviteName('');await load()}
   setInviting(false);
  };
- const changePassword=async()=>{
-  setChangingPassword(true);setError('');setNotice('');
-  const {error}=await supabase.auth.updateUser({password:newPassword});
-  if(error)setError(error.message);else{setNewPassword('');setNotice('Senha atualizada.')}
+ const requestPasswordCode=async()=>{
+  if(newPassword.length<12||newPassword!==confirmPassword){setError('As senhas precisam coincidir e ter pelo menos 12 caracteres.');return}
+  setChangingPassword(true);setVerificationCode('');setError('');setNotice('');
+  const {error}=await supabase.auth.reauthenticate();
+  if(error)setError('Não foi possível enviar o código de confirmação. Tente novamente.');
+  else{setCodeSent(true);setNotice('Enviamos um código de confirmação para seu e-mail cadastrado.')}
   setChangingPassword(false);
+ };
+ const changePassword=async()=>{
+  if(newPassword!==confirmPassword||verificationCode.trim().length<6){setError('Confira as senhas e o código recebido por e-mail.');return}
+  setChangingPassword(true);setError('');setNotice('');
+  const {error}=await supabase.auth.updateUser({password:newPassword,nonce:verificationCode.trim()});
+  if(error)setError('Não foi possível confirmar a troca. Confira o código e tente novamente.');else{setNewPassword('');setConfirmPassword('');setVerificationCode('');setCodeSent(false);setNotice('Senha atualizada com segurança.')}
+  setChangingPassword(false);
+ };
+ const uploadAvatar=async(file:File)=>{
+  setUploadingAvatar(true);setError('');setNotice('');
+  try{const image=await prepareAvatar(file);const {data,error}=await supabase.functions.invoke('member-avatar',{body:{action:'upload',image}});if(error||!data?.ok)throw new Error(data?.error||'Não foi possível enviar a foto.');setAvatarUrl(data.url||null);setNotice('Foto de perfil atualizada.')}catch(e){setError(errorText(e))}
+  finally{setUploadingAvatar(false)}
  };
  return <div className="settings-page">
   <div className="settings-heading"><span>CONFIGURAÇÕES</span><h1>Equipe e permissões</h1><p>Acesso vinculado à conta de cada pessoa e aplicado no banco de dados.</p></div>
-  <section className="settings-card"><h2><ShieldCheck size={19}/>Meu acesso</h2><p><strong>{email}</strong> · {labels[role]}</p></section>
-  <section className="settings-card"><h2>Minha senha</h2><p>Se você entrou por convite, defina uma senha pessoal para os próximos acessos.</p><div className="settings-invite settings-password"><label>Nova senha<input type="password" autoComplete="new-password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} minLength={12} placeholder="Mínimo de 12 caracteres"/></label><button onClick={()=>void changePassword()} disabled={changingPassword||newPassword.length<12}>{changingPassword?'Salvando…':'Definir senha'}</button></div></section>
+  <section className="settings-card"><h2><ShieldCheck size={19}/>Meu acesso</h2><div className="settings-profile"><span className="settings-profile-avatar">{avatarUrl?<img src={avatarUrl} alt="Sua foto de perfil"/>:email.slice(0,1).toUpperCase()}</span><div><p><strong>{email}</strong> · {labels[role]}</p><label className="settings-photo-upload">{uploadingAvatar?'Enviando foto…':'Alterar foto de perfil'}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingAvatar} onChange={e=>{const file=e.target.files?.[0];if(file)void uploadAvatar(file);e.target.value=''}}/></label></div></div></section>
+  <section className="settings-card"><h2>Minha senha</h2><p>Defina uma senha pessoal. A confirmação é enviada ao seu e-mail cadastrado.</p><div className="settings-invite settings-password"><label>Nova senha<input type="password" autoComplete="new-password" value={newPassword} onChange={e=>{setNewPassword(e.target.value);setCodeSent(false)}} minLength={12} placeholder="Mínimo de 12 caracteres"/></label><label>Confirmar nova senha<input type="password" autoComplete="new-password" value={confirmPassword} onChange={e=>{setConfirmPassword(e.target.value);setCodeSent(false)}} minLength={12} placeholder="Repita a nova senha"/></label>{codeSent?<><label>Código recebido por e-mail<input inputMode="numeric" autoComplete="one-time-code" value={verificationCode} onChange={e=>setVerificationCode(e.target.value)} maxLength={12} placeholder="Código de confirmação"/></label><button onClick={()=>void changePassword()} disabled={changingPassword||verificationCode.trim().length<6}>{changingPassword?'Confirmando…':'Definir senha'}</button></>:<button onClick={()=>void requestPasswordCode()} disabled={changingPassword||newPassword.length<12||newPassword!==confirmPassword}>{changingPassword?'Enviando…':'Enviar código'}</button>}</div></section>
   {role==='admin'&&<section className="settings-card"><div className="settings-card-title"><div><h2><Users size={19}/>Usuários do CRM</h2><p>Altere o papel ou suspenda o acesso de uma conta existente.</p></div><button onClick={()=>void load()} disabled={loading} aria-label="Atualizar usuários"><RefreshCw size={16}/></button></div>
    {loading?<p>Carregando usuários…</p>:<div className="settings-users">{members.map(member=><div className="settings-user" key={member.user_id}>
     <div><strong>{member.display_name||member.directory_email||member.user_id}</strong><small>{member.directory_email||member.user_id}</small></div>

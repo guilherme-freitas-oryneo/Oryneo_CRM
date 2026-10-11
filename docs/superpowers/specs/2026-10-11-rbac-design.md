@@ -18,7 +18,7 @@ Papéis iniciais fixos: `admin`, `commercial`, `support`, `viewer`. Administraç
 | Etapas, calendário e metas | Gerencia | Lê | Lê | Lê |
 | Oportunidades | Todas | Atribuídas | Atribuídas | Atribuídas |
 | Valor e proposta comercial | Lê/edita | Lê/edita nas atribuídas | Ocultos | Ocultos |
-| Contatos, notas e próxima ação | Todas | Lê/edita nas atribuídas | Lê e registra nas atribuídas | Lê resumo atribuído |
+| Contatos, notas e próxima ação | Todas | Lê/edita nas atribuídas | Lê contatos e registra novas notas/ações | Lê resumo atribuído |
 | Caixa de e-mail pessoal | Própria; delegação explícita futura | Nenhuma por padrão | Nenhuma por padrão | Nenhuma |
 | Administração de integrações | Gerencia | Nenhuma | Nenhuma | Nenhuma |
 
@@ -35,6 +35,8 @@ Uma oportunidade sem responsável, inclusive a recebida da landing page, é vis�
 - `company-enrich` usa service role: sua verificação de associação atual não basta após isolamento. Vincular a solicitação a uma oportunidade visível e verificar autorização antes de usar privilégios de serviço. `lead-intake` cria oportunidades sem proprietário para triagem da administradora.
 - A lista de usuários e convites passa por API administrativa no backend. Somente depois de confirmar o papel atual no banco a função usa Auth Admin API; service role nunca chega ao browser. Alteração de papel/status é transacional e auditada. Impedir autopromoção e remoção/rebaixamento do último administrador ativo. O convite abre o CRM, onde a pessoa define sua senha.
 - O calendário comercial usa `America/Sao_Paulo`, segunda a sexta das 9h às 18h, excluindo as nove datas fixas de feriados federais. Pontos facultativos e feriados locais ficam fora. Metas de SLA por etapa dependem de valores definidos separadamente.
+- A presença usa sessões por aba com heartbeat de dez segundos, expiração após 25 segundos e saída explícita no logout. O diretório administrativo atualiza o tempo exibido a cada segundo enquanto aberto. A foto fica em bucket privado e é entregue por URL temporária.
+- A troca de senha exige duas entradas iguais e código de reautenticação enviado pelo Supabase Auth. O HTML da ORYNEO está preparado; remetente, SMTP autenticado e notificações precisam ser configurados no projeto antes de habilitar o fluxo em produção.
 
 ## Experiência no CRM
 
@@ -43,8 +45,8 @@ Uma oportunidade sem responsável, inclusive a recebida da landing page, é vis�
 ## Rollout e testes
 
 1. Criar migração aditiva e testes locais de papéis/atribuição; preservar a conta administradora e as oportunidades atuais. Preparar rollback que restaura a política anterior somente se for necessário reverter todo o frontend; não apagar dados nem histórico.
-2. Adicionar API de leitura com projeção segura e endurecer RLS/RPC/Edge Functions. Testar acesso autenticado como admin, comercial, suporte, leitura, suspenso e usuário não membro. Testar REST direto, chamada RPC forjada, reatribuição e revogação.
-3. Adicionar Configurações e diretório. Usar usuários e oportunidades simulados em QA; não convidar pessoas reais como teste. Publicar backend antes do frontend dependente e verificar a conta administradora na URL pública.
+2. Adicionar API de leitura com projeção segura e proteger RPCs de escrita. Manter a leitura antiga durante a troca do frontend; um gatilho bloqueia novos membros nessa janela. Testar acesso autenticado como admin, comercial, suporte, leitura, suspenso e usuário não membro.
+3. Publicar frontend que usa RPCs de leitura, depois aplicar a migração de lockdown que revoga SELECT direto das tabelas base e restringe RLS. Só então habilitar o convite administrativo e a versão de `company-enrich` que confere o escopo da oportunidade. Usar usuários e oportunidades simulados em QA; não convidar pessoas reais como teste.
 4. Nenhuma caixa postal é compartilhada automaticamente por papel. Permissões de e-mail serão uma integração separada.
 
 ## Critérios de aceite

@@ -25,6 +25,7 @@ select 'deal',jsonb_build_object(
   'title','Oportunidade suporte QA',
   'company','Empresa Suporte QA',
   'email','support-lead@example.test',
+  'notes','Proposta antiga: desconto reservado e preço confidencial',
   'value_cents',98765,
   'quote',jsonb_build_object('plan','Scale'),
   'stage_id',id::text
@@ -49,7 +50,8 @@ begin
   perform set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',true);
   select jsonb_agg(to_jsonb(b)) into rows from public.crm_get_board() b where b.kind='deal';
   if jsonb_array_length(rows)<>1 or rows::text not like '%Oportunidade suporte QA%'
-    or rows::text like '%value_cents%' or rows::text like '%quote%' then
+    or rows::text like '%value_cents%' or rows::text like '%quote%'
+    or rows::text like '%Proposta antiga%' or rows::text like '%notes%' then
     raise exception 'Suporte recebeu negócio alheio ou campo financeiro';
   end if;
 

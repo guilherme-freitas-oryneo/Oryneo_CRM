@@ -42,8 +42,7 @@ begin
         'stage_id',r.data->'stage_id',
         'source',r.data->'source',
         'due_date',r.data->'due_date',
-        'next_action',r.data->'next_action',
-        'notes',r.data->'notes'
+        'next_action',r.data->'next_action'
       ))
       else jsonb_strip_nulls(jsonb_build_object(
         'title',r.data->'title',
