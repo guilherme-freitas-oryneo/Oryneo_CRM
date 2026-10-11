@@ -39,13 +39,14 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
  const refresh=useCallback(async()=>{
    setLoading(true);setError('');
    try{
-    const requests=[supabase.from('crm_events').select('id,deal_id,event_type,actor_label,detail,created_at').eq('deal_id',row.id).order('created_at',{ascending:false}).limit(300)];
-    if(cnpj)requests.push(supabase.from('crm_companies').select('profile').eq('cnpj',cnpj).limit(1));
-    const results=await Promise.all(requests);
-    if(results[0].error)throw results[0].error;
-    setEvents((results[0].data||[]) as CrmEvent[]);
-    if(cnpj&&results[1]&&!results[1].error){
-     const latest=(results[1].data as {profile:CompanyProfile}[]|null)?.[0]?.profile;
+    const [eventResult,companyResult]=await Promise.all([
+      supabase.from('crm_events').select('id,deal_id,event_type,actor_label,detail,created_at').eq('deal_id',row.id).order('created_at',{ascending:false}).limit(300),
+      cnpj?supabase.from('crm_companies').select('profile').eq('cnpj',cnpj).limit(1):Promise.resolve(null)
+    ]);
+    if(eventResult.error)throw eventResult.error;
+    setEvents((eventResult.data||[]) as CrmEvent[]);
+    if(cnpj&&companyResult&&!companyResult.error){
+     const latest=(companyResult.data as {profile:CompanyProfile}[]|null)?.[0]?.profile;
      setCompany(latest&&Object.keys(latest).length?latest:(data.company_profile||null));
     }else setCompany(data.company_profile||null);
    }catch(e){setError(errorText(e));setCompany(data.company_profile||null)}
