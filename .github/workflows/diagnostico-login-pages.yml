@@ -1,0 +1,70 @@
+name: Diagnóstico do login publicado
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnostico-login-pages.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verificacao:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Validar URL e assets públicos
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/"
+          curl -fLsS --retry 10 --retry-delay 4 --connect-timeout 10 --max-time 30 -D /tmp/oryneo_headers -o /tmp/oryneo_live_index "$URL"
+          echo "--- RESPONSE HEADERS ---"
+          sed -n '1,20p' /tmp/oryneo_headers
+          echo "--- PUBLIC HTML ---"
+          head -c 1000 /tmp/oryneo_live_index; echo
+          node -e "const fs=require('fs');let h=fs.readFileSync('/tmp/oryneo_live_index','utf8');for(let type of ['js','css']){let rx=new RegExp('/Oryneo_CRM/assets/[^\" ]+\\\\.'+type);let m=h.match(rx);if(!m)throw Error('Asset '+type+' ausente do HTML');fs.appendFileSync('/tmp/oryneo_assets',m[0]+'\\n')}"
+          while IFS= read -r path; do
+            echo "--- $path ---"
+            curl -fLsS --retry 4 --retry-delay 3 --connect-timeout 10 --max-time 30 -D /tmp/asset_headers -o /tmp/asset_body "https://guilherme-freitas-oryneo.github.io$path"
+            grep -i 'content-type:' /tmp/asset_headers | tail -1
+            wc -c /tmp/asset_body
+            test $(wc -c < /tmp/asset_body) -gt 500
+          done < /tmp/oryneo_assets
+      - name: Instalar navegador de teste
+        run: |
+          npm ci
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Verificar renderização do login em navegador real
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import { chromium } from 'playwright';
+          const browser=await chromium.launch({headless:true});
+          const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+          const errors=[]; const events=[];
+          page.on('pageerror',e=>errors.push('JS ERROR: '+e.message));
+          page.on('console',m=>{if(m.type()==='error')errors.push('CONSOLE ERROR: '+m.text())});
+          page.on('requestfailed',r=>errors.push('REQUEST FAILED: '+r.url()+' '+r.failure()?.errorText));
+          page.on('response',r=>{if(r.status()>=400)errors.push('HTTP '+r.status()+' '+r.url())});
+          const url='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/';
+          const r=await page.goto(url,{waitUntil:'domcontentloaded',timeout:40000});
+          events.push('page_status='+r.status());
+          await page.waitForTimeout(10000);
+          const result={title:await page.title(),url:page.url(),loginFieldCount:await page.locator('input[name="email"]').count(),body:await page.locator('body').innerText().then(s=>s.slice(0,1000)).catch(()=>''),errors,events};
+          console.log(JSON.stringify(result,null,2));
+          await page.screenshot({path:'oryneo-pages-login-test.png',fullPage:true});
+          await browser.close();
+          if(!result.loginFieldCount)process.exit(1);
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oryneo-diagnostico-login
+          path: oryneo-pages-login-test.png
+          if-no-files-found: ignore
