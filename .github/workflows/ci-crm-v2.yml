@@ -22,3 +22,13 @@ jobs:
           test -s dist/index.html
           grep -q '/Oryneo_CRM/assets/' dist/index.html
           test -n "$(find dist/assets -name '*.js' -print -quit)"
+
+  edge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck da API de captacao
+        run: deno check supabase/functions/lead-intake/index.ts
