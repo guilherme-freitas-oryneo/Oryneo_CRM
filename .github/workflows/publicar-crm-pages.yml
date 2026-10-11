@@ -48,10 +48,10 @@ jobs:
           set -euo pipefail
           test -s dist/index.html
           test -s dist/oryneo-wordmark.png
-          test -s dist/oryneo-symbol.svg
+          test -s dist/oryneo-y.svg
           test -n "$(find dist/assets -type f -name '*.js' -print -quit)"
           grep -q "/Oryneo_CRM/assets/" dist/index.html
-          grep -q "/Oryneo_CRM/oryneo-symbol.svg" dist/index.html
+          grep -q "/Oryneo_CRM/oryneo-y.svg" dist/index.html
 
       - name: Publicar apenas o frontend compilado na branch gh-pages
         shell: bash

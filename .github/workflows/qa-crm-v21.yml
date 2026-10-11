@@ -6,6 +6,7 @@ on:
       - 'src/**'
       - 'public/**'
       - '.github/scripts/qa-crm-v21.mjs'
+      - '.github/scripts/qa-login-brand.mjs'
       - '.github/workflows/qa-crm-v21.yml'
   workflow_dispatch:
 permissions:
@@ -37,7 +38,9 @@ jobs:
           cat /tmp/oryneo-qa-v21.log
           exit 1
       - name: Executar testes funcionais sem acesso ao Supabase
-        run: node .github/scripts/qa-crm-v21.mjs
+        run: |
+          node .github/scripts/qa-login-brand.mjs
+          node .github/scripts/qa-crm-v21.mjs
       - name: Publicar capturas de QA
         if: always()
         uses: actions/upload-artifact@v4
