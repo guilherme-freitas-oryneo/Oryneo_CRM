@@ -4,6 +4,7 @@ const db=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{pers
 const origins=new Set(['https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br']);
 const text=(x:unknown,n=180)=>typeof x==='string'?x.trim().slice(0,n):'';
 const digits=(x:unknown)=>text(x,40).replace(/\D/g,'');
+const normalizedCnpj=(x:unknown)=>text(x,40).toUpperCase().replace(/[^A-Z0-9]/g,'');
 Deno.serve(async req=>{
  const origin=req.headers.get('origin')||'';
  const headers:Record<string,string>={'Content-Type':'application/json','Access-Control-Allow-Headers':'authorization, apikey, x-client-info, content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Vary':'Origin','Cache-Control':'no-store'};
@@ -20,7 +21,7 @@ Deno.serve(async req=>{
  if(membershipError||!member)return respond({error:'Acesso não autorizado.'},403);
  let body:Record<string,unknown>;
  try{body=await req.json()}catch{return respond({error:'Solicitação inválida.'},400)}
- const cnpj=digits(body.cnpj);
+ const cnpj=normalizedCnpj(body.cnpj);
  if(cnpj.length!==14)return respond({error:'CNPJ inválido.'},400);
  const {data:cached}=await db.from('crm_companies').select('profile,enriched_at,legal_name').eq('cnpj',cnpj).maybeSingle();
  if(cached?.profile&&Object.keys(cached.profile).length>0&&cached.enriched_at&&Date.now()-new Date(cached.enriched_at).getTime()<24*60*60*1000)return respond({ok:true,updated:false});
@@ -30,7 +31,7 @@ Deno.serve(async req=>{
   const r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+cnpj,{signal:ctrl.signal,headers:{Accept:'application/json'}});
   if(!r.ok)return respond({error:'Cadastro empresarial temporariamente indisponível.'},503);
   data=await r.json();
-  if(digits(data.cnpj)!==cnpj)return respond({error:'Dados cadastrais não correspondem ao CNPJ.'},503);
+  if(normalizedCnpj(data.cnpj)!==cnpj)return respond({error:'Dados cadastrais não correspondem ao CNPJ.'},503);
  }catch{return respond({error:'Consulta cadastral temporariamente indisponível.'},503)}
  finally{clearTimeout(timeout)}
  const profile={
