@@ -26,7 +26,7 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  const browser=await engine.launch({headless:true});
  const mobile=name!=='chromium';
  const page=await browser.newPage({viewport:{width:mobile?390:1440,height:900},isMobile:mobile,hasTouch:mobile});
- let rows=createRows(),rpcCount=0;
+ let rows=createRows(),rpcCount=0,directBoardReads=0;
  const exp=Math.floor(Date.now()/1000)+7200;
  const fakeJwt=[{alg:'HS256',typ:'JWT'},{sub:userId,email:'qa@example.com',role:'authenticated',aud:'authenticated',exp}].map(o=>Buffer.from(JSON.stringify(o)).toString('base64url')).join('.')+'.mock_signature';
  const session={access_token:fakeJwt,token_type:'bearer',expires_in:7200,expires_at:exp,refresh_token:'mock-refresh',user:{id:userId,aud:'authenticated',role:'authenticated',email:'qa@example.com',app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[],created_at:now}};
@@ -36,8 +36,13 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
   const respond=(body,status=200)=>route.fulfill({status,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(body)});
   if(path.endsWith('/auth/v1/user'))return respond(session.user);
   if(path.endsWith('/auth/v1/token'))return respond(session);
-  if(path.includes('/rest/v1/crm_members'))return respond([{user_id:userId}]);
-  if(path.includes('/rest/v1/crm_records'))return respond(rows);
+  if(path.includes('/rest/v1/crm_members'))return respond(url.searchParams.get('select')==='role,status'?{role:'admin',status:'active'}:[{user_id:userId,status:'active'}]);
+  if(path.includes('/rest/v1/crm_records')){directBoardReads++;return respond({message:'Leitura direta indisponível'},403)}
+  if(path.includes('/rest/v1/rpc/crm_get_board'))return respond(rows);
+  if(path.includes('/rest/v1/rpc/crm_get_events'))return respond([]);
+  if(path.includes('/rest/v1/rpc/crm_get_company'))return respond([]);
+  if(path.includes('/rest/v1/rpc/crm_list_members'))return respond([{user_id:userId,display_name:'QA',directory_email:'qa@example.com',role:'admin',status:'active',created_at:now}]);
+  if(path.includes('/functions/v1/member-invite'))return respond({ok:true,invited:true});
   if(path.includes('/rest/v1/crm_companies'))return respond([]);
   if(path.includes('/rest/v1/crm_events'))return respond([]);
   if(path.includes('/rest/v1/rpc/crm_set_action')&&method==='POST'){
@@ -59,6 +64,7 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  console.log(name+' INIT:',JSON.stringify({body:(await page.locator('body').innerText()).slice(0,1100),root:await page.evaluate(()=>document.getElementById('root')?.innerHTML.slice(0,900)),scripts:await page.evaluate(()=>[...document.querySelectorAll('script')].map(x=>x.src)),title:await page.title(),errors,requests,storage:await page.evaluate(()=>Object.keys(localStorage))}));
  await page.screenshot({path:'qa-results/'+name+'-init.png'});
  await page.getByRole('heading',{name:/Pipeline comercial/}).waitFor({timeout:7000});
+ if(directBoardReads)throw Error(name+' consultou crm_records diretamente em vez da API com permissões');
  if(mobile && !(await page.locator('.brand-image img').evaluate(img=>img.currentSrc.endsWith('/oryneo-y.svg'))))throw Error('marca compacta não usa Y oficial');
  if(mobile){
   const background=await page.locator('.brand').evaluate(el=>getComputedStyle(el).backgroundColor);
@@ -89,6 +95,14 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  });
  if(img.status!==200||img.bytes<50000)throw Error(name+' wordmark invalido '+JSON.stringify(img));
  await page.screenshot({path:'qa-results/'+name+'-atividades.png',fullPage:false});
+ await page.locator('.sidebar').getByRole('button',{name:'Configurações'}).click();
+ await page.getByRole('heading',{name:'Equipe e permissões'}).waitFor({timeout:10000});
+ await page.getByText('qa@example.com',{exact:true}).first().waitFor();
+ await page.getByText('Segunda a sexta, das 9h às 18h',{exact:false}).waitFor();
+ await page.getByPlaceholder('nome@empresa.com').fill('colega@example.com');
+ await page.getByRole('button',{name:'Enviar convite'}).click();
+ await page.getByText('Convite enviado. A pessoa poderá definir a senha e entrar no CRM.').waitFor();
+ await page.screenshot({path:'qa-results/'+name+'-permissoes.png',fullPage:true});
  if(errors.length)throw Error(name+' JS errors '+JSON.stringify(errors));
  console.log(name+' OK: dashboard, filtros, diagnóstico, RPC de atividade, asset do Drive. Wordmark bytes='+img.bytes);
  await browser.close();

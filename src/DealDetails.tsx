@@ -21,7 +21,8 @@ function ContactLine({label,value,highlight=false}:{label:string;value?:string;h
  return <div className={'cd-contact '+(highlight?'cd-contact-primary':'')}><div className="cd-contact-head"><span>{label}</span>{highlight&&<small>Informado no formulário</small>}</div><strong>{value}</strong></div>;
 }
 function Stat({label,value}:{label:string;value?:string|null}){if(!value)return null;return <div className="cd-stat"><span>{label}</span><strong>{value}</strong></div>}
-export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;stages:StageRow[];onClose:()=>void;onEdit:()=>void;onChanged:()=>Promise<void>}){
+export function DealDetails({row,stages,role,onClose,onEdit,onChanged}:{row:DealRow;stages:StageRow[];role:'admin'|'commercial'|'support'|'viewer';onClose:()=>void;onEdit:()=>void;onChanged:()=>Promise<void>}){
+ const canSeeMoney=role==='admin'||role==='commercial';
  const [tab,setTab]=useState<'overview'|'history'|'proposal'>('overview');
  const [company,setCompany]=useState<CompanyProfile|null>(null);
  const [events,setEvents]=useState<CrmEvent[]>([]);
@@ -33,6 +34,7 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
  const [actionTitle,setActionTitle]=useState('');
  const [actionDue,setActionDue]=useState('');
  const [actionDone,setActionDone]=useState(false);
+ const [members,setMembers]=useState<{user_id:string;display_name:string|null;directory_email:string|null}[]>([]);
  const data=row.data,cnpj=data.company_cnpj||fallbackCnpj(data.notes||'');
  const quote=data.quote;
  const next=data.next_action??{title:'Realizar diagnóstico inicial',done:false,due_at:null};
@@ -40,18 +42,18 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
    setLoading(true);setError('');
    try{
     const [eventResult,companyResult]=await Promise.all([
-      supabase.from('crm_events').select('id,deal_id,event_type,actor_label,detail,created_at').eq('deal_id',row.id).order('created_at',{ascending:false}).limit(300),
-      cnpj?supabase.from('crm_companies').select('profile').eq('cnpj',cnpj).limit(1):Promise.resolve(null)
+      supabase.rpc('crm_get_events',{p_deal_id:row.id}).order('created_at',{ascending:false}).limit(300),
+      cnpj?supabase.rpc('crm_get_company',{p_deal_id:row.id}).limit(1):Promise.resolve(null)
     ]);
     if(eventResult.error)throw eventResult.error;
     setEvents((eventResult.data||[]) as CrmEvent[]);
     if(cnpj&&companyResult&&!companyResult.error){
      let latest=(companyResult.data as {profile:CompanyProfile}[]|null)?.[0]?.profile;
      if(!latest||!Object.keys(latest).length){
-      const result=await supabase.functions.invoke('company-enrich',{body:{cnpj}});
+      const result=await supabase.functions.invoke('company-enrich',{body:{cnpj,deal_id:row.id}});
       if(!result.error&&result.data?.ok){
-       const refreshed=await supabase.from('crm_companies').select('profile').eq('cnpj',cnpj).maybeSingle();
-       latest=(refreshed.data?.profile as CompanyProfile|undefined)||latest;
+       const refreshed=await supabase.rpc('crm_get_company',{p_deal_id:row.id}).maybeSingle();
+       latest=((refreshed.data as {profile?:CompanyProfile}|null)?.profile)||latest;
       }
      }
      setCompany(latest&&Object.keys(latest).length?latest:(data.company_profile||null));
@@ -60,6 +62,7 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
    finally{setLoading(false)}
  },[row.id,cnpj,data.company_profile]);
  useEffect(()=>{void refresh()},[refresh]);
+ useEffect(()=>{if(role!=='admin')return;void supabase.rpc('crm_list_members').then(({data})=>{if(data)setMembers(data as typeof members)})},[role]);
  useEffect(()=>{setActionTitle(next.title||'Realizar diagnóstico inicial');setActionDue(next.due_at?new Date(next.due_at).toISOString().slice(0,16):'');setActionDone(!!next.done)},[row.id,row.revision]);
  const run=async(task:()=>Promise<void>)=>{
   if(busy)return;setBusy(true);setError('');setNotice('');
@@ -70,6 +73,7 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
  const submitNote=()=>void run(async()=>{if(!note.trim())return;const {error}=await supabase.rpc('crm_add_note',{p_deal_id:row.id,p_text:note.trim()});if(error)throw error;setNote('')});
  const submitAction=()=>void run(async()=>{const {error}=await supabase.rpc('crm_set_action',{p_deal_id:row.id,p_revision:row.revision,p_title:actionTitle.trim(),p_due_at:actionDue?new Date(actionDue).toISOString():null,p_done:actionDone});if(error)throw error});
  const updateStage=(stageId:string)=>void run(async()=>{if(stageId===data.stage_id)return;await mutate({...row,data:{...data,stage_id:stageId}})});
+ const assign=(ownerId:string)=>void run(async()=>{const {error}=await supabase.rpc('crm_assign_deal',{p_deal_id:row.id,p_owner_user_id:ownerId||null});if(error)throw error});
  const logDescription=(e:CrmEvent)=>{
   const d=e.detail||{};
   if(e.event_type==='received')return 'Solicitação recebida'+(d.plan?' · Plano '+d.plan:'')+'.';
@@ -87,11 +91,11 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
    <header className="cd-top"><span><Building2 size={16}/> DETALHES DA OPORTUNIDADE</span><button className="cd-close" onClick={onClose} aria-label="Fechar ficha"><X size={20}/></button></header>
    <div className="cd-scroll">
     <div className="cd-lead-heading"><div className="cd-lead-icon">{initials(data.company)}</div><div><small>Recebido pela {data.source||'equipe ORYNEO'} · {date(row.created_at)}</small><h2>{quote?.plan?quote.plan+(quote.addons?.length?' + '+quote.addons.map(a=>a.label).join(' + '):''):data.title}</h2><p>{data.company} · ID {row.id.slice(0,8)}</p></div></div>
-    <div className="cd-status"><label>Etapa do funil<select value={data.stage_id} disabled={busy} onChange={e=>updateStage(e.target.value)}>{stages.map(s=><option value={s.id} key={s.id}>{s.data.name}</option>)}</select></label><button type="button" onClick={onEdit}><Edit3 size={15}/>Editar dados</button></div>
-    <section className="cd-financial"><div className="cd-financial-top"><span>VALOR EM NEGOCIAÇÃO</span><strong>{money(data.value_cents||0)}</strong><small>Seleção comercial apresentada pelo lead</small></div>
+    <div className="cd-status"><label>Etapa do funil<select value={data.stage_id} disabled={busy||!canSeeMoney} onChange={e=>updateStage(e.target.value)}>{stages.map(s=><option value={s.id} key={s.id}>{s.data.name}</option>)}</select></label>{role==='admin'&&<label>Responsável<select value={row.owner_user_id||''} disabled={busy} onChange={e=>assign(e.target.value)}><option value="">Sem responsável</option>{members.map(m=><option value={m.user_id} key={m.user_id}>{m.display_name||m.directory_email||m.user_id}</option>)}</select></label>}{canSeeMoney&&<button type="button" onClick={onEdit}><Edit3 size={15}/>Editar dados</button>}</div>
+    {canSeeMoney&&<section className="cd-financial"><div className="cd-financial-top"><span>VALOR EM NEGOCIAÇÃO</span><strong>{money(data.value_cents||0)}</strong><small>Seleção comercial apresentada pelo lead</small></div>
     {quote&&<div className="cd-price-lines"><div><span>Assinatura {quote.cycle==='annual'?'anual':'mensal'}</span><b>{money(quote.period_cents)}</b></div><div><span>Implantação</span><b>{money(quote.setup_cents)}</b></div>{quote.addons?.map(a=><div key={a.key}><span>{a.label}{a.key==='traffic'?' · compromisso trimestral':''}</span><b>{money(a.upfront_cents)}</b></div>)}</div>}
-    <button className="cd-link" onClick={()=>setTab('proposal')}>Conferir proposta comercial <ChevronDown size={15}/></button></section>
-    <div className="cd-tabs" role="tablist" aria-label="Seções da oportunidade">{([['overview','Visão geral'],['history','Histórico'],['proposal','Proposta']] as const).map(([key,label])=><button key={key} role="tab" aria-selected={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{label}{key==='history'&&events.length>0&&<span>{events.length}</span>}</button>)}</div>
+    <button className="cd-link" onClick={()=>setTab('proposal')}>Conferir proposta comercial <ChevronDown size={15}/></button></section>}
+    <div className="cd-tabs" role="tablist" aria-label="Seções da oportunidade">{([['overview','Visão geral'],['history','Histórico'],['proposal','Proposta']] as const).filter(([key])=>key!=='proposal'||canSeeMoney).map(([key,label])=><button key={key} role="tab" aria-selected={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{label}{key==='history'&&events.length>0&&<span>{events.length}</span>}</button>)}</div>
     {error&&<p role="alert" className="cd-error">{error}</p>}{notice&&<p role="status" className="cd-success">{notice}</p>}
     {tab==='overview'&&<div className="cd-content">
       {(data.form_submission?.team_size||data.form_submission?.acquisition_channel||(data.form_submission?.goals||[]).length||data.form_submission?.intent)&&<section className="cd-diagnosis" aria-label="Diagnóstico inicial do lead">
@@ -127,7 +131,7 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
       <section><h3 className="cd-section-title"><MessageSquareText size={17}/>Registrar anotação</h3><textarea value={note} maxLength={3000} onChange={e=>setNote(e.target.value)} placeholder="O que foi conversado? Registre contexto, objeções e próximos passos." rows={4}/><button className="cd-primary" disabled={busy||!note.trim()} onClick={submitNote}><Send size={15}/>Salvar nota</button></section>
       <section><h3 className="cd-section-title"><History size={17}/>Linha do tempo</h3>{loading?<p className="cd-muted">Carregando histórico…</p>:!events.length?<p className="cd-muted">Nenhum evento registrado ainda. As próximas mudanças aparecerão aqui.</p>:<div className="cd-timeline">{events.map(e=><article key={e.id}><div className="cd-timeline-dot"/><div><h4>{eventTitle(e.event_type)}</h4><p>{logDescription(e)}</p><footer><span>{e.actor_label||'Sistema ORYNEO'}</span> · {date(e.created_at)}</footer></div></article>)}</div>}</section>
      </div>}
-    {tab==='proposal'&&<div className="cd-content"><section><h3 className="cd-section-title"><FileText size={17}/>Solicitação comercial</h3>{quote?<div className="cd-proposal"><div><small>PLANO SELECIONADO</small><h3>{quote.plan} <span>· {quote.cycle==='annual'?'Anual':'Mensal'}</span></h3></div><dl><div><dt>Assinatura {quote.cycle==='annual'?'anual':'mensal'}</dt><dd>{money(quote.period_cents)}</dd></div><div><dt>Implantação única</dt><dd>{money(quote.setup_cents)}</dd></div>{quote.addons.map(a=><div key={a.key}><dt>{a.label}</dt><dd>{money(a.upfront_cents)}</dd></div>)}</dl><div className="cd-proposal-total"><span>Total da seleção</span><strong>{money(data.value_cents)}</strong></div></div>:<div className="cd-proposal"><p className="cd-muted">Detalhamento anterior registrado nas observações originais da oportunidade.</p><pre>{data.notes||'Sem observações.'}</pre><div className="cd-proposal-total"><span>Em negociação</span><strong>{money(data.value_cents)}</strong></div></div>}</section><p className="cd-muted"><ShieldCheck size={15}/> Valor indicado pelo lead, ainda não uma venda concluída.</p></div>}
+    {tab==='proposal'&&canSeeMoney&&<div className="cd-content"><section><h3 className="cd-section-title"><FileText size={17}/>Solicitação comercial</h3>{quote?<div className="cd-proposal"><div><small>PLANO SELECIONADO</small><h3>{quote.plan} <span>· {quote.cycle==='annual'?'Anual':'Mensal'}</span></h3></div><dl><div><dt>Assinatura {quote.cycle==='annual'?'anual':'mensal'}</dt><dd>{money(quote.period_cents)}</dd></div><div><dt>Implantação única</dt><dd>{money(quote.setup_cents)}</dd></div>{quote.addons.map(a=><div key={a.key}><dt>{a.label}</dt><dd>{money(a.upfront_cents)}</dd></div>)}</dl><div className="cd-proposal-total"><span>Total da seleção</span><strong>{money(data.value_cents)}</strong></div></div>:<div className="cd-proposal"><p className="cd-muted">Detalhamento anterior registrado nas observações originais da oportunidade.</p><pre>{data.notes||'Sem observações.'}</pre><div className="cd-proposal-total"><span>Em negociação</span><strong>{money(data.value_cents)}</strong></div></div>}</section><p className="cd-muted"><ShieldCheck size={15}/> Valor indicado pelo lead, ainda não uma venda concluída.</p></div>}
    </div><footer className="cd-footer"><span><ShieldCheck size={15}/> Histórico e dados protegidos por acesso ao CRM</span><button onClick={()=>void refresh()} aria-label="Atualizar ficha"><RefreshCw size={15}/></button><button onClick={onClose}>Fechar ficha</button></footer>
   </section></div>;
 }
