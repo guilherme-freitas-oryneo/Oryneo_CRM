@@ -35,6 +35,7 @@ for (const [name, engine, viewport] of browsers) {
     });
     const response = await page.goto(root, { waitUntil: 'domcontentloaded' });
     assert.equal(response.status(), 200);
+    assert.match(await page.locator('link[rel="icon"]').getAttribute('href'), /oryneo-y\.svg$/, 'favicon deve usar o Y isolado');
     await page.getByRole('button', { name: 'Entrar no CRM' }).waitFor();
     const brand = await page.locator('.login-wordmark').getAttribute('src');
     assert.match(brand, /oryneo-wordmark-master\.png$/);
@@ -44,6 +45,8 @@ for (const [name, engine, viewport] of browsers) {
     const storyColor = await page.locator('.login-story').evaluate(el => getComputedStyle(el).backgroundColor);
     const rgb = storyColor.match(/\d+/g).map(Number);
     assert.ok(rgb.every(c => c >= 210), `painel ainda escuro: ${storyColor}`);
+    const footerColor = await page.locator('.login-form footer').evaluate(el => getComputedStyle(el).color);
+    assert.equal(footerColor, 'rgb(92, 99, 111)', 'texto do rodapé deve ter contraste AA sobre branco');
     const metrics = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth }));
     assert.ok(metrics.width <= metrics.viewport + 1, `overflow horizontal: ${JSON.stringify(metrics)}`);
     const button = await page.getByRole('button', { name: 'Entrar no CRM' }).boundingBox();

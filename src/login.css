@@ -67,7 +67,7 @@
 .login button.login-submit { width: 100%; min-height: 48px; margin: 0; padding: 0 16px; justify-content: space-between; background: var(--login-action); border-color: var(--login-action); border-radius: 9px; box-shadow: none; color: #fff; font-size: 14px; font-weight: 600; }
 .login button.login-submit:hover:not(:disabled) { background: #3448ce; border-color: #3448ce; transform: none; box-shadow: none; }
 .login-box small { display: block; margin-top: 22px; color: var(--login-muted); font-size: 11px; text-align: center; }
-.login-form footer { margin-top: 28px; color: #858b96; font-size: 11px; }
+.login-form footer { margin-top: 28px; color: #5c636f; font-size: 11px; }
 .login .error { margin: -3px 0 16px; padding: 12px 14px; border: 1px solid #f4c7c7; border-radius: 9px; background: #fff7f7; color: #9a3030; font-size: 13px; line-height: 1.5; }
 .login :is(button, input):focus-visible, .login .error:focus { outline: 2px solid var(--login-action); outline-offset: 2px; }
 
