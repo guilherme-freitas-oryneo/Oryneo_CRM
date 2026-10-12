@@ -192,8 +192,9 @@ export async function syncMailbox(dependencies: SyncDependencies, mailboxId: str
       finished_at: now().toISOString(),
     });
     return result;
-  } catch {
-    const errorCode = classifyError(phase);
+  } catch (error) {
+    const internalCode = error instanceof Error && /^DB_[A-Z0-9_]+$/.test(error.message) ? error.message : null;
+    const errorCode = internalCode ?? classifyError(phase);
     if (runId) await db.finishRun(runId, { state: 'failed', error_code: errorCode, finished_at: now().toISOString() });
     return { state: 'failed', foldersProcessed, messagesImported, flagsUpdated, backlog, errorCode };
   } finally {

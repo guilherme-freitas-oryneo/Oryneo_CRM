@@ -28,6 +28,7 @@ class FakeDatabase implements MailSyncDatabase {
     special_use: 'inbox', uid_validity: 0, uid_next: 1, last_synced_uid: 0, history_before_uid: null,
   };
   saveResult = true;
+  saveError: Error | null = null;
 
   claimLock(): Promise<boolean> { return Promise.resolve(this.claimed); }
   releaseLock(): Promise<void> { this.released = true; return Promise.resolve(); }
@@ -36,7 +37,7 @@ class FakeDatabase implements MailSyncDatabase {
   finishRun(_runId: string, values: Record<string, unknown>): Promise<void> { this.runState = values; return Promise.resolve(); }
   upsertFolder(_mailboxId: string, _folder: DiscoveredFolder): Promise<StoredFolder> { return Promise.resolve({ ...this.folder }); }
   resetFolder(folderId: string, uidValidity: number): Promise<void> { this.resets.push({ folderId, uidValidity }); this.folder = { ...this.folder, uid_validity: uidValidity, last_synced_uid: 0, history_before_uid: null }; return Promise.resolve(); }
-  saveMessage(folderId: string, uidValidity: number, message: ImapFetchedMessage): Promise<boolean> { this.saved.push({ folderId, uidValidity, message }); return Promise.resolve(this.saveResult); }
+  saveMessage(folderId: string, uidValidity: number, message: ImapFetchedMessage): Promise<boolean> { this.saved.push({ folderId, uidValidity, message }); return this.saveError ? Promise.reject(this.saveError) : Promise.resolve(this.saveResult); }
   reconcileFolder(folderId: string, uidValidity: number, flags: ImapFetchedFlags[]): Promise<number> { this.reconciled.push({ folderId, uidValidity, flags }); return Promise.resolve(1); }
   updateFolder(folderId: string, values: Record<string, unknown>): Promise<void> { this.updates.push({ folderId, values }); return Promise.resolve(); }
 }
@@ -123,6 +124,14 @@ Deno.test('syncMailbox não contabiliza conteúdo já deduplicado', async () => 
   const result = await syncMailbox(fixedDeps(db, new FakeImap()), 'mailbox-1');
   assert.equal(result.messagesImported, 0);
   assert.equal(result.state, 'success');
+});
+
+Deno.test('syncMailbox preserva somente códigos internos seguros para diagnóstico', async () => {
+  const db = new FakeDatabase();
+  db.saveError = new Error('DB_MESSAGE_CREATE');
+  const result = await syncMailbox(fixedDeps(db, new FakeImap()), 'mailbox-1');
+  assert.equal(result.errorCode, 'DB_MESSAGE_CREATE');
+  assert.equal(JSON.stringify(db.runState).includes('DB_MESSAGE_CREATE'), true);
 });
 
 Deno.test('prepareIncomingMessage gera fingerprint, direção, snippet e participantes normalizados', async () => {

@@ -19,6 +19,12 @@ begin
     ) then
       raise exception 'RLS disabled on public.%', v_table_name;
     end if;
+    if not has_table_privilege('service_role', format('public.%I',v_table_name), 'SELECT')
+       or not has_table_privilege('service_role', format('public.%I',v_table_name), 'INSERT')
+       or not has_table_privilege('service_role', format('public.%I',v_table_name), 'UPDATE')
+       or not has_table_privilege('service_role', format('public.%I',v_table_name), 'DELETE') then
+      raise exception 'service role missing mailbox privileges on public.%', v_table_name;
+    end if;
   end loop;
 
   if exists (
