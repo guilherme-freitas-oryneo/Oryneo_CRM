@@ -39,6 +39,23 @@ Deno.test('sendMail em retry detecta Message-ID aceito e não envia SMTP novamen
   assert.equal(completed, true);
 });
 
+Deno.test('sendMail após aceite SMTP repara Enviados sem duplicar o destinatário', async () => {
+  let smtpCalls = 0;
+  let appendCalls = 0;
+  const dependencies: MailSendDependencies = {
+    getCredentials: () => Promise.resolve({ address: 'contato@oryneo.com.br', displayName: 'ORYNEO', imapHost: 'imap.hostinger.com', imapPort: 993, smtpHost: 'smtp.hostinger.com', smtpPort: 465, password: 'segredo' }),
+    beginOutbox: () => Promise.resolve({ state: 'failed', internetMessageId: '<22222222-2222-4222-8222-222222222222@oryneo.com.br>', acceptedAt: '2026-10-12T19:00:00Z' }),
+    findSentMessage: () => Promise.resolve(false),
+    smtpSend: () => { smtpCalls += 1; return Promise.resolve(); },
+    appendSent: () => { appendCalls += 1; return Promise.resolve(); },
+    markAccepted: () => Promise.resolve(), markSent: () => Promise.resolve(), markFailed: () => Promise.resolve(),
+  };
+  const result = await sendMail(dependencies, 'user-1', compose);
+  assert.equal(result.alreadyAccepted, true);
+  assert.equal(smtpCalls, 0);
+  assert.equal(appendCalls, 1);
+});
+
 Deno.test('sendMail envia uma vez, registra aceitação e anexa em Enviados', async () => {
   const sequence: string[] = [];
   const dependencies: MailSendDependencies = {

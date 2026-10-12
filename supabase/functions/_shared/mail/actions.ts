@@ -67,11 +67,6 @@ export async function sendMail(dependencies: MailSendDependencies, userId: strin
   const outbox = await dependencies.beginOutbox(userId, input, deterministicId);
   if (outbox.state === 'sent') return { internetMessageId: outbox.internetMessageId, alreadyAccepted: true };
   const credentials = await dependencies.getCredentials(input.mailboxId);
-  if (outbox.acceptedAt && await dependencies.findSentMessage(credentials, outbox.internetMessageId)) {
-    await dependencies.markSent(input.idempotencyKey);
-    return { internetMessageId: outbox.internetMessageId, alreadyAccepted: true };
-  }
-
   const raw = await buildMimeMessage({
     messageId: outbox.internetMessageId,
     from: { name: credentials.displayName, address: credentials.address },
@@ -86,6 +81,11 @@ export async function sendMail(dependencies: MailSendDependencies, userId: strin
     attachments: input.attachments,
   });
   try {
+    if (outbox.acceptedAt) {
+      if (!await dependencies.findSentMessage(credentials, outbox.internetMessageId)) await dependencies.appendSent(credentials, raw);
+      await dependencies.markSent(input.idempotencyKey);
+      return { internetMessageId: outbox.internetMessageId, alreadyAccepted: true };
+    }
     await dependencies.smtpSend(credentials, {
       from: credentials.address,
       recipients: [...input.to, ...(input.cc ?? []), ...(input.bcc ?? [])].map((address) => address.address),
