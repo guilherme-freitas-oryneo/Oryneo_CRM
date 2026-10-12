@@ -67,6 +67,11 @@ begin
     raise exception 'credential RPC unavailable to service role';
   end if;
 
+  if not has_function_privilege('service_role','public.crm_mail_find_active_deals_by_emails(text[])','execute')
+     or has_function_privilege('authenticated','public.crm_mail_find_active_deals_by_emails(text[])','execute') then
+    raise exception 'deal matching RPC privileges invalid';
+  end if;
+
   if not exists (select 1 from storage.buckets where id='crm-mail-attachments' and not public) then
     raise exception 'private attachment bucket missing';
   end if;

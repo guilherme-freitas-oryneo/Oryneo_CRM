@@ -258,10 +258,9 @@ export class SupabaseMailDatabase implements MailSyncDatabase {
 
   async #linkDeals(messageId: string, participantEmails: string[]): Promise<void> {
     if (!participantEmails.length) return;
-    const { data, error } = await this.client.from('crm_records').select('id,data').eq('kind', 'deal').eq('deleted', false);
+    const { data, error } = await this.client.rpc('crm_mail_find_active_deals_by_emails', { p_emails: participantEmails });
     throwIf(error, 'DB_DEAL_LOOKUP');
-    const emailSet = new Set(participantEmails);
-    const links = (data ?? []).filter((record: { data?: { email?: string } }) => emailSet.has(record.data?.email?.trim().toLowerCase() ?? '')).map((record: { id: string }) => ({ message_id: messageId, deal_id: record.id, automatic: true }));
+    const links = (data ?? []).map((record: { id: string }) => ({ message_id: messageId, deal_id: record.id, automatic: true }));
     if (links.length) {
       const result = await this.client.from('crm_mail_deal_links').upsert(links, { onConflict: 'message_id,deal_id', ignoreDuplicates: true });
       throwIf(result.error, 'DB_DEAL_LINK');
