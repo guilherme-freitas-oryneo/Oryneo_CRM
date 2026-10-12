@@ -1,0 +1,46 @@
+.email-preview-app, .email-preview-app * { box-sizing: border-box; }
+.email-preview-app { min-height: 100vh; display: grid; grid-template-columns: 340px 1fr; margin: 0; color: #0f1115; background: #eef0f5; font-family: Inter, Arial, sans-serif; }
+.email-preview-app button { font: inherit; }
+.email-preview-sidebar { min-height: 100vh; padding: 30px 22px; color: #f8f7f4; background: #0f1115; }
+.email-preview-brand { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 7px 28px; border-bottom: 1px solid #282b33; }
+.email-preview-brand img { display: block; width: 116px; height: auto; }
+.email-preview-brand span { color: #a1a1aa; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.email-preview-heading { padding: 30px 7px 22px; }
+.email-preview-kicker, .email-preview-label { color: #8193ff; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.email-preview-heading h1 { margin: 8px 0 10px; font-size: 28px; letter-spacing: -.03em; }
+.email-preview-heading p { margin: 0; color: #a1a1aa; font-size: 14px; line-height: 1.55; }
+.email-preview-scenarios { display: grid; gap: 7px; }
+.email-preview-scenarios button { width: 100%; padding: 13px 14px; border: 1px solid transparent; border-radius: 10px; color: #e5e7eb; background: transparent; text-align: left; cursor: pointer; transition: .16s ease; }
+.email-preview-scenarios button:hover { background: #191c23; }
+.email-preview-scenarios button.is-active { border-color: #4f6bff; background: #202634; box-shadow: inset 3px 0 #4f6bff; }
+.email-preview-scenarios span, .email-preview-scenarios small { display: block; }
+.email-preview-scenarios span { font-size: 13px; font-weight: 700; }
+.email-preview-scenarios small { margin-top: 5px; color: #a1a1aa; font-size: 11px; }
+.email-preview-workspace { min-width: 0; display: flex; flex-direction: column; }
+.email-preview-toolbar { min-height: 122px; padding: 24px 32px; display: flex; align-items: center; justify-content: space-between; gap: 28px; background: #fff; border-bottom: 1px solid #e5e7eb; }
+.email-preview-toolbar strong, .email-preview-toolbar small { display: block; }
+.email-preview-toolbar strong { margin-top: 6px; font-size: 18px; }
+.email-preview-toolbar small { max-width: 630px; margin-top: 7px; color: #6b7280; font-size: 12px; }
+.email-preview-controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.email-preview-segment { padding: 3px; display: flex; border: 1px solid #e5e7eb; border-radius: 9px; background: #f8f7f4; }
+.email-preview-segment button { padding: 8px 11px; border: 0; border-radius: 6px; color: #6b7280; background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; }
+.email-preview-segment button.is-active { color: #0f1115; background: #fff; box-shadow: 0 1px 4px rgba(15,17,21,.12); }
+.email-preview-stage { flex: 1; min-height: 0; padding: 34px; display: grid; place-items: start center; overflow: auto; }
+.email-frame-shell { width: min(100%, 900px); height: calc(100vh - 190px); min-height: 620px; border: 1px solid #d6d9e1; border-radius: 14px; overflow: hidden; background: #fff; box-shadow: 0 18px 50px rgba(15,17,21,.09); transition: width .2s ease; }
+.email-frame-shell.is-mobile { width: 390px; }
+.email-frame-shell iframe { width: 100%; height: 100%; display: block; border: 0; background: #f8f7f4; }
+.email-text-preview { width: min(100%, 760px); min-height: 560px; margin: 0; padding: 34px; white-space: pre-wrap; color: #0f1115; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; font: 15px/1.7 Inter, Arial, sans-serif; box-shadow: 0 18px 50px rgba(15,17,21,.08); transition: width .2s ease; }
+.email-text-preview.is-mobile { width: 390px; }
+@media (max-width: 900px) {
+  .email-preview-app { grid-template-columns: 1fr; }
+  .email-preview-sidebar { min-height: auto; }
+  .email-preview-scenarios { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .email-preview-toolbar { align-items: flex-start; flex-direction: column; }
+  .email-frame-shell { height: 720px; }
+}
+@media (max-width: 560px) {
+  .email-preview-sidebar, .email-preview-toolbar, .email-preview-stage { padding-left: 16px; padding-right: 16px; }
+  .email-preview-scenarios { grid-template-columns: 1fr; }
+  .email-preview-controls { justify-content: flex-start; }
+  .email-frame-shell.is-mobile, .email-text-preview.is-mobile { width: 100%; }
+}
