@@ -56,7 +56,12 @@ export type MailMessage = {
   unread: boolean;
   starred: boolean;
   attachments: MailAttachment[];
+  locations: MailLocation[];
 };
+
+export type MailLocation = { id?: string; folder_id: string; uid: number; flags: string[] };
+
+export type MailThreadDetail = { thread: { id: string; subject: string; [key: string]: unknown }; messages: MailMessage[] };
 
 export type MailDraft = {
   id: string;
@@ -78,4 +83,6 @@ export type MailSyncStatus = {
   last_success_at?: string | null;
   last_error_code?: string | null;
   backlog: number;
+  mailbox_id?: string;
+  address?: string;
 };
