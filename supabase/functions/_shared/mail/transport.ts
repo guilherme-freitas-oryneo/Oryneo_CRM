@@ -1,4 +1,4 @@
-import { ImapFrameReader, parseFetchFrames, parseListResponse, parseSelectState, quoteImap, type ImapFetchedMessage, type ImapFrame, type ImapListEntry, type ImapSelectState } from './protocol.ts';
+import { ImapFrameReader, parseFetchFlags, parseFetchFrames, parseListResponse, parseSelectState, quoteImap, type ImapFetchedFlags, type ImapFetchedMessage, type ImapFrame, type ImapListEntry, type ImapSelectState } from './protocol.ts';
 
 export interface MailConnection {
   read(target: Uint8Array): Promise<number | null>;
@@ -83,6 +83,12 @@ export class ImapClient {
     if (!Number.isSafeInteger(first) || first < 1) throw new Error('UID inicial inválido.');
     if (last !== '*' && (!Number.isSafeInteger(last) || last < first)) throw new Error('UID final inválido.');
     return parseFetchFrames(await this.#command(`UID FETCH ${first}:${last} (UID FLAGS RFC822.SIZE BODY.PEEK[])`));
+  }
+
+  async fetchFlags(first: number = 1, last: number | '*' = '*'): Promise<ImapFetchedFlags[]> {
+    if (!Number.isSafeInteger(first) || first < 1) throw new Error('UID inicial inválido.');
+    if (last !== '*' && (!Number.isSafeInteger(last) || last < first)) throw new Error('UID final inválido.');
+    return parseFetchFlags(await this.#command(`UID FETCH ${first}:${last} (UID FLAGS)`));
   }
 
   async storeFlags(uid: number, flags: string[], mode: '+' | '-' | '=' = '='): Promise<void> {

@@ -4,6 +4,7 @@ export type ImapFrame = { line: string; literal?: Uint8Array };
 export type ImapListEntry = { attributes: string[]; delimiter: string | null; name: string };
 export type ImapSelectState = { exists: number; recent: number; uidValidity: number; uidNext: number; highestModSeq: number | null };
 export type ImapFetchedMessage = { sequence: number; uid: number; flags: string[]; size: number; raw: Uint8Array };
+export type ImapFetchedFlags = { sequence: number; uid: number; flags: string[] };
 
 function concatBytes(left: Uint8Array, right: Uint8Array): Uint8Array {
   if (!left.length) return right.slice();
@@ -119,4 +120,20 @@ export function parseFetchFrames(frames: ImapFrame[]): ImapFetchedMessage[] {
     });
   }
   return messages;
+}
+
+export function parseFetchFlags(frames: ImapFrame[]): ImapFetchedFlags[] {
+  const results: ImapFetchedFlags[] = [];
+  for (const frame of frames) {
+    const sequence = frame.line.match(/^\* (\d+) FETCH /i);
+    const uid = frame.line.match(/\bUID (\d+)\b/i);
+    const flags = frame.line.match(/\bFLAGS \(([^)]*)\)/i);
+    if (!sequence || !uid || !flags) continue;
+    results.push({
+      sequence: Number(sequence[1]),
+      uid: Number(uid[1]),
+      flags: flags[1].trim() ? flags[1].trim().split(/\s+/) : [],
+    });
+  }
+  return results;
 }

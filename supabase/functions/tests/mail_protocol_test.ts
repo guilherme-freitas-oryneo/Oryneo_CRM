@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { ImapFrameReader, parseFetchFrames, parseListResponse, parseSelectState, quoteImap } from '../_shared/mail/protocol.ts';
+import { ImapFrameReader, parseFetchFlags, parseFetchFrames, parseListResponse, parseSelectState, quoteImap } from '../_shared/mail/protocol.ts';
 import { ImapClient, SmtpClient, type MailConnection } from '../_shared/mail/transport.ts';
 
 const encoder = new TextEncoder();
@@ -52,6 +52,15 @@ Deno.test('parseFetchFrames extrai UID, flags e bytes exatos', () => {
   assert.deepEqual(parseFetchFrames(frames), [{ sequence: 2, uid: 77, flags: ['\\Seen', '\\Flagged'], size: 4, raw: encoder.encode('test') }]);
 });
 
+Deno.test('parseFetchFlags reconcilia respostas sem baixar corpos', () => {
+  const reader = new ImapFrameReader();
+  const frames = reader.push(encoder.encode('* 2 FETCH (UID 77 FLAGS (\\Seen \\Flagged))\r\n* 3 FETCH (UID 81 FLAGS ())\r\n'));
+  assert.deepEqual(parseFetchFlags(frames), [
+    { sequence: 2, uid: 77, flags: ['\\Seen', '\\Flagged'] },
+    { sequence: 3, uid: 81, flags: [] },
+  ]);
+});
+
 class ScriptedConnection implements MailConnection {
   #chunks: Uint8Array[];
   writes: string[] = [];
@@ -87,7 +96,8 @@ Deno.test('ImapClient executa login, descoberta, seleção e fetch com tags sequ
     '* LIST (\\HasNoChildren \\Inbox) "/" "INBOX"\r\nA0002 OK listed\r\n',
     '* 1 EXISTS\r\n* OK [UIDVALIDITY 9] valid\r\n* OK [UIDNEXT 3] next\r\nA0003 OK selected\r\n',
     '* 1 FETCH (UID 2 FLAGS () RFC822.SIZE 4 BODY[] {4}\r\ntest\r\n)\r\nA0004 OK fetched\r\n',
-    'A0005 OK logout\r\n',
+    '* 1 FETCH (UID 2 FLAGS ())\r\nA0005 OK flags\r\n',
+    'A0006 OK logout\r\n',
   ]);
   const client = new ImapClient({ host: 'imap.hostinger.com', port: 993, username: 'contato@oryneo.com.br', password: 'segredo' }, async () => connection);
   await client.connect();
@@ -95,8 +105,9 @@ Deno.test('ImapClient executa login, descoberta, seleção e fetch com tags sequ
   assert.equal((await client.list())[0].name, 'INBOX');
   assert.equal((await client.select('INBOX')).uidValidity, 9);
   assert.equal((await client.fetchUids(2, 2))[0].uid, 2);
+  assert.deepEqual(await client.fetchFlags(), [{ sequence: 1, uid: 2, flags: [] }]);
   await client.logout();
-  assert.deepEqual(connection.writes.map((line) => line.split(' ')[0]), ['A0001', 'A0002', 'A0003', 'A0004', 'A0005']);
+  assert.deepEqual(connection.writes.map((line) => line.split(' ')[0]), ['A0001', 'A0002', 'A0003', 'A0004', 'A0005', 'A0006']);
   assert.equal(connection.closed, true);
 });
 

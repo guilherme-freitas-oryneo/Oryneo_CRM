@@ -30,7 +30,9 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Typecheck da API de captacao
+      - name: Typecheck das Edge Functions e testes de e-mail
         run: |
           deno check --node-modules-dir=auto supabase/functions/lead-intake/index.ts
           deno check --node-modules-dir=auto supabase/functions/company-enrich/index.ts
+          deno check --node-modules-dir=auto supabase/functions/mail-sync/index.ts
+          deno test supabase/functions/tests/mail_protocol_test.ts supabase/functions/tests/mail_mime_test.ts supabase/functions/tests/mail_sync_test.ts
