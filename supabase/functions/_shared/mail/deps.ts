@@ -1,0 +1,1 @@
+export { default as PostalMime } from 'npm:postal-mime@4.0.5';
