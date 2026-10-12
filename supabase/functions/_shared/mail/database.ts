@@ -122,8 +122,17 @@ export class SupabaseMailDatabase implements MailSyncDatabase {
     throwIf(folderError, 'DB_FOLDER');
     const mailboxAddress = folder.crm_mailboxes.address as string;
     const prepared = await prepareIncomingMessage(message, mailboxAddress);
-    const { data: existing, error: existingError } = await this.client.from('crm_mail_messages').select('id,thread_id').eq('mailbox_id', folder.mailbox_id).eq('content_fingerprint', prepared.fingerprint).maybeSingle();
-    throwIf(existingError, 'DB_MESSAGE_LOOKUP');
+    let existing: { id: string; thread_id: string } | null = null;
+    if (prepared.parsed.internetMessageId) {
+      const lookup = await this.client.from('crm_mail_messages').select('id,thread_id').eq('mailbox_id', folder.mailbox_id).eq('internet_message_id', prepared.parsed.internetMessageId).limit(1).maybeSingle();
+      throwIf(lookup.error, 'DB_MESSAGE_LOOKUP');
+      existing = lookup.data;
+    }
+    if (!existing) {
+      const lookup = await this.client.from('crm_mail_messages').select('id,thread_id').eq('mailbox_id', folder.mailbox_id).eq('content_fingerprint', prepared.fingerprint).maybeSingle();
+      throwIf(lookup.error, 'DB_MESSAGE_LOOKUP');
+      existing = lookup.data;
+    }
     if (existing) {
       await this.#saveLocation(existing.id, folderId, uidValidity, message);
       return false;

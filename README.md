@@ -1,5 +1,14 @@
 # ORYNEO CRM
 
+CRM comercial da ORYNEO com Pipeline, Atividades e caixa de e-mail compartilhada integrada.
+
+## E-mail no CRM
+
+- Sincronização bidirecional da caixa corporativa pela Hostinger (IMAP/SMTP) via Supabase Edge Functions.
+- Pastas, busca, filtros, leitura por conversa, respostas, anexos privados e atualização em tempo real.
+- HTML sanitizado e imagens externas bloqueadas até autorização explícita.
+- Credencial guardada no Supabase Vault; o navegador nunca recebe a senha do e-mail.
+
 Primeira operação comercial baseada no Figma `xIRj2eI4Kt14xgEAjlKEmp`, frame `3:10`.
 
 ## Desenvolvimento
