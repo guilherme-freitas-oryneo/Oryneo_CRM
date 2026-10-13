@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import {ensureTrafficSubscription,getPaidOrder,sendWelcomeTestSafe} from '../_shared/billing/fulfillment.ts';
+declare const EdgeRuntime:{waitUntil(p:Promise<unknown>):void};
 
 const db = createClient(
   Deno.env.get('SUPABASE_URL')!,
