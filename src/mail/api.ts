@@ -50,8 +50,9 @@ export async function getStatus(): Promise<MailSyncStatus> {
 
 export async function invokeMailAction<T = unknown>(action: string, payload: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke('mail-api', { body: { action, ...payload } });
+  if (data?.ok === false) throw new Error(data.error ?? 'Não foi possível concluir a ação.');
   if (error) throw error;
-  if (!data?.ok) throw new Error(data?.error ?? 'Não foi possível concluir a ação.');
+  if (!data?.ok) throw new Error('Não foi possível concluir a ação.');
   return data.data as T;
 }
 

@@ -21,7 +21,7 @@ function ContactLine({label,value,highlight=false}:{label:string;value?:string;h
  return <div className={'cd-contact '+(highlight?'cd-contact-primary':'')}><div className="cd-contact-head"><span>{label}</span>{highlight&&<small>Informado no formulário</small>}</div><strong>{value}</strong></div>;
 }
 function Stat({label,value}:{label:string;value?:string|null}){if(!value)return null;return <div className="cd-stat"><span>{label}</span><strong>{value}</strong></div>}
-export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;stages:StageRow[];onClose:()=>void;onEdit:()=>void;onChanged:()=>Promise<void>}){
+export function DealDetails({row,stages,onClose,onEdit,onResend,onChanged}:{row:DealRow;stages:StageRow[];onClose:()=>void;onEdit:()=>void;onResend:()=>void;onChanged:()=>Promise<void>}){
  const [tab,setTab]=useState<'overview'|'history'|'proposal'>('overview');
  const [company,setCompany]=useState<CompanyProfile|null>(null);
  const [events,setEvents]=useState<CrmEvent[]>([]);
@@ -78,9 +78,10 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
   if(e.event_type==='note')return String(d.text||'Nota registrada.');
   if(e.event_type==='action_changed')return 'Próxima ação: '+String((d.after as NextAction|undefined)?.title||'Atualizada')+((d.after as NextAction|undefined)?.done?' · Concluída':' · Pendente');
   if(e.event_type==='reconciled')return 'Registro histórico conciliado sem criar outra oportunidade.';
+  if(e.event_type==='email_sent')return (d.resend?'E-mail reenviado':'Primeiro e-mail enviado')+(d.internet_message_id?' · '+String(d.internet_message_id):'')+'.';
   return String(d.text||'Informações da oportunidade atualizadas.');
  };
- const eventTitle=(kind:string)=>({received:'Oportunidade recebida',stage_changed:'Etapa do funil alterada',value_changed:'Valor atualizado',note:'Anotação comercial',action_changed:'Próxima ação atualizada',reconciled:'Dados da proposta conciliados',details_changed:'Ficha atualizada',activity:'Atividade registrada'} as Record<string,string>)[kind]||'Atualização';
+ const eventTitle=(kind:string)=>({received:'Oportunidade recebida',stage_changed:'Etapa do funil alterada',value_changed:'Valor atualizado',note:'Anotação comercial',action_changed:'Próxima ação atualizada',reconciled:'Dados da proposta conciliados',details_changed:'Ficha atualizada',activity:'Atividade registrada',email_sent:'Contato por e-mail'} as Record<string,string>)[kind]||'Atualização';
  const fullAddress=formatAddress(company||undefined);
  const qsa=company?.qsa||[];
  return <div className="cd-root"><button aria-label="Fechar ficha" className="cd-backdrop" onClick={onClose}/><section className="cd-panel" role="dialog" aria-modal="true" aria-label="Ficha da oportunidade">
@@ -94,14 +95,14 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
     <div className="cd-tabs" role="tablist" aria-label="Seções da oportunidade">{([['overview','Visão geral'],['history','Histórico'],['proposal','Proposta']] as const).map(([key,label])=><button key={key} role="tab" aria-selected={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{label}{key==='history'&&events.length>0&&<span>{events.length}</span>}</button>)}</div>
     {error&&<p role="alert" className="cd-error">{error}</p>}{notice&&<p role="status" className="cd-success">{notice}</p>}
     {tab==='overview'&&<div className="cd-content">
-      {(data.form_submission?.team_size||data.form_submission?.acquisition_channel||(data.form_submission?.goals||[]).length||data.form_submission?.intent)&&<section className="cd-diagnosis" aria-label="Diagnóstico inicial do lead">
+      {(data.form_submission?.team_size||data.form_submission?.acquisition_channel||(data.form_submission?.acquisition_channels||[]).length||(data.form_submission?.goals||[]).length||data.form_submission?.intent)&&<section className="cd-diagnosis" aria-label="Diagnóstico inicial do lead">
        <div className="cd-diagnosis-head"><div><small>QUALIFICAÇÃO COMERCIAL</small><h3><FileText size={17}/>Diagnóstico inicial</h3><p>Respostas declaradas pelo lead na landing page para orientar a primeira abordagem.</p></div><span>Formulário</span></div>
        <div className="cd-diagnosis-content">
-         {(data.form_submission?.team_size||data.form_submission?.acquisition_channel)&&<div className="cd-diagnosis-grid">
+         {(data.form_submission?.team_size||data.form_submission?.acquisition_channel||(data.form_submission?.acquisition_channels||[]).length>0)&&<div className="cd-diagnosis-grid">
           {data.form_submission?.team_size&&<div className="cd-diagnosis-stat"><Users size={17}/><small>Tamanho da equipe comercial</small><strong>{data.form_submission.team_size}</strong></div>}
-          {data.form_submission?.acquisition_channel&&<div className="cd-diagnosis-stat"><Building2 size={17}/><small>Origem atual dos clientes</small><strong>{data.form_submission.acquisition_channel}</strong></div>}
+          {(data.form_submission?.acquisition_channels?.length||data.form_submission?.acquisition_channel)&&<div className="cd-diagnosis-stat"><Building2 size={17}/><small>Canais atuais de aquisição</small><strong>{data.form_submission?.acquisition_channels?.join(' · ')||data.form_submission?.acquisition_channel}{data.form_submission?.primary_acquisition_channel&&(data.form_submission.acquisition_channels?.length??0)>1?<><br/><em>Principal: {data.form_submission.primary_acquisition_channel}</em></>:null}</strong></div>}
          </div>}
-         {(data.form_submission?.goals||[]).length>0&&<div className="cd-diagnosis-interests"><strong>Objetivos e interesses selecionados</strong><div className="cd-diagnosis-goals">{data.form_submission?.goals?.map((goal,i)=><span key={i}><Check size={13}/>{goal}</span>)}</div></div>}
+         {(data.form_submission?.goals||[]).length>0&&<div className="cd-diagnosis-interests"><strong>Objetivos e interesses selecionados</strong><div className="cd-diagnosis-goals">{data.form_submission?.goals?.map((goal,i)=><span key={i}><Check size={13}/>{goal}{goal===data.form_submission?.primary_goal?<small>Prioridade</small>:null}</span>)}</div></div>}
          {data.form_submission?.intent&&<div className="cd-diagnosis-intent"><span>Intenção declarada</span><strong>{data.form_submission.intent==='contract'?'Quero contratar':data.form_submission.intent==='conversation'?'Quero conversar':data.form_submission.intent}</strong></div>}
        </div>
       </section>}
@@ -119,6 +120,7 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
       <section><h3 className="cd-section-title"><Phone size={17}/>Canais de contato</h3><div className="cd-contact-grid"><ContactLine label="E-mail" value={data.email} highlight/><ContactLine label="E-mail cadastral" value={normalizeContact(data.email)!==normalizeContact(company?.email||'')?company?.email:undefined}/><ContactLine label="Celular / WhatsApp" value={data.phone} highlight/><ContactLine label="Telefone cadastral" value={normalizeContact(data.phone)!==normalizeContact(company?.phone||'')?company?.phone:undefined}/></div></section>
       {fullAddress&&<section><h3 className="cd-section-title"><MapPin size={17}/>Endereço da empresa</h3><div className="cd-address"><MapPin size={18}/><p>{fullAddress}</p><button onClick={()=>void navigator.clipboard.writeText(fullAddress).then(()=>setNotice('Endereço copiado.')).catch(()=>setError('Não foi possível copiar o endereço.'))}>Copiar</button></div></section>}
       {!!qsa.length&&<section><h3 className="cd-section-title"><Users size={17}/>Quadro societário <span>{qsa.length}</span></h3><div className="cd-partners">{qsa.map((s,i)=><div className="cd-partner" key={i}><div className="cd-person-avatar">{initials(s.name)}</div><div><strong>{s.name}</strong><span>{s.qualification||'Integrante do quadro societário'}</span></div></div>)}</div></section>}
+      {data.first_contact&&<section><h3 className="cd-section-title"><Mail size={17}/>Primeiro contato</h3><div className="cd-action-summary cd-first-contact"><strong>E-mail enviado</strong><span>{date(data.first_contact.sent_at)}</span><button type="button" onClick={onResend}>Revisar e reenviar</button></div></section>}
       <section><h3 className="cd-section-title"><CalendarClock size={17}/>Próxima ação comercial</h3><div className="cd-action-summary"><strong>{next.title}</strong><span>{next.done?'Concluída':'Pendente'}{next.due_at?' · '+date(next.due_at):' · Prazo a definir'}</span><button onClick={()=>setTab('history')}>Gerenciar ação</button></div></section>
       
      </div>}
