@@ -54,6 +54,9 @@ begin
      or not has_function_privilege('service_role','public.crm_record_first_contact(uuid,uuid,text,uuid)','execute') then
     raise exception 'first contact RPC unavailable to service role';
   end if;
+  if not has_table_privilege('service_role','public.crm_records','select') then
+    raise exception 'mail-api cannot read deals as service role';
+  end if;
 end
 $test$;
 
