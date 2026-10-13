@@ -1,9 +1,9 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { SupabaseMailDatabase } from '../mail/database.ts';
 import { SmtpClient } from '../mail/transport.ts';
 import { buildMimeMessage } from '../mail/mime.ts';
 
-type Db = ReturnType<typeof createClient>;
+type Db = SupabaseClient<any,'public','public',any,any>;
 type Order = {
  id:string; reference:string; customer_name:string; customer_email:string; company:string;
  status:string; paid_at:string|null; stripe_customer_id:string|null; stripe_subscription_id:string|null;
