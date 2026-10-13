@@ -139,6 +139,7 @@ Deno.serve(async (req: Request) => {
       p_subscription_id:invoiceSubscription||'',
       p_amount_cents:Math.round(Number(source.amount_paid??source.amount_due??0)),
       p_currency:source.currency||'brl',
+      p_billing_reason:typeof source.billing_reason==='string'?source.billing_reason:null,
     });
     if(error||!result?.ok)return json({error:'Invoice reconciliation unavailable'},503);
     return json({received:true,unlinked:!!result.unlinked,duplicate:!!result.duplicate});
