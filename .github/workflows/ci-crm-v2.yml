@@ -38,4 +38,5 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/company-enrich/index.ts
           deno check --node-modules-dir=auto supabase/functions/mail-sync/index.ts
           deno check --node-modules-dir=auto supabase/functions/mail-api/index.ts
+          deno check --node-modules-dir=auto supabase/functions/stripe-webhook/index.ts
           deno test supabase/functions/tests/lead_intake_contract_test.ts supabase/functions/tests/mail_protocol_test.ts supabase/functions/tests/mail_mime_test.ts supabase/functions/tests/mail_sync_test.ts supabase/functions/tests/mail_actions_test.ts supabase/functions/tests/first_contact_template_test.ts supabase/functions/tests/first_contact_action_test.ts
