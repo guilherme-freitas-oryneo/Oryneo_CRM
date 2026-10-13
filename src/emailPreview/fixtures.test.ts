@@ -4,7 +4,12 @@ import { firstContactScenarios } from './fixtures';
 describe('firstContactScenarios', () => {
   it('cobre os oito cenários representativos aprovados para o lote 1', () => {
     expect(firstContactScenarios).toHaveLength(8);
-    expect(new Set(firstContactScenarios.map((scenario) => scenario.input.acquisitionChannel)).size).toBe(8);
+    expect(new Set(firstContactScenarios.map((scenario) => scenario.input.acquisitionChannels?.length))).toEqual(
+      new Set([1, 2, 3, 4]),
+    );
+    for (const scenario of firstContactScenarios) {
+      expect(scenario.input.acquisitionChannels).toContain(scenario.input.primaryAcquisitionChannel);
+    }
     expect(new Set(firstContactScenarios.map((scenario) => scenario.input.intent))).toEqual(
       new Set(['conversation', 'contract']),
     );

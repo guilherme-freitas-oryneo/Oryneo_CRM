@@ -8,73 +8,146 @@ const base: FirstContactInput = {
   plan: 'Growth',
   cycle: 'annual',
   addOns: ['landing-page', 'traffic'],
+  goals: ['Atrair contatos com páginas e anúncios', 'Organizar contatos e negociações no CRM'],
   primaryGoal: 'Atrair contatos com páginas e anúncios',
-  acquisitionChannel: 'Indicações e parcerias',
+  acquisitionChannels: ['Indicações e parcerias'],
+  primaryAcquisitionChannel: 'Indicações e parcerias',
 };
 
-describe('renderFirstContactEmail', () => {
-  it('gera a abordagem consultiva sem posicionamento executivo', () => {
-    const email = renderFirstContactEmail(base);
+const channelGroups = [
+  {
+    id: 'single',
+    acquisitionChannels: ['Google'],
+    primaryAcquisitionChannel: 'Google',
+    marker: 'busca, conversão e avanço comercial',
+  },
+  {
+    id: 'two-three',
+    acquisitionChannels: ['Indicações e parcerias', 'Instagram e Facebook', 'Google'],
+    primaryAcquisitionChannel: 'Indicações e parcerias',
+    marker: 'Também entram no contexto Instagram e Facebook e Google',
+  },
+  {
+    id: 'four-plus',
+    acquisitionChannels: ['Indicações e parcerias', 'Instagram e Facebook', 'Google', 'Prospecção ativa'],
+    primaryAcquisitionChannel: 'Google',
+    marker: 'diferentes frentes',
+  },
+  {
+    id: 'unpredictable',
+    acquisitionChannels: ['Ainda não temos um canal previsível'],
+    primaryAcquisitionChannel: 'Ainda não temos um canal previsível',
+    marker: 'primeiro processo de aquisição mensurável',
+  },
+] as const;
 
-    expect(email.subject).toBe('Sua solicitação na ORYNEO');
-    expect(email.text).toContain('Olá, Rafael.');
-    expect(email.text).toContain('plano Growth, no ciclo anual, com landing page de conversão e gestão de tráfego pago');
-    expect(email.text).toContain('Qual período funciona melhor para você: manhã ou tarde?');
-    expect(`${email.subject}\n${email.text}`).not.toMatch(/fundador|ceo|diretor|executiv/iu);
+const commercialVariants = [
+  { id: 'monthly-none', cycle: 'monthly', addOns: [] },
+  { id: 'monthly-lp', cycle: 'monthly', addOns: ['landing-page'] },
+  { id: 'monthly-both', cycle: 'monthly', addOns: ['landing-page', 'traffic'] },
+  { id: 'annual-none', cycle: 'annual', addOns: [] },
+  { id: 'annual-traffic', cycle: 'annual', addOns: ['traffic'] },
+  { id: 'annual-both', cycle: 'annual', addOns: ['landing-page', 'traffic'] },
+] as const;
+
+const combinations = (['conversation', 'contract'] as const).flatMap((intent) =>
+  channelGroups.flatMap((channel) =>
+    commercialVariants.map((commercial) => ({ intent, channel, commercial })),
+  ),
+);
+
+describe('renderFirstContactEmail', () => {
+  it.each(combinations)('$intent · $channel.id · $commercial.id', ({ intent, channel, commercial }) => {
+    const email = renderFirstContactEmail({
+      ...base,
+      intent,
+      cycle: commercial.cycle,
+      addOns: [...commercial.addOns],
+      acquisitionChannels: [...channel.acquisitionChannels],
+      primaryAcquisitionChannel: channel.primaryAcquisitionChannel,
+    });
+
+    expect(email.subject).toBe(intent === 'contract'
+      ? 'Próximo passo da sua solicitação — ORYNEO'
+      : 'Sua solicitação na ORYNEO');
+    expect(email.text).toContain(channel.marker);
+    expect(email.text).toContain('Atrair contatos com páginas e anúncios');
+    expect(email.text).toContain(commercial.cycle === 'annual' ? 'ciclo anual' : 'ciclo mensal');
+    expect(email.html).toContain(channel.marker);
+    expect(email.html).not.toMatch(/fonts\.googleapis|@font-face|oryneo-(?:y|wordmark-master|wordmark-color)/iu);
+    expect(email.text).not.toMatch(/fundador|ceo|diretor|executiv/iu);
   });
 
-  it('diferencia contratação de conversa sem prometer uma venda concluída', () => {
+  it('usa o canal legado quando a lista nova não existe', () => {
+    const email = renderFirstContactEmail({
+      ...base,
+      acquisitionChannels: undefined,
+      primaryAcquisitionChannel: undefined,
+      acquisitionChannel: 'Loja física e eventos',
+    });
+
+    expect(email.text).toContain('contatos offline');
+  });
+
+  it('não inventa canal principal quando o valor é ausente ou inconsistente', () => {
+    const missing = renderFirstContactEmail({
+      ...base,
+      acquisitionChannels: ['Google', 'Prospecção ativa'],
+      primaryAcquisitionChannel: '',
+    });
+    const inconsistent = renderFirstContactEmail({
+      ...base,
+      acquisitionChannels: ['Google', 'Prospecção ativa'],
+      primaryAcquisitionChannel: 'Instagram e Facebook',
+    });
+
+    expect(missing.text).toContain('Você indicou Google e Prospecção ativa');
+    expect(inconsistent.text).toContain('Você indicou Google e Prospecção ativa');
+    expect(`${missing.text}\n${inconsistent.text}`).not.toContain('canal principal');
+  });
+
+  it('escapa dados, remove controles e mantém HTML e texto semanticamente equivalentes', () => {
+    const email = renderFirstContactEmail({
+      ...base,
+      firstName: '<Rafael>\r\nBcc: outra@empresa.com',
+      company: 'A&B<script>',
+      primaryGoal: 'Organizar <vendas> & marketing',
+      goals: ['Organizar <vendas> & marketing'],
+      logoUrl: 'https://cdn.oryneo.com.br/oryneo-wordmark-mono.png?x=1&y=2',
+    });
+
+    expect(email.html).toContain('&lt;Rafael&gt; Bcc: outra@empresa.com');
+    expect(email.html).toContain('A&amp;B&lt;script&gt;');
+    expect(email.html).toContain('Organizar &lt;vendas&gt; &amp; marketing');
+    expect(email.html).not.toContain('<script>');
+    expect(email.html).toContain('https://cdn.oryneo.com.br/oryneo-wordmark-mono.png?x=1&amp;y=2');
+    expect(email.text).not.toMatch(/<(?:html|body|p|table|a)\b/iu);
+    for (const sentence of [
+      'Olá, <Rafael> Bcc: outra@empresa.com.',
+      'Organizar <vendas> & marketing',
+      'Qual período funciona melhor para você: manhã ou tarde?',
+      'Guilherme',
+    ]) {
+      expect(email.text).toContain(sentence);
+      expect(email.html.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')).toContain(sentence);
+    }
+  });
+
+  it('omite imagem quando não há URL e usa somente wordmark monocromático quando injetado', () => {
+    const withoutLogo = renderFirstContactEmail(base);
+    const withLogo = renderFirstContactEmail({ ...base, logoUrl: 'https://oryneo.com.br/assets/oryneo-wordmark-mono-reverse.png' });
+
+    expect(withoutLogo.html).not.toContain('<img');
+    expect(withLogo.html).toContain('<img');
+    expect(withLogo.html).toContain('oryneo-wordmark-mono-reverse.png');
+    expect(withLogo.html).toContain('alt="ORYNEO"');
+  });
+
+  it('diferencia contratação sem prometer venda concluída', () => {
     const email = renderFirstContactEmail({ ...base, intent: 'contract' });
 
-    expect(email.subject).toBe('Próximo passo da sua solicitação — ORYNEO');
     expect(email.text).toContain('Antes de formalizarmos a contratação');
     expect(email.text).toContain('validar a configuração escolhida');
     expect(email.text).not.toMatch(/contratação confirmada|bem-vindo como cliente/iu);
-  });
-
-  it.each([
-    ['Indicações e parcerias', 'preservar essa força'],
-    ['Instagram e Facebook', 'captados, atendidos e acompanhados'],
-    ['Google', 'busca, conversão e avanço comercial'],
-    ['Prospecção ativa', 'cadência atual'],
-    ['Portais e marketplaces', 'diferentes origens dentro de um fluxo único'],
-    ['Loja física e eventos', 'contatos offline'],
-    ['Ainda não temos um canal previsível', 'primeiro processo de aquisição mensurável'],
-    ['Outro canal', 'entender o fluxo atual'],
-  ] as const)('contextualiza o canal %s', (acquisitionChannel, expected) => {
-    const email = renderFirstContactEmail({ ...base, acquisitionChannel });
-    expect(email.text).toContain(expected);
-  });
-
-  it('omite complementos quando somente o plano foi selecionado', () => {
-    const email = renderFirstContactEmail({ ...base, cycle: 'monthly', addOns: [] });
-
-    expect(email.text).toContain('plano Growth, no ciclo mensal.');
-    expect(email.text).not.toContain('landing page');
-    expect(email.text).not.toContain('tráfego pago');
-  });
-
-  it('escapa dados do lead e usa o wordmark oficial totalmente monocromático', () => {
-    const email = renderFirstContactEmail({ ...base, firstName: '<Rafael>', company: 'A&B' });
-
-    expect(email.html).toContain('&lt;Rafael&gt;');
-    expect(email.html).toContain('A&amp;B');
-    expect(email.html).not.toContain('<Rafael>');
-    expect(email.html).toContain('oryneo-wordmark-mono.png');
-    expect(email.html).not.toContain('oryneo-wordmark-master.png');
-    expect(email.html).not.toContain('oryneo-wordmark.png');
-    expect(email.html).toContain('alt="ORYNEO"');
-    expect(email.html).toContain('#0F1115');
-    expect(email.html).toContain('#4F6BFF');
-    expect(email.html).toContain('#F8F7F4');
-    expect(email.html).toContain('@media screen and (max-width: 480px)');
-  });
-
-  it('entrega texto simples equivalente e sem marcação HTML', () => {
-    const email = renderFirstContactEmail(base);
-
-    expect(email.preheader).toContain('Empresa X');
-    expect(email.text).toContain('Guilherme\nORYNEO\nCrescimento em sistema.');
-    expect(email.text).not.toMatch(/<\/?[a-z][^>]*>/iu);
   });
 });
