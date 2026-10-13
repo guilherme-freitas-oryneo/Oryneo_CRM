@@ -51,9 +51,10 @@ Deno.serve(async(req:Request)=>{
   const lookup=normalized.cnpj?await lookupCnpj(normalized.cnpj):null;
   if(!lookup)return response({error:'Informe um CNPJ válido para continuar.'},400);
   if(lookup.notFound)return response({error:'Não encontramos esse CNPJ. Confira os números e tente novamente.'},422);
-  if(!lookup.profile)return response({error:'Não foi possível consultar o CNPJ agora. Tente novamente em instantes.'},503);
+  // A indisponibilidade temporária da BrasilAPI não deve descartar um lead válido.
+  // O CRM tenta enriquecer o cadastro ao abrir os detalhes da empresa.
   const profile=lookup.profile;
-  const company=profile.trade_name||profile.legal_name||normalized.cnpj;
+  const company=profile?.trade_name||profile?.legal_name||`CNPJ ${normalized.cnpj}`;
   const fingerprint=await digest(digits(normalized.phone)+Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const record={
    title:('Solicitação · '+company).slice(0,160),company,contact:normalized.contact,email:normalized.email,phone:normalized.phone,
