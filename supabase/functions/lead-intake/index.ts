@@ -48,7 +48,7 @@ Deno.serve(async(req:Request)=>{
   let normalized:ReturnType<typeof normalizeIntakePayload>;
   try{normalized=normalizeIntakePayload(body)}catch{return response({error:'Confira os dados da solicitação e tente novamente.'},400)}
   const profile=normalized.cnpj?await lookupCnpj(normalized.cnpj):null;
-  const company=normalized.company||profile?.trade_name||profile?.legal_name||normalized.contact;
+  const company=profile?.trade_name||profile?.legal_name||normalized.company||normalized.cnpj;
   const fingerprint=await digest(digits(normalized.phone)+Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const record={
    title:('Solicitação · '+company).slice(0,160),company,contact:normalized.contact,email:normalized.email,phone:normalized.phone,

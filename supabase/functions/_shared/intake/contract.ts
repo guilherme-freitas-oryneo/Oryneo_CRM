@@ -113,6 +113,19 @@ export function normalizedCnpj(value: unknown): string {
   return clean(value, 50).toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+export function validCnpj(value: string): boolean {
+  if (value.length !== 14 || /^(\d)\1{13}$/.test(value)) return false;
+  const digit = (length: 12 | 13): number => {
+    const weights = length === 12
+      ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+      : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const total = weights.reduce((sum, weight, index) => sum + Number(value[index]) * weight, 0);
+    const remainder = total % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+  return Number(value[12]) === digit(12) && Number(value[13]) === digit(13);
+}
+
 function validName(value: string): boolean {
   return value.length >= 2
     && /^\p{L}[\p{L}\p{M}'’ -]*$/u.test(value)
@@ -267,7 +280,7 @@ export function normalizeIntakePayload(input: Record<string, unknown>): Normaliz
   const intent = clean(input.intent, 30) || 'conversation';
   const company = clean(input.company, 160);
   const cnpj = normalizedCnpj(input.cnpj);
-  if (!['conversation', 'contract'].includes(intent) || company.length < 2 || !/[\p{L}\p{N}]/u.test(company) || (cnpj && cnpj.length !== 14)) {
+  if (!['conversation', 'contract'].includes(intent) || !validCnpj(cnpj)) {
     throw new Error('INVALID_COMMERCIAL');
   }
   const channelSelection = acquisition(input);

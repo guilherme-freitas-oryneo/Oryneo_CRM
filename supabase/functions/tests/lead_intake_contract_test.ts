@@ -8,8 +8,8 @@ const base = {
   phone: '(11) 99999-0000',
   email: ' MARINA@EXEMPLO.COM ',
   consent: true,
-  company: 'Acme',
-  cnpj: '',
+  company: '',
+  cnpj: '04.252.011/0001-10',
   summary: 'Quero organizar a operação.',
   plan: 'Growth',
   cycle: 'annual',
@@ -124,12 +124,13 @@ Deno.test('recusa nome, e-mail e WhatsApp inválidos também em chamadas diretas
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', consent: false }), /INVALID_CONTACT/);
 });
 
-Deno.test('aceita contratação sem CNPJ e exige empresa identificável', () => {
+Deno.test('exige CNPJ válido e permite que o perfil da empresa venha da consulta', () => {
   const result = normalizeIntakePayload({ ...base, acquisition_channel: 'Google', intent: 'contract' });
   assert.equal(result.formSubmission.intent, 'contract');
-  assert.equal(result.cnpj, '');
-  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', company: ' ' }), /INVALID_COMMERCIAL/);
-  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', company: '--' }), /INVALID_COMMERCIAL/);
+  assert.equal(result.cnpj, '04252011000110');
+  assert.equal(result.company, '');
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', cnpj: '' }), /INVALID_COMMERCIAL/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', cnpj: '12.345.678/0001-99' }), /INVALID_COMMERCIAL/);
 });
 
 Deno.test('recalcula a cotação e ignora preços enviados pelo navegador', () => {
