@@ -92,6 +92,11 @@ export function PaymentPageView({ order, paymentSlot, onPay, busy = false }: {
           <span>Próxima cobrança</span><strong>{shortDate(order.recurring.next_charge_at) || 'Após o período inicial'}</strong>
           <span>Valor recorrente</span><strong>{money(order.recurring.amount_cents)} {order.recurring.interval_label}</strong>
         </div>}
+        {order.items.some(item=>item.key==='traffic') && <div className="pay-recurring" style={{marginTop:12}}>
+          <span>Gestão de tráfego · renovação</span><strong>Após 3 meses iniciais</strong>
+          <span>Valor trimestral</span><strong>{money(order.items.find(item=>item.key==='traffic')?.amount_cents||0)} a cada 3 meses</strong>
+          <span style={{gridColumn:'1 / -1',lineHeight:1.7}}>Verba de mídia paga separadamente. A renovação é independente do ciclo do plano principal.</span>
+        </div>}
         <p className="pay-help">Dúvidas sobre o pedido? Fale com a ORYNEO antes de concluir.</p>
       </aside>
     </div>

@@ -37,4 +37,15 @@ describe('PaymentPageView', () => {
     await user.click(screen.getByRole('checkbox'));
     expect(button).toBeEnabled();
   });
+  it('informa renovação trimestral separada e verba de mídia quando tráfego é contratado', () => {
+    const withTraffic = {...order,
+      items:[...order.items,{key:'traffic',label:'Gestão de tráfego pago',detail:'Primeiros 3 meses antecipados',amount_cents:296970}],
+      amount_total:order.amount_total+296970,
+    };
+    render(<PaymentPageView order={withTraffic} paymentSlot={<div>Campos seguros</div>} onPay={() => undefined}/>);
+    expect(screen.getByText(/Valor trimestral/)).toBeInTheDocument();
+    expect(screen.getByText(/R\$ 2.969,70 a cada 3 meses/)).toBeInTheDocument();
+    expect(screen.getByText(/Verba de mídia paga separadamente/)).toBeInTheDocument();
+  });
+
 });
