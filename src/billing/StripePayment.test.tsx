@@ -77,12 +77,12 @@ describe('StripePayment', () => {
     expect(await screen.findByRole('heading', {name:'Pagamento confirmado.'})).toBeInTheDocument();
   });
 
-  it('orienta o usuário quando os campos Stripe estão incompletos', async () => {
-    const confirm=vi.fn();
+  it('não bloqueia o pagamento quando canConfirm está desatualizado', async () => {
+    const confirm=vi.fn().mockResolvedValue({type:'error',error:{message:'Confira os dados do cartão.'}});
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:false,confirm}});
     render(<StripePayment order={order}/>);
     await consentAndPay();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Confira os dados de pagamento');
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Confira os dados do cartão.');
   });
 });
