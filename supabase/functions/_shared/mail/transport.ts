@@ -22,7 +22,7 @@ const decoder = new TextDecoder();
 const defaultConnector: MailConnector = async (host, port) => await Deno.connectTls({ hostname: host, port });
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, onTimeout: () => void): Promise<T> {
-  let timeout: number | undefined;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   const expired = new Promise<never>((_, reject) => {
     timeout = setTimeout(() => {
       onTimeout();
