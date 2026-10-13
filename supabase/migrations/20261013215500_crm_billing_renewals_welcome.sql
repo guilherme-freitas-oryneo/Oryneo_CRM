@@ -134,7 +134,7 @@ end
 $$;
 revoke all on function public.crm_record_stripe_invoice_event(text,text,text,text,integer,text,text)
  from public,anon,authenticated;
-grant execute on function public.crm_record_stripe_invoice_event(text,text,text,text,integer,text) to service_role;
+grant execute on function public.crm_record_stripe_invoice_event(text,text,text,text,integer,text,text) to service_role;
 
 create or replace function public.crm_record_stripe_subscription_event(
  p_event_id text,p_event_type text,p_subscription_id text,p_status text
