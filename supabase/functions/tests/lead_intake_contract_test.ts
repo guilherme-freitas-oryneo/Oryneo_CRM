@@ -140,3 +140,24 @@ Deno.test('recalcula a cotação e ignora preços enviados pelo navegador', () =
   assert.throws(() => quoteSelection({ ...base, plan: 'Enterprise' }), /INVALID_COMMERCIAL/);
   assert.throws(() => quoteSelection({ ...base, services: ['traffic', 'root-access'] }), /INVALID_COMMERCIAL/);
 });
+
+Deno.test('conversa pode chegar sem configuração, mas contratação exige plano', () => {
+  const consultive = normalizeIntakePayload({
+    ...base,
+    intent: 'conversation',
+    plan: '',
+    cycle: '',
+    services: [],
+    acquisition_channel: 'Google',
+  });
+  assert.equal(consultive.quote, null);
+  assert.equal(consultive.formSubmission.intent, 'conversation');
+  assert.throws(() => normalizeIntakePayload({
+    ...base,
+    intent: 'contract',
+    plan: '',
+    cycle: '',
+    services: [],
+    acquisition_channel: 'Google',
+  }), /INVALID_COMMERCIAL/);
+});

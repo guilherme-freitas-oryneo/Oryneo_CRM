@@ -274,6 +274,8 @@ export function normalizeIntakePayload(input: Record<string, unknown>): Normaliz
   const goalSelection = goals(input, channelSelection.modern);
   const teamSize = clean(input.team_size, 70);
   if (!TEAM_SIZES.includes(teamSize as typeof TEAM_SIZES[number])) throw new Error('INVALID_ACQUISITION');
+  const quote = quoteSelection(input);
+  if (intent === 'contract' && !quote) throw new Error('INVALID_COMMERCIAL');
 
   return {
     requestId,
@@ -283,7 +285,7 @@ export function normalizeIntakePayload(input: Record<string, unknown>): Normaliz
     company,
     cnpj,
     summary: clean(input.summary, 11_000),
-    quote: quoteSelection(input),
+    quote,
     formSubmission: {
       intent: intent as Intent,
       goals: goalSelection.selected,
