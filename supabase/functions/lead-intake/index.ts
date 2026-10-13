@@ -18,15 +18,16 @@ function companyProfile(data:Record<string,unknown>){
   email:safeText(data.email,254).toLowerCase(),phone:safeText(data.ddd_telefone_1,40),secondary_phone:safeText(data.ddd_telefone_2,40),qsa
  };
 }
-async function lookupCnpj(cnpj:string){
+async function lookupCnpj(cnpj:string):Promise<{profile:ReturnType<typeof companyProfile>|null;notFound:boolean}>{
  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),7500);
  try {
   const r=await fetch('https://brasilapi.com.br/api/cnpj/v1/'+cnpj,{signal:controller.signal,headers:{Accept:'application/json'}});
-  if(!r.ok)return null;
+  if(r.status===404)return {profile:null,notFound:true};
+  if(!r.ok)return {profile:null,notFound:false};
   const j=await r.json();
-  if(!j||typeof j!=='object'||normalizedCnpj(j.cnpj)!==cnpj)return null;
-  return companyProfile(j);
- }catch{return null}finally{clearTimeout(timeout)}
+  if(!j||typeof j!=='object'||normalizedCnpj(j.cnpj)!==cnpj)return {profile:null,notFound:false};
+  return {profile:companyProfile(j),notFound:false};
+ }catch{return {profile:null,notFound:false}}finally{clearTimeout(timeout)}
 }
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get('origin')||'';
@@ -47,8 +48,12 @@ Deno.serve(async(req:Request)=>{
   if(body.website)return response({ok:true});
   let normalized:ReturnType<typeof normalizeIntakePayload>;
   try{normalized=normalizeIntakePayload(body)}catch{return response({error:'Confira os dados da solicitação e tente novamente.'},400)}
-  const profile=normalized.cnpj?await lookupCnpj(normalized.cnpj):null;
-  const company=profile?.trade_name||profile?.legal_name||normalized.company||normalized.cnpj;
+  const lookup=normalized.cnpj?await lookupCnpj(normalized.cnpj):null;
+  if(!lookup)return response({error:'Informe um CNPJ válido para continuar.'},400);
+  if(lookup.notFound)return response({error:'Não encontramos esse CNPJ. Confira os números e tente novamente.'},422);
+  if(!lookup.profile)return response({error:'Não foi possível consultar o CNPJ agora. Tente novamente em instantes.'},503);
+  const profile=lookup.profile;
+  const company=profile.trade_name||profile.legal_name||normalized.cnpj;
   const fingerprint=await digest(digits(normalized.phone)+Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const record={
    title:('Solicitação · '+company).slice(0,160),company,contact:normalized.contact,email:normalized.email,phone:normalized.phone,
