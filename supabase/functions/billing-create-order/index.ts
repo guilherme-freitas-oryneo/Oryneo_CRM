@@ -30,6 +30,7 @@ Deno.serve(async req=>{
  if(insertError)return respond({error:'Não foi possível preparar o pedido.'},503);
  const form=new URLSearchParams();
  form.set('mode','subscription');form.set('ui_mode','elements');form.set('customer_email',String(data.email));
+ form.set('locale','pt-BR');
  form.set('return_url',`${origin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`);
  form.set('metadata[oryneo_order_id]',orderId);form.set('metadata[oryneo_deal_id]',deal.id);
  if(selection.trafficRenewalPriceId)form.set('metadata[oryneo_traffic_renewal_price]',selection.trafficRenewalPriceId);

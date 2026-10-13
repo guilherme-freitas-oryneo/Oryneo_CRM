@@ -8,7 +8,8 @@ Deno.serve(async req=>{
  if(origin&&!origins.has(origin))return respond({error:'Origem não autorizada.'},403);if(req.method==='OPTIONS')return new Response(null,{status:204,headers});if(req.method!=='POST')return respond({error:'Método não permitido.'},405);
  let body:{token?:string};try{body=await req.json()}catch{return respond({error:'Solicitação inválida.'},400)}
  const publicToken=typeof body.token==='string'?body.token:'';if(publicToken.length<40)return respond({error:'Link inválido.'},400);
- const {data:order}=await db.from('crm_billing_orders').select('*').eq('public_token_hash',await hash(publicToken)).maybeSingle();
+ const {data:order,error:orderError}=await db.from('crm_billing_orders').select('*').eq('public_token_hash',await hash(publicToken)).maybeSingle();
+ if(orderError){console.error('billing-public order lookup failed',{code:orderError.code,message:orderError.message});return respond({error:'Não foi possível consultar este pedido.'},503)}
  if(!order)return respond({error:'Pedido não encontrado.'},404);
  let status=order.status;if(status==='awaiting_payment'&&new Date(order.expires_at).getTime()<Date.now()){status='expired';await db.from('crm_billing_orders').update({status}).eq('id',order.id)}
  let clientSecret:string|null=null;
