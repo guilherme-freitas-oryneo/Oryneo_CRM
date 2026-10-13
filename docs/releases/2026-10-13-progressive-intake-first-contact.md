@@ -12,8 +12,8 @@ Data operacional: 2026-10-13 (UTC)
 
 | Componente | SHA aprovado | Verificação | Resultado |
 | --- | --- | --- | --- |
-| CRM | `8503b9b` | 90 Vitest; 45 Deno; typecheck das quatro Edge Functions; build Vite | aprovado |
-| Banco | migration `20261013034305_crm_first_contact_sla` | teste SQL transacional em PostgreSQL 17 com IDs reais das etapas | aprovado |
+| CRM | `0980f73` + correção `b3dc256` | 90 Vitest; 45 Deno; typecheck das quatro Edge Functions; build Vite | aprovado |
+| Banco | migrations `20261013054651` e `20261013060434` | teste SQL transacional no projeto de produção, inclusive privilégios mínimos | aprovado |
 | Landing | `6f9b939` | 23 testes Node; sintaxe dos scripts; ativos, privacidade, watermark e sitemap | aprovado |
 
 Aviso conhecido e não bloqueante: o bundle principal do CRM permanece acima de 500 kB minificado; o build conclui e não houve regressão funcional. Nenhum segredo foi incluído nos artefatos.
@@ -43,13 +43,21 @@ Esta seção deve ser preenchida somente após cada verificação real; ausênci
 
 | Etapa | Versão/SHA ativo | Evidência redigida | Estado |
 | --- | --- | --- | --- |
-| Banco e advisors pós-migration | pendente | pendente | pendente |
-| `lead-intake` e CORS | pendente | pendente | pendente |
-| `mail-api` e autenticação | pendente | pendente | pendente |
-| CRM público e sessão autenticada | pendente | pendente | pendente |
-| SMTP + Enviados + IMAP + vínculo | pendente | pendente | pendente |
-| Landing `/comecar/` e submissões | pendente | pendente | pendente |
-| CTAs e smoke conjunto | pendente | pendente | pendente |
+| Banco e advisors pós-migration | `20261013054651` + `20261013060434` | Teste SQL transacional passou. `service_role` pode ler o contexto do lead, mas não possui escrita direta em `crm_records`; mutação segue pela RPC. Advisors sem regressão em relação ao baseline. | aprovado |
+| `lead-intake` e CORS | Edge v5 | Preflight público retornou 204 para a origem do GitHub Pages. Payload legado, payload progressivo e submissão da página publicada retornaram 200. | aprovado |
+| `mail-api` e autenticação | Edge v9, JWT obrigatório | Versão final sem rota temporária; três chaves de homologação removidas e contagem confirmada em zero. Reuso do antigo cabeçalho retornou 401. | aprovado |
+| CRM público e sessão autenticada | Pages `0980f73`, run `38353480904` | Página pública retornou 200; autorização de membro e ações da interface cobertas pela suíte automatizada. Nenhuma senha do usuário foi alterada ou reutilizada. | aprovado |
+| SMTP + Enviados + IMAP + vínculo | SMTP/IMAP Hostinger, 2026-10-13 | Os dois modelos foram aceitos pelo SMTP com uma tentativa cada e sincronizados em `INBOX.Sent`. Retry da mesma chave retornou `alreadyAccepted=true`, mantendo um outbox e um evento. Loop de recebimento importou uma mensagem e a deduplicou entre `INBOX` e `INBOX.Sent`. Etapas permaneceram inalteradas e o próximo passo foi atualizado. | aprovado |
+| Landing `/comecar/` e submissões | Pages `6f9b939`, run `38355455083` | `/`, `/comecar/`, privacidade e wordmark retornaram 200. Submissão pública controlada criou o lead `b5a8c33a-c96e-429e-9fb7-e52817449bf5` com cotação, múltiplos canais, prioridades, atribuição e SLA íntegros. | aprovado |
+| CTAs e smoke conjunto | `6f9b939` + Edge v5/v9 | CTAs comerciais apontam para `/comecar/`; formulário exibe seis etapas, consentimento, marca d'água monocromática e transporte resiliente. | aprovado |
+
+## Homologação operacional
+
+- Conversa: assunto `Sua solicitação na ORYNEO`, enviada para endereço controlado, outbox `sent`, uma tentativa, um evento.
+- Contratação: assunto `Próximo passo da sua solicitação — ORYNEO`, enviada para endereço controlado, outbox `sent`, uma tentativa, um evento.
+- Recebimento: mensagem controlada presente em uma única entidade de mensagem, localizada tanto em `INBOX` quanto em `INBOX.Sent`.
+- Sincronização: 33 execuções bem-sucedidas e nenhuma falha nos 30 minutos finais da homologação; backlog zero nas execuções manuais.
+- Segurança: a janela de homologação existiu apenas nas versões intermediárias 6–8; a versão ativa 9 contém exclusivamente a autenticação normal por usuário/membro.
 
 ## Limites explícitos
 
