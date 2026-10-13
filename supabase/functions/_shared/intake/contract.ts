@@ -87,10 +87,18 @@ const VALID_BRAZILIAN_DDDS = new Set([
   '69', '71', '73', '74', '75', '77', '79', '81', '82', '83', '84', '85', '86', '87',
   '88', '89', '91', '92', '93', '94', '95', '96', '97', '98', '99',
 ]);
-const EMAIL_DOMAIN_TYPOS = new Set([
-  'gmal.com', 'gmial.com', 'gmai.com', 'gmayg.com', 'gemau.com', 'gemau',
-  'hotmai.com', 'hotmal.com', 'outlok.com',
+const EMAIL_DOMAIN_CORRECTIONS = new Map([
+  ['gmal.com', 'gmail.com'], ['gmial.com', 'gmail.com'], ['gmai.com', 'gmail.com'], ['gmayg.com', 'gmail.com'],
+  ['gemau.com', 'gmail.com'], ['gemau', 'gmail.com'], ['gmail.com.br', 'gmail.com'],
+  ['hotmai.com', 'hotmail.com'], ['hotmal.com', 'hotmail.com'], ['hotmail.com.br', 'hotmail.com'],
+  ['outlok.com', 'outlook.com'], ['outlook.com.br', 'outlook.com'], ['icloud.com.br', 'icloud.com'],
 ]);
+const COMMON_EMAIL_DOMAINS = [
+  'gmail.com', 'hotmail.com', 'outlook.com', 'live.com', 'msn.com', 'yahoo.com', 'yahoo.com.br',
+  'icloud.com', 'me.com', 'mac.com', 'proton.me', 'protonmail.com', 'uol.com.br', 'bol.com.br',
+  'terra.com.br', 'globo.com', 'globomail.com', 'ig.com.br', 'zipmail.com.br', 'aol.com',
+  'fastmail.com', 'zoho.com', 'mail.com', 'ymail.com',
+];
 
 export function clean(value: unknown, max = 200): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -118,11 +126,44 @@ function validEmail(value: string): boolean {
   return labels.length >= 2 && labels.every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
 }
 
+function damerauLevenshtein(left: string, right: string): number {
+  const matrix = Array.from({ length: left.length + 1 }, (_, row) => [row]);
+  for (let column = 0; column <= right.length; column += 1) matrix[0][column] = column;
+  for (let row = 1; row <= left.length; row += 1) {
+    for (let column = 1; column <= right.length; column += 1) {
+      const cost = left[row - 1] === right[column - 1] ? 0 : 1;
+      matrix[row][column] = Math.min(
+        matrix[row - 1][column] + 1,
+        matrix[row][column - 1] + 1,
+        matrix[row - 1][column - 1] + cost,
+      );
+      if (row > 1 && column > 1 && left[row - 1] === right[column - 2] && left[row - 2] === right[column - 1]) {
+        matrix[row][column] = Math.min(matrix[row][column], matrix[row - 2][column - 2] + cost);
+      }
+    }
+  }
+  return matrix[left.length][right.length];
+}
+
+function suspiciousEmailDomain(domain: string): boolean {
+  if (EMAIL_DOMAIN_CORRECTIONS.has(domain)) return true;
+  if (!domain || COMMON_EMAIL_DOMAINS.includes(domain)) return false;
+  const suffixCorrections: Array<[RegExp, string]> = [
+    [/\.con$/, '.com'], [/\.cim$/, '.com'], [/\.vom$/, '.com'], [/\.comm$/, '.com'],
+    [/\.combr$/, '.com.br'], [/\.com\.b$/, '.com.br'], [/\.com\.r$/, '.com.br'],
+    [/\.cpm\.br$/, '.com.br'], [/\.con\.br$/, '.com.br'], [/\.co\.br$/, '.com.br'],
+  ];
+  if (suffixCorrections.some(([pattern]) => pattern.test(domain))) return true;
+  return COMMON_EMAIL_DOMAINS.some((candidate) => damerauLevenshtein(domain, candidate) <= 2);
+}
+
 function validBrazilianPhone(value: string): boolean {
+  const subscriber = value.slice(3);
   return value.length === 11
     && VALID_BRAZILIAN_DDDS.has(value.slice(0, 2))
     && value[2] === '9'
-    && !/^(\d)\1+$/.test(value);
+    && !/^(\d)\1+$/.test(value)
+    && !/^(\d)\1{7}$/.test(subscriber);
 }
 
 function uniqueStrings(value: unknown, maxInput: number, maxLength: number, errorCode: string): string[] {
@@ -216,7 +257,7 @@ export function normalizeIntakePayload(input: Record<string, unknown>): Normaliz
   const email = clean(input.email, 254).toLowerCase();
   const phoneDigits = digits(phone);
   const emailDomain = email.split('@')[1] || '';
-  if (!UUID.test(requestId) || input.consent !== true || !validName(contact) || !validEmail(email) || EMAIL_DOMAIN_TYPOS.has(emailDomain) || !validBrazilianPhone(phoneDigits)) {
+  if (!UUID.test(requestId) || input.consent !== true || !validName(contact) || !validEmail(email) || suspiciousEmailDomain(emailDomain) || !validBrazilianPhone(phoneDigits)) {
     throw new Error('INVALID_CONTACT');
   }
 

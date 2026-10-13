@@ -107,10 +107,16 @@ Deno.test('recusa nome, e-mail e WhatsApp inválidos também em chamadas diretas
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gmayg.com' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gemau.com' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gemau' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gmaul.com' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gmail.con' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gmail.com.br' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@empresa..com' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', phone: '123' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', phone: '(00) 99999-9999' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', phone: '(11) 88888-8888' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', phone: '(21) 90000-0000' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', phone: '(21) 91111-1111' }), /INVALID_CONTACT/);
+  assert.doesNotThrow(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', phone: '(21) 98765-4321', email: 'contato@oryneo.com.br' }));
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', contact: '1' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', consent: false }), /INVALID_CONTACT/);
 });
