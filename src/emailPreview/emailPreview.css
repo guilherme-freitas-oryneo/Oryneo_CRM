@@ -44,3 +44,15 @@
   .email-preview-controls { justify-content: flex-start; }
   .email-frame-shell.is-mobile, .email-text-preview.is-mobile { width: 100%; }
 }
+
+
+/* Biblioteca transacional: navegação acessível e leitura responsiva. */
+.email-preview-filter{display:flex;gap:6px;flex-wrap:wrap;padding:0 7px 18px}
+.email-preview-filter button{background:#1c2230;color:#bdc6d7;border:1px solid #303746;border-radius:100px;padding:8px 11px;font-size:11px;font-weight:700;cursor:pointer}
+.email-preview-filter button.is-active{background:#8393ff;color:#121827;border-color:#8393ff}
+.email-preview-disclaimer{color:#a1a9b8;font-size:11px;line-height:1.65;margin:27px 7px 0;padding-top:20px;border-top:1px solid #303746}
+.email-preview-label-muted{font-weight:500;color:#8b92a0}
+.email-preview-meta{color:#606d82!important}
+.email-preview-scenarios{max-height:calc(100vh - 390px);overflow:auto;padding-right:3px;overscroll-behavior:contain}
+@media(max-width:900px){.email-preview-scenarios{max-height:none;overflow:visible}}
+@media(max-width:560px){.email-preview-filter{padding:0 0 15px}.email-preview-toolbar{padding-top:20px}}
