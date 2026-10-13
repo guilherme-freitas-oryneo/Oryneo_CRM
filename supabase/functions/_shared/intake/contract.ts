@@ -79,8 +79,17 @@ export type NormalizedIntakePayload = {
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UNPREDICTABLE = 'Ainda não temos um canal previsível';
+const VALID_BRAZILIAN_DDDS = new Set([
+  '11', '12', '13', '14', '15', '16', '17', '18', '19', '21', '22', '24', '27', '28',
+  '31', '32', '33', '34', '35', '37', '38', '41', '42', '43', '44', '45', '46', '47',
+  '48', '49', '51', '53', '54', '55', '61', '62', '63', '64', '65', '66', '67', '68',
+  '69', '71', '73', '74', '75', '77', '79', '81', '82', '83', '84', '85', '86', '87',
+  '88', '89', '91', '92', '93', '94', '95', '96', '97', '98', '99',
+]);
+const EMAIL_DOMAIN_TYPOS = new Set([
+  'gmal.com', 'gmial.com', 'gmai.com', 'gmayg.com', 'hotmai.com', 'hotmal.com', 'outlok.com',
+]);
 
 export function clean(value: unknown, max = 200): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -92,6 +101,27 @@ export function digits(value: unknown): string {
 
 export function normalizedCnpj(value: unknown): string {
   return clean(value, 50).toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function validName(value: string): boolean {
+  return value.length >= 2
+    && /^\p{L}[\p{L}\p{M}'’ -]*$/u.test(value)
+    && (value.match(/\p{L}/gu) || []).length >= 2;
+}
+
+function validEmail(value: string): boolean {
+  const [local, domain, ...extra] = value.split('@');
+  if (!local || !domain || extra.length || value.length > 254 || local.length > 64 || local.includes('..')) return false;
+  if (!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/i.test(local)) return false;
+  const labels = domain.split('.');
+  return labels.length >= 2 && labels.every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
+}
+
+function validBrazilianPhone(value: string): boolean {
+  return value.length === 11
+    && VALID_BRAZILIAN_DDDS.has(value.slice(0, 2))
+    && value[2] === '9'
+    && !/^(\d)\1+$/.test(value);
 }
 
 function uniqueStrings(value: unknown, maxInput: number, maxLength: number, errorCode: string): string[] {
@@ -184,13 +214,15 @@ export function normalizeIntakePayload(input: Record<string, unknown>): Normaliz
   const phone = clean(input.phone, 40);
   const email = clean(input.email, 254).toLowerCase();
   const phoneDigits = digits(phone);
-  if (!UUID.test(requestId) || input.consent !== true || contact.length < 2 || !EMAIL.test(email) || phoneDigits.length < 10 || phoneDigits.length > 13) {
+  const emailDomain = email.split('@')[1] || '';
+  if (!UUID.test(requestId) || input.consent !== true || !validName(contact) || !validEmail(email) || EMAIL_DOMAIN_TYPOS.has(emailDomain) || !validBrazilianPhone(phoneDigits)) {
     throw new Error('INVALID_CONTACT');
   }
 
   const intent = clean(input.intent, 30) || 'conversation';
+  const company = clean(input.company, 160);
   const cnpj = normalizedCnpj(input.cnpj);
-  if (!['conversation', 'contract'].includes(intent) || (cnpj && cnpj.length !== 14) || (intent === 'contract' && cnpj.length !== 14)) {
+  if (!['conversation', 'contract'].includes(intent) || company.length < 2 || !/[\p{L}\p{N}]/u.test(company) || (cnpj && cnpj.length !== 14)) {
     throw new Error('INVALID_COMMERCIAL');
   }
   const channelSelection = acquisition(input);
@@ -203,7 +235,7 @@ export function normalizeIntakePayload(input: Record<string, unknown>): Normaliz
     contact,
     phone,
     email,
-    company: clean(input.company, 160),
+    company,
     cnpj,
     summary: clean(input.summary, 11_000),
     quote: quoteSelection(input),

@@ -102,11 +102,23 @@ Deno.test('sanitiza e limita atribuição', () => {
   assert.equal('ignored' in result.formSubmission.attribution, false);
 });
 
-Deno.test('recusa contato incompleto e CNPJ ausente na contratação', () => {
+Deno.test('recusa nome, e-mail e WhatsApp inválidos também em chamadas diretas', () => {
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: '' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gmayg.com' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@empresa..com' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', phone: '123' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', phone: '(00) 99999-9999' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', phone: '(11) 88888-8888' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', contact: '1' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', consent: false }), /INVALID_CONTACT/);
-  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', intent: 'contract' }), /INVALID_COMMERCIAL/);
+});
+
+Deno.test('aceita contratação sem CNPJ e exige empresa identificável', () => {
+  const result = normalizeIntakePayload({ ...base, acquisition_channel: 'Google', intent: 'contract' });
+  assert.equal(result.formSubmission.intent, 'contract');
+  assert.equal(result.cnpj, '');
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', company: ' ' }), /INVALID_COMMERCIAL/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', company: '--' }), /INVALID_COMMERCIAL/);
 });
 
 Deno.test('recalcula a cotação e ignora preços enviados pelo navegador', () => {
