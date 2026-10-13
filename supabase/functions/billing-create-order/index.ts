@@ -15,7 +15,8 @@ Deno.serve(async req=>{
  const jwt=(req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');
  const {data:{user}}=await db.auth.getUser(jwt);
  if(!user)return respond({error:'Autenticação necessária.'},401);
- const {data:member}=await db.from('crm_members').select('user_id').eq('user_id',user.id).maybeSingle();
+ const {data:member,error:memberError}=await db.from('crm_members').select('user_id').eq('user_id',user.id).maybeSingle();
+ if(memberError){console.error('billing-create-order membership lookup failed',{code:memberError.code,message:memberError.message});return respond({error:'Não foi possível validar seu acesso agora.'},503)}
  if(!member)return respond({error:'Acesso não autorizado.'},403);
  let body:{deal_id?:string};try{body=await req.json()}catch{return respond({error:'Solicitação inválida.'},400)}
  const {data:deal}=await db.from('crm_records').select('id,data').eq('id',body.deal_id||'').eq('kind','deal').eq('deleted',false).maybeSingle();
