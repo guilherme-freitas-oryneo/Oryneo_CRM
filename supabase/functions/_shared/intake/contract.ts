@@ -88,7 +88,8 @@ const VALID_BRAZILIAN_DDDS = new Set([
   '88', '89', '91', '92', '93', '94', '95', '96', '97', '98', '99',
 ]);
 const EMAIL_DOMAIN_TYPOS = new Set([
-  'gmal.com', 'gmial.com', 'gmai.com', 'gmayg.com', 'hotmai.com', 'hotmal.com', 'outlok.com',
+  'gmal.com', 'gmial.com', 'gmai.com', 'gmayg.com', 'gemau.com', 'gemau',
+  'hotmai.com', 'hotmal.com', 'outlok.com',
 ]);
 
 export function clean(value: unknown, max = 200): string {
