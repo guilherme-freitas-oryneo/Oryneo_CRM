@@ -1,14 +1,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
+import { clean, digits, normalizeIntakePayload, normalizedCnpj } from '../_shared/intake/contract.ts';
 const origins = new Set(['https://oryneo-lp-preview.guilherme-frei160023.chatgpt.site','https://oryneo.com.br','https://www.oryneo.com.br','https://guilherme-freitas-oryneo.github.io']);
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
 const digest=async(s:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))).map(b=>b.toString(16).padStart(2,'0')).join('');
-const catalog={Start:{monthly:74990,setup:98990,users:5},Growth:{monthly:109990,setup:138990,users:10},Scale:{monthly:147990,setup:184990,users:20}} as const;
-const additions={'landing-page':{label:'Landing page de conversão',amount:88990,billing:'one_time'},traffic:{label:'Gestão de tráfego pago',amount:98990,billing:'monthly',minimumMonths:3}} as const;
-type Plan=keyof typeof catalog;
-type Addon=keyof typeof additions;
-const clean=(s:unknown,max=200)=>typeof s==='string'?s.trim().slice(0,max):'';
-const digits=(v:unknown)=>clean(v,50).replace(/\D/g,'');
-const normalizedCnpj=(v:unknown)=>clean(v,50).toUpperCase().replace(/[^A-Z0-9]/g,'');
 const safeText=(v:unknown,max=180)=>clean(v,max);
 function companyProfile(data:Record<string,unknown>){
  const qsa=Array.isArray(data.qsa)?data.qsa.slice(0,40).map((s:Record<string,unknown>)=>({
@@ -34,22 +28,6 @@ async function lookupCnpj(cnpj:string){
   return companyProfile(j);
  }catch{return null}finally{clearTimeout(timeout)}
 }
-function quoteSelection(input:Record<string,unknown>){
- const plan=clean(input.plan,25),cycle=clean(input.cycle,20)||'monthly';
- const services=input.services??[];
- if(!Array.isArray(services)||services.length>2||services.some(x=>typeof x!=='string'))throw new Error('Complementos inválidos.');
- const ids=[...new Set(services)];
- if(ids.some(x=>!Object.prototype.hasOwnProperty.call(additions,x)))throw new Error('Serviço não reconhecido.');
- if(!plan){if(ids.length)throw new Error('Selecione um plano.');return null}
- if(!Object.prototype.hasOwnProperty.call(catalog,plan)||!['monthly','annual'].includes(cycle))throw new Error('Plano ou ciclo inválido.');
- const selected=catalog[plan as Plan],cycleCharge=cycle==='annual'?Math.round(selected.monthly*12*0.9):selected.monthly;
- const servicesQuote=ids.map(x=>{
-  const i=x as Addon,info=additions[i];
-  return {key:i,label:info.label,billing:info.billing,amount_cents:info.amount,upfront_cents:info.amount*('minimumMonths'in info?info.minimumMonths:1)};
- });
- const addonsCents=servicesQuote.reduce((sum,i)=>sum+i.upfront_cents,0);
- return {plan,cycle,monthly_cents:selected.monthly,period_cents:cycleCharge,setup_cents:selected.setup,addons:servicesQuote,first_charge_cents:cycleCharge+selected.setup+addonsCents,users:selected.users,catalog_version:'2026-10-11'};
-}
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get('origin')||'';
  const headers:Record<string,string>={'Content-Type':'application/json','Vary':'Origin','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Cache-Control':'no-store'};
@@ -67,27 +45,19 @@ Deno.serve(async(req:Request)=>{
   const bytes=new Uint8Array(size);let offset=0;for(const part of chunks){bytes.set(part,offset);offset+=part.length}
   const body=JSON.parse(new TextDecoder().decode(bytes)) as Record<string,unknown>;
   if(body.website)return response({ok:true});
-  const contact=clean(body.contact,160),phone=clean(body.phone,40),email=clean(body.email,254).toLowerCase();
-  if(body.consent!==true||contact.length<2||(email!==''&&!/^\S+@\S+\.\S+$/.test(email))||digits(phone).length<10||! /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(body.request_id||'')))return response({error:'Confira seus dados e autorize o contato.'},400);
-  let quote:ReturnType<typeof quoteSelection>;
-  try{quote=quoteSelection(body)}catch(e){return response({error:String(e instanceof Error?e.message:'Seleção inválida.')},400)}
-  const cnpj=normalizedCnpj(body.cnpj);const intent=clean(body.intent,30)||'conversation';
-  if(intent==='contract'&&cnpj.length!==14)return response({error:'Informe um CNPJ válido para contratar.'},400);
-  if(cnpj&&cnpj.length!==14)return response({error:'Confira o CNPJ informado.'},400);
-  const profile=cnpj?await lookupCnpj(cnpj):null;
-  const company=clean(body.company,160)||profile?.trade_name||profile?.legal_name||contact;
-  const fingerprint=await digest(digits(phone)+Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-  const goals=Array.isArray(body.goals)?body.goals.filter(x=>typeof x==='string').slice(0,12).map(x=>clean(x,120)):[];
-  const summary=clean(body.summary,11000);
-  const quoteTotal=quote?.first_charge_cents??0;
+  let normalized:ReturnType<typeof normalizeIntakePayload>;
+  try{normalized=normalizeIntakePayload(body)}catch{return response({error:'Confira os dados da solicitação e tente novamente.'},400)}
+  const profile=normalized.cnpj?await lookupCnpj(normalized.cnpj):null;
+  const company=normalized.company||profile?.trade_name||profile?.legal_name||normalized.contact;
+  const fingerprint=await digest(digits(normalized.phone)+Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const record={
-   title:('Solicitação · '+company).slice(0,160),company,contact,email,phone,
-   company_cnpj:cnpj||null,company_profile:profile||{},quote:quote||null,
-   value_cents:quoteTotal,form_submission:{intent,goals,team_size:clean(body.team_size,70),acquisition_channel:clean(body.acquisition_channel,120)},
-   notes:summary+'\n\nConsentimento de contato registrado em '+new Date().toISOString()+'.',
+   title:('Solicitação · '+company).slice(0,160),company,contact:normalized.contact,email:normalized.email,phone:normalized.phone,
+   company_cnpj:normalized.cnpj||null,company_profile:profile||{},quote:normalized.quote,
+   value_cents:normalized.quote?.first_charge_cents??0,form_submission:normalized.formSubmission,
+   notes:normalized.summary+'\n\nConsentimento de contato registrado em '+new Date().toISOString()+'.',
    due_date:''
   };
-  const {error}=await db.rpc('crm_intake',{p_request_id:body.request_id,p_fingerprint:fingerprint,p_data:record});
+  const {error}=await db.rpc('crm_intake',{p_request_id:normalized.requestId,p_fingerprint:fingerprint,p_data:record});
   if(error)return response({error:error.message.includes('Muitas solicitações')?'Muitas solicitações. Tente novamente mais tarde.':'Não foi possível registrar agora. Tente novamente.'},error.message.includes('Muitas solicitações')?429:503);
   return response({ok:true});
  }catch{return response({error:'Solicitação inválida.'},400)}
