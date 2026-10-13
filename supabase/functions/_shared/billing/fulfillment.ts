@@ -57,11 +57,36 @@ export async function ensureTrafficSubscription(db:Db,order:Order,stripeSecret:s
  if(main.customer!==order.stripe_customer_id || !['active','trialing'].includes(main.status))
    throw Error('TRAFFIC_PARENT_SUBSCRIPTION_NOT_READY');
 
+ // Recuperar vínculo já criado mesmo após expiração da janela de idempotência Stripe.
+ const history=await stripeGet('/subscriptions?customer='+
+    encodeURIComponent(order.stripe_customer_id)+'&status=all&limit=100',stripeSecret);
+ const existing=(history.data||[]).find((sub:any)=>
+    sub.metadata?.oryneo_order_id===order.id&&sub.metadata?.oryneo_role==='traffic_quarterly');
+ if(existing){
+   if(existing.status==='canceled')throw Error('TRAFFIC_PREVIOUS_SUBSCRIPTION_CANCELED_REVIEW');
+   const {error:linkError}=await db.from('crm_billing_orders').update({
+     stripe_traffic_subscription_id:existing.id,
+     traffic_next_charge_at:new Date(anchor*1000).toISOString(),
+     traffic_subscription_status:existing.status,updated_at:new Date().toISOString()
+   }).eq('id',order.id).is('stripe_traffic_subscription_id',null);
+   if(linkError)throw Error('TRAFFIC_EXISTING_LINK');
+   return;
+ }
+
  let paymentMethod=typeof main.default_payment_method==='string'?main.default_payment_method
    : main.default_payment_method?.id||null;
  if(!paymentMethod){
-   const pi=await stripeGet('/payment_intents?customer='+encodeURIComponent(order.stripe_customer_id)+'&limit=10',stripeSecret);
-   const paid=(pi.data||[]).find((v:any)=>v.status==='succeeded'&&typeof v.payment_method==='string');
+   const customer=await stripeGet('/customers/'+encodeURIComponent(order.stripe_customer_id),stripeSecret);
+   paymentMethod=typeof customer.invoice_settings?.default_payment_method==='string'
+     ? customer.invoice_settings.default_payment_method
+     : customer.invoice_settings?.default_payment_method?.id||null;
+ }
+ if(!paymentMethod){
+   const invoiceId=typeof main.latest_invoice==='string'?main.latest_invoice:main.latest_invoice?.id;
+   const pi=await stripeGet('/payment_intents?customer='+encodeURIComponent(order.stripe_customer_id)+'&limit=25',stripeSecret);
+   const paid=(pi.data||[]).find((v:any)=>v.status==='succeeded' &&
+     invoiceId && (v.invoice===invoiceId||v.invoice?.id===invoiceId) &&
+     typeof v.payment_method==='string');
    paymentMethod=paid?.payment_method||null;
  }
  if(!paymentMethod)throw Error('TRAFFIC_PAYMENT_METHOD_UNAVAILABLE');
