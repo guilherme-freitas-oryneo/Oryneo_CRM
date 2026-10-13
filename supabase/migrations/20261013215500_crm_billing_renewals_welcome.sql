@@ -93,10 +93,10 @@ grant execute on function public.crm_record_stripe_checkout_event(text,text,text
 
 create or replace function public.crm_record_stripe_invoice_event(
  p_event_id text, p_event_type text, p_invoice_id text, p_subscription_id text,
- p_amount_cents integer, p_currency text
+ p_amount_cents integer, p_currency text, p_billing_reason text default null
 ) returns jsonb language plpgsql security definer set search_path = ''
 as $$
-declare v_order_id uuid; v_inserted integer; v_new_status text;
+declare v_order_id uuid; v_inserted integer; v_new_status text; v_persisted_status text;
 begin
  if p_event_type not in ('invoice.paid','invoice.payment_failed') then
    return jsonb_build_object('ok',true,'ignored',true);
@@ -121,15 +121,18 @@ begin
   status=case when public.crm_billing_invoices.status='paid' then 'paid' else excluded.status end,
   last_event_id=excluded.last_event_id,
   paid_at=coalesce(public.crm_billing_invoices.paid_at,excluded.paid_at),updated_at=now();
- -- Falha em fatura posterior jamais desfaz pagamento inicial da contratação.
- if p_invoice_id <> coalesce((select stripe_invoice_id from public.crm_billing_orders where id=v_order_id),'') then
-   update public.crm_billing_orders set renewal_payment_status=v_new_status,updated_at=now()
+ -- Nunca confundir primeira fatura, trial de valor zero ou evento atrasado com renovação.
+ select status into v_persisted_status from public.crm_billing_invoices
+   where stripe_invoice_id=p_invoice_id;
+ if coalesce(p_amount_cents,0)>0 and p_billing_reason is distinct from 'subscription_create'
+   and p_invoice_id <> coalesce((select stripe_invoice_id from public.crm_billing_orders where id=v_order_id),'') then
+   update public.crm_billing_orders set renewal_payment_status=v_persisted_status,updated_at=now()
      where id=v_order_id and status='paid';
  end if;
  return jsonb_build_object('ok',true,'order_id',v_order_id);
 end
 $$;
-revoke all on function public.crm_record_stripe_invoice_event(text,text,text,text,integer,text)
+revoke all on function public.crm_record_stripe_invoice_event(text,text,text,text,integer,text,text)
  from public,anon,authenticated;
 grant execute on function public.crm_record_stripe_invoice_event(text,text,text,text,integer,text) to service_role;
 
