@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Check, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { CheckoutElementsProvider, PaymentElement, useCheckoutElements } from '@stripe/react-stripe-js/checkout';
@@ -16,7 +16,7 @@ export type PublicBillingOrder = {
   reference: string;
   company: string;
   customer_name: string;
-  status: 'awaiting_payment' | 'paid' | 'expired' | 'canceled' | 'payment_failed';
+  status: 'awaiting_payment' | 'processing' | 'paid' | 'expired' | 'canceled' | 'payment_failed';
   currency: 'brl';
   amount_total: number;
   items: PublicBillingItem[];
@@ -102,6 +102,8 @@ export function PaymentPageView({ order, paymentSlot, onPay, busy = false }: {
 function StatusMessage({ status }: { status: PublicBillingOrder['status'] }) {
   const copy = status === 'paid'
     ? ['Pagamento confirmado.', 'Este pedido já foi concluído. A equipe ORYNEO seguirá com os próximos passos.']
+    : status === 'processing'
+      ? ['Estamos confirmando seu pagamento.', 'Acompanhe por esta página. Não faça outro pagamento enquanto confirmamos sua transação.']
     : status === 'expired'
       ? ['Este link expirou.', 'Solicite um novo link à equipe ORYNEO para continuar.']
       : ['Pagamento indisponível.', 'Fale com a equipe ORYNEO para revisar este pedido.'];
@@ -122,6 +124,7 @@ export function PaymentPage() {
   const [checkout, setCheckout] = useState<{clientSecret:string;publishableKey:string}|null>(null);
   const [error, setError] = useState('');
   const token = new URLSearchParams(window.location.search).get('token') || '';
+  const stripePromise = useMemo(() => checkout ? loadStripe(checkout.publishableKey) : null, [checkout?.publishableKey]);
   useEffect(() => {
     if (!token) { setError('Este link de pagamento está incompleto.'); return; }
     let active = true;
@@ -136,15 +139,68 @@ export function PaymentPage() {
   if (!order) return <main className="pay-page pay-center"><div className="pay-loading" aria-label="Carregando pedido"><span/>Preparando seu ambiente seguro…</div></main>;
   if(order.status==='awaiting_payment'&&!checkout)return <PaymentPageView order={{...order,status:'payment_failed'}} paymentSlot={null} onPay={()=>undefined}/>;
   if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined}/>;
-  return <CheckoutElementsProvider stripe={loadStripe(checkout.publishableKey)} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#5269ff',colorText:'#242931',colorBackground:'#ffffff',borderRadius:'9px',fontFamily:'DM Sans, sans-serif'}}}}}>
+  return <CheckoutElementsProvider stripe={stripePromise} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#5269ff',colorText:'#242931',colorBackground:'#ffffff',borderRadius:'9px',fontFamily:'DM Sans, sans-serif'}}}}}>
     <StripePayment order={order}/>
   </CheckoutElementsProvider>;
 }
 
-function StripePayment({order}:{order:PublicBillingOrder}){
- const result=useCheckoutElements();
- const [busy,setBusy]=useState(false);const [error,setError]=useState('');
- const pay=async()=>{if(result.type!=='success'||busy)return;setBusy(true);setError('');const confirmation=await result.checkout.confirm({returnUrl:window.location.href});if(confirmation.type==='error'){setError(confirmation.error.message||'Confira os dados de pagamento e tente novamente.');setBusy(false)}};
- const slot=<div className="pay-element"><div className="pay-element-head"><LockKeyhole size={16}/><span>Dados de pagamento</span><small>Processado com segurança</small></div>{result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">Não foi possível carregar os campos seguros.</p>:<PaymentElement/>}{error&&<p className="pay-inline-error" role="alert">{error}</p>}</div>;
- return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} busy={busy||result.type!=='success'}/>;
+export function StripePayment({order}:{order:PublicBillingOrder}){
+  const result=useCheckoutElements();
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState('');
+  const [completion,setCompletion]=useState<'idle'|'processing'|'paid'>('idle');
+
+  useEffect(()=>{
+    if(completion!=='processing')return;
+    const token=new URLSearchParams(window.location.search).get('token');
+    if(!token)return;
+    let active=true;
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    let attempts=0;
+    const verify=async()=>{
+      try{
+        const {data, error:lookupError}=await supabase.functions.invoke('billing-public',{body:{action:'read',token}});
+        if(!active)return;
+        if(!lookupError&&data?.order?.status==='paid'){
+          setCompletion('paid');
+          return;
+        }
+      }catch{/* Manter status pendente; confirmação financeira cabe ao servidor. */}
+      if(active&&++attempts<8)timer=setTimeout(()=>void verify(),2000);
+    };
+    void verify();
+    return()=>{active=false;if(timer)clearTimeout(timer)};
+  },[completion]);
+
+  const pay=async()=>{
+    if(result.type!=='success'||busy||completion!=='idle')return;
+    if(!result.checkout.canConfirm){
+      setError('Confira os dados de pagamento antes de continuar.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try{
+      const returnUrl=new URL(window.location.href);
+      returnUrl.searchParams.set('retorno','1');
+      const confirmation=await result.checkout.confirm({returnUrl:returnUrl.toString()});
+      if(confirmation.type==='error'){
+        setError(confirmation.error.message||'Confira os dados de pagamento e tente novamente.');
+        return;
+      }
+      setCompletion('processing');
+    }catch(cause){
+      setError(cause instanceof Error&&cause.message?cause.message:'Não foi possível confirmar o pagamento. Tente novamente.');
+    }finally{
+      setBusy(false);
+    }
+  };
+
+  if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined}/>;
+  const slot=<div className="pay-element">
+    <div className="pay-element-head"><LockKeyhole size={16}/><span>Dados de pagamento</span><small>Processado com segurança</small></div>
+    {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
+    {error&&<p className="pay-inline-error" role="alert">{error}</p>}
+  </div>;
+  return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} busy={busy||result.type!=='success'}/>;
 }
