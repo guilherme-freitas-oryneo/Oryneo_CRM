@@ -174,10 +174,6 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
 
   const pay=async()=>{
     if(result.type!=='success'||busy||completion!=='idle')return;
-    if(!result.checkout.canConfirm){
-      setError('Confira os dados de pagamento antes de continuar.');
-      return;
-    }
     setBusy(true);
     setError('');
     try{
