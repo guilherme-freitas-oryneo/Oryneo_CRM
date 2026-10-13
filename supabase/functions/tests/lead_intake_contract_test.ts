@@ -108,6 +108,9 @@ Deno.test('recusa nome, e-mail e WhatsApp inválidos também em chamadas diretas
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gemau.com' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gemau' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gmaul.com' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gamul.com.br' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gamul.con.by' }), /INVALID_CONTACT/);
+  assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@yaho.com.br' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gmail.con' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@gmail.com.br' }), /INVALID_CONTACT/);
   assert.throws(() => normalizeIntakePayload({ ...base, acquisition_channel: 'Google', email: 'teste@empresa..com' }), /INVALID_CONTACT/);

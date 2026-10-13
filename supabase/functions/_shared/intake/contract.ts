@@ -99,6 +99,7 @@ const COMMON_EMAIL_DOMAINS = [
   'terra.com.br', 'globo.com', 'globomail.com', 'ig.com.br', 'zipmail.com.br', 'aol.com',
   'fastmail.com', 'zoho.com', 'mail.com', 'ymail.com',
 ];
+const EMAIL_PROVIDER_BRANDS = ['gmail', 'hotmail', 'outlook', 'icloud', 'protonmail', 'yahoo', 'uol', 'bol', 'terra', 'globo'];
 
 export function clean(value: unknown, max = 200): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -148,6 +149,8 @@ function damerauLevenshtein(left: string, right: string): number {
 function suspiciousEmailDomain(domain: string): boolean {
   if (EMAIL_DOMAIN_CORRECTIONS.has(domain)) return true;
   if (!domain || COMMON_EMAIL_DOMAINS.includes(domain)) return false;
+  const providerLabel = domain.split('.')[0];
+  if (EMAIL_PROVIDER_BRANDS.some((brand) => damerauLevenshtein(providerLabel, brand) <= 2)) return true;
   const suffixCorrections: Array<[RegExp, string]> = [
     [/\.con$/, '.com'], [/\.cim$/, '.com'], [/\.vom$/, '.com'], [/\.comm$/, '.com'],
     [/\.combr$/, '.com.br'], [/\.com\.b$/, '.com.br'], [/\.com\.r$/, '.com.br'],
