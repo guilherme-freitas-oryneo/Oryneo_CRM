@@ -239,27 +239,27 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
    .filter(Boolean).join('\n\n');
  const rows=details.length?'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:28px 0;border-top:1px solid #e6e9ef">'+
   details.map(([key,val])=>'<tr><td style="padding:13px 8px 13px 0;color:#687383;font-size:13px;border-bottom:1px solid #e6e9ef">'+escapeHtml(key)+'</td>'+
-     '<td align="right" style="padding:13px 0 13px 8px;color:#182133;font-size:13px;font-weight:700;border-bottom:1px solid #e6e9ef">'+escapeHtml(val)+'</td></tr>').join('')+'</table>':'';
- const action=hasCta?'<table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0"><tr><td style="background:#4f63e9;border-radius:8px">'+
+     '<td align="right" style="padding:13px 0 13px 8px;color:#0F1115;font-size:13px;font-weight:700;border-bottom:1px solid #e6e9ef">'+escapeHtml(val)+'</td></tr>').join('')+'</table>':'';
+ const action=hasCta?'<table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0"><tr><td style="background:#4357E8;border-radius:8px">'+
   '<a href="'+escapeHtml(target)+'" style="display:inline-block;color:#fff;text-decoration:none;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;padding:15px 24px;border-radius:8px">'+escapeHtml(def.cta)+'</a></td></tr></table>'+
   '<p style="font-size:12px;line-height:1.6;overflow-wrap:anywhere;color:#828b9a;margin:0 0 20px">Se o botão não funcionar, copie este endereço no navegador: '+escapeHtml(target)+'</p>':'';
  const html='<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+
   escapeHtml(subject)+'</title><style>@media(max-width:600px){.ory-pad{padding:28px 23px!important}.ory-h1{font-size:27px!important}.ory-outer{padding:12px!important}}</style></head>'+
-  '<body style="margin:0;padding:0;background:#f4f5f7;color:#172133;font-family:Arial,Helvetica,sans-serif">'+
+  '<body style="margin:0;padding:0;background:#F8F7F4;color:#172133;font-family:Arial,Helvetica,sans-serif">'+
   '<div style="display:none;opacity:0;max-height:0;overflow:hidden">'+escapeHtml(preheader)+'</div>'+
-  '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f5f7"><tr><td class="ory-outer" align="center" style="padding:40px 16px">'+
+  '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F8F7F4"><tr><td class="ory-outer" align="center" style="padding:40px 16px">'+
   '<table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background:#fff;border:1px solid #e9ebf0;border-collapse:separate;border-spacing:0">'+
-  '<tr><td class="ory-pad" style="padding:33px 42px 25px;background:#101824;color:#fff">'+
-  '<table role="presentation" width="100%"><tr><td style="font-size:24px;letter-spacing:3px;font-weight:800;color:#fff">ORYNEO<span style="color:#8193ff">.</span></td>'+
+  '<tr><td class="ory-pad" style="padding:33px 42px 25px;background:#0F1115;color:#fff">'+
+  '<table role="presentation" width="100%"><tr><td><img src="https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/oryneo-wordmark-mono-reverse.png" width="172" height="32" alt="ORYNEO" style="display:block;width:172px;max-width:100%;height:auto;border:0"></td>'+
   '<td align="right" style="font-size:10px;color:#b5bdcc;letter-spacing:1.6px">CRESCIMENTO EM SISTEMA</td></tr></table></td></tr>'+
   '<tr><td class="ory-pad" style="padding:37px 42px 39px">'+
-  '<p style="font-size:11px;color:#4f63e9;letter-spacing:1.6px;font-weight:bold;margin:0 0 15px">'+escapeHtml(def.eyebrow)+'</p>'+
-  '<h1 class="ory-h1" style="font-size:32px;font-weight:700;letter-spacing:-1.2px;line-height:1.18;color:#182133;margin:0 0 23px">'+escapeHtml(def.headline)+'</h1>'+
-  paragraphs.map(p=>'<p style="font-size:15px;line-height:1.77;color:#4d596a;margin:0 0 17px">'+escapeHtml(p)+'</p>').join('')+
+  '<p style="font-size:11px;color:#4357E8;letter-spacing:1.6px;font-weight:bold;margin:0 0 15px">'+escapeHtml(def.eyebrow)+'</p>'+
+  '<h1 class="ory-h1" style="font-size:32px;font-weight:700;letter-spacing:-1.2px;line-height:1.18;color:#0F1115;margin:0 0 23px">'+escapeHtml(def.headline)+'</h1>'+
+  paragraphs.map(p=>'<p style="font-size:15px;line-height:1.77;color:#6B7280;margin:0 0 17px">'+escapeHtml(p)+'</p>').join('')+
   rows+action+
-  (def.footnote?'<p style="padding:15px 17px;border-left:3px solid #8495f8;background:#f4f6ff;color:#5d657a;font-size:12px;line-height:1.7;margin:27px 0">'+escapeHtml(def.footnote)+'</p>':'')+
-  '<p style="font-size:13px;color:#5d6676;line-height:1.8;margin:30px 0 0">Dúvidas? Responda este e-mail ou escreva para <a style="color:#4659cc" href="mailto:'+escapeHtml(help(input))+'">'+escapeHtml(help(input))+'</a>.<br>'+
-  '<strong style="color:#182133">Equipe ORYNEO</strong></p>'+
+  (def.footnote?'<p style="padding:15px 17px;border-left:3px solid #4F6BFF;background:#F1F3FF;color:#5d657a;font-size:12px;line-height:1.7;margin:27px 0">'+escapeHtml(def.footnote)+'</p>':'')+
+  '<p style="font-size:13px;color:#5d6676;line-height:1.8;margin:30px 0 0">Dúvidas? Responda este e-mail ou escreva para <a style="color:#4357E8" href="mailto:'+escapeHtml(help(input))+'">'+escapeHtml(help(input))+'</a>.<br>'+
+  '<strong style="color:#0F1115">Equipe ORYNEO</strong></p>'+
   '</td></tr><tr><td class="ory-pad" style="padding:20px 42px;background:#f9fafb;border-top:1px solid #e9ebf0;color:#8992a0;font-size:11px;line-height:1.7">'+
   escapeHtml(notice)+'<br>ORYNEO · Marketing, vendas e tecnologia.</td></tr></table>'+
   '</td></tr></table></body></html>';
