@@ -30,6 +30,17 @@ describe('ORYNEO transactional library',()=>{
   expect(email.html).not.toContain('Empresa & <Consultoria>');
   expect(email.html).not.toContain('javascript:');
  });
+
+ it('renderiza wordmark oficial comprovadamente idêntico ao Brand Kit no GitHub Pages',()=>{
+  for(const def of transactionDefinitions){
+   const email=renderTransactionalEmail(def.id,input);
+   expect(email.html).toContain('<img src="https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/oryneo-wordmark-mono-reverse.png"');
+   expect(email.html).toContain('alt="ORYNEO"');
+   expect(email.html).toContain('background:#0F1115');
+   expect(email.html).toContain('background:#F8F7F4');
+   expect(email.html).not.toContain('>ORYNEO<span');
+  }
+ });
  it('não inventa links ou tokens de segurança quando a URL não foi fornecida',()=>{
   const {html,text}=renderTransactionalEmail('confirm_email',{...input,actionUrl:undefined});
   expect(html).not.toContain('<a href=""');
@@ -66,5 +77,8 @@ describe('Supabase Auth Go templates',()=>{
   expect(html).not.toContain('sk_test_');
   expect(html).not.toContain('password=');
   expect(html).toContain('ORYNEO');
+  expect(html).toContain('oryneo-wordmark-mono-reverse.png');
+  expect(html).toContain('background:#0F1115');
+  expect(html).not.toContain('>ORYNEO<span');
  });
 });
