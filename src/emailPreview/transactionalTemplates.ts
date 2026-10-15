@@ -245,7 +245,9 @@ export const transactionDefinitions:TemplateDefinition[]=[
   paragraphs:d=>['Olá, '+client(d)+'.','A implantação da '+company(d)+' foi iniciada e a equipe responsável seguirá com os próximos passos combinados.','Para falar diretamente com a implantação, use o WhatsApp oficial abaixo.'],
   whatsappLabel:'FALAR COM A IMPLANTAÇÃO NO WHATSAPP', footnote:'A equipe ORYNEO confirmará por canais oficiais qualquer solicitação adicional.'
  },
-];\n\nexport const transactionScenarios=transactionDefinitions.map(def=>({
+];
+
+export const transactionScenarios=transactionDefinitions.map(def=>({
  id:def.id,label:def.label,note:def.description,category:def.category,
 }));
 
