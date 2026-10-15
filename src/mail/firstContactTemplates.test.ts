@@ -75,6 +75,9 @@ describe('renderFirstContactEmail', () => {
     expect(email.text).toContain(commercial.cycle === 'annual' ? 'ciclo anual' : 'ciclo mensal');
     expect(email.html).toContain(channel.marker);
     expect(email.html).not.toMatch(/fonts\.googleapis|@font-face|oryneo-(?:y|wordmark-master|wordmark-color)/iu);
+    expect(email.html).toContain('href="https://wa.me/5521974510932"');
+    expect(email.text).toContain('Conversar pelo WhatsApp: https://wa.me/5521974510932');
+    expect(email.html).not.toContain('Responder este e-mail');
     expect(email.text).not.toMatch(/fundador|ceo|diretor|executiv/iu);
   });
 
