@@ -8,7 +8,8 @@
 export type TransactionalId =
  | 'confirm_email' | 'reset_password' | 'invite_user' | 'password_changed' | 'email_changed'
  | 'payment_pending' | 'payment_failed' | 'checkout_expired'
- | 'renewal_paid' | 'renewal_failed' | 'subscription_canceled' | 'refund_confirmed';
+ | 'renewal_paid' | 'renewal_failed' | 'subscription_canceled' | 'refund_confirmed'
+ | 'request_received' | 'proposal_sent' | 'payment_link' | 'implementation_started';
 
 export type TemplateKind = 'auth' | 'finance' | 'security';
 
@@ -25,6 +26,7 @@ export type TransactionalInput = {
  deadline?:string;
  maskedPaymentMethod?:string;
  actionUrl?:string;
+ whatsappUrl?:string;
  supportEmail?:string;
 };
 
@@ -41,6 +43,7 @@ type TemplateDefinition = {
  paragraphs:(d:TransactionalInput)=>string[];
  details?:(d:TransactionalInput)=>Array<[string,string]>;
  cta?:string;
+ whatsappLabel?:string;
  footnote?:string;
 };
 
@@ -213,6 +216,35 @@ export const transactionDefinitions:TemplateDefinition[]=[
   details:d=>[...defaultDetails(d),['Valor reembolsado',price(d)]],
   footnote:'Este aviso é enviado somente após a confirmação efetiva do reembolso no provedor de pagamento.'
  },
+
+ {
+  id:'request_received',category:'auth',label:'Solicitação recebida',description:'Recebimento confirmado de uma solicitação comercial',
+  subject:()=> 'Recebemos sua solicitação · ORYNEO', preheader:'Sua solicitação foi registrada e a equipe já pode seguir com o próximo passo.',
+  eyebrow:'SOLICITAÇÃO RECEBIDA',headline:'Sua solicitação chegou até nós.',
+  paragraphs:d=>['Olá, '+client(d)+'.','Recebemos a solicitação da '+company(d)+' e ela foi registrada para análise da equipe ORYNEO.','Se precisar complementar alguma informação, use o WhatsApp oficial abaixo.'],
+  whatsappLabel:'FALAR NO WHATSAPP', footnote:'A ORYNEO nunca solicita senha ou dados completos de cartão por e-mail.'
+ },
+ {
+  id:'proposal_sent',category:'finance',label:'Proposta comercial enviada',description:'Proposta comercial disponibilizada para revisão',
+  subject:d=> 'Sua proposta ORYNEO está pronta · '+order(d), preheader:'Revise a proposta e fale com a equipe se quiser ajustar algum ponto.',
+  eyebrow:'PROPOSTA COMERCIAL',headline:'Sua proposta está pronta para revisão.',
+  paragraphs:d=>['Olá, '+client(d)+'.','A proposta para '+company(d)+' está disponível para sua conferência.','Use o botão principal para abrir a proposta. Se quiser ajustar algum ponto, fale diretamente com a equipe no WhatsApp.'],
+  details:d=>defaultDetails(d), cta:'Ver proposta', whatsappLabel:'AJUSTAR A PROPOSTA? FALE NO WHATSAPP', footnote:'A proposta válida é sempre a versão apresentada no link seguro fornecido pela ORYNEO.'
+ },
+ {
+  id:'payment_link',category:'finance',label:'Link de pagamento',description:'Link seguro de pagamento disponibilizado para revisão',
+  subject:d=> 'Seu link seguro de pagamento · '+order(d), preheader:'Revise o pedido e conclua o pagamento no ambiente seguro.',
+  eyebrow:'PAGAMENTO',headline:'Seu pedido está pronto para pagamento.',
+  paragraphs:d=>['Olá, '+client(d)+'.','O pedido da '+company(d)+' está pronto para revisão e pagamento.','Use o botão principal para acessar o ambiente seguro. Nunca envie dados completos do cartão por e-mail.'],
+  details:d=>[...defaultDetails(d),['Valor do pedido',price(d)]], cta:'Revisar pedido e pagar', whatsappLabel:'FALAR COM O FINANCEIRO NO WHATSAPP', footnote:'Confirme o domínio antes de inserir qualquer dado de pagamento.'
+ },
+ {
+  id:'implementation_started',category:'auth',label:'Implantação iniciada',description:'Início confirmado da etapa de implantação',
+  subject:()=> 'Implantação iniciada · ORYNEO', preheader:'A equipe de implantação já iniciou os próximos passos.',
+  eyebrow:'IMPLANTAÇÃO INICIADA',headline:'Vamos colocar o plano em operação.',
+  paragraphs:d=>['Olá, '+client(d)+'.','A implantação da '+company(d)+' foi iniciada e a equipe responsável seguirá com os próximos passos combinados.','Para falar diretamente com a implantação, use o WhatsApp oficial abaixo.'],
+  whatsappLabel:'FALAR COM A IMPLANTAÇÃO NO WHATSAPP', footnote:'A equipe ORYNEO confirmará por canais oficiais qualquer solicitação adicional.'
+ },
 ];
 
 export const transactionScenarios=transactionDefinitions.map(def=>({
@@ -229,12 +261,14 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
  const target=trim(input.actionUrl,2000);
  // CTA only when a trusted server-provided URL is available; no invented token or payment link.
  const hasCta=Boolean(def.cta && /^(https:\/\/[^<>"'\s]+|mailto:[^\s<>"']+)$/i.test(target));
+ const whatsapp=trim(input.whatsappUrl,2000);
+ const hasWhatsapp=Boolean(def.whatsappLabel && /^https:\/\/wa\.me\/[0-9]+(?:\?[^<>"'\s]+)?$/i.test(whatsapp));
  const isAuth=def.category==='auth'||def.category==='security';
  const notice=isAuth?'Se não reconhece esta operação, ignore a mensagem ou entre em contato com o suporte.':
     'Esta é uma comunicação transacional referente à sua relação com a ORYNEO.';
  const copy=paragraphs.join('\n\n');
  const detailText=details.map(([k,v])=>k+': '+trim(v,240)).join('\n');
- const text=[copy,detailText,hasCta?(def.cta+': '+target):'',
+ const text=[copy,detailText,hasCta?(def.cta+': '+target):'',hasWhatsapp?(def.whatsappLabel+': '+whatsapp):'',
    def.footnote||'', 'Dúvidas? '+help(input),'Equipe ORYNEO · Crescimento em sistema.']
    .filter(Boolean).join('\n\n');
  const rows=details.length?'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:28px 0;border-top:1px solid #e6e9ef">'+
@@ -243,6 +277,7 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
  const action=hasCta?'<table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0"><tr><td style="background:#4357E8;border-radius:8px">'+
   '<a href="'+escapeHtml(target)+'" style="display:inline-block;color:#fff;text-decoration:none;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;padding:15px 24px;border-radius:8px">'+escapeHtml(def.cta)+'</a></td></tr></table>'+
   '<p style="font-size:12px;line-height:1.6;overflow-wrap:anywhere;color:#828b9a;margin:0 0 20px">Se o botão não funcionar, copie este endereço no navegador: '+escapeHtml(target)+'</p>':'';
+ const whatsappAction=hasWhatsapp?'<table role="presentation" cellspacing="0" cellpadding="0" style="margin:8px 0 28px"><tr><td style="border:1px solid #25D366;border-radius:8px"><a href="'+escapeHtml(whatsapp)+'" style="display:inline-block;color:#128C4A;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;padding:13px 20px;border-radius:8px">'+escapeHtml(def.whatsappLabel||'Falar no WhatsApp')+'</a></td></tr></table>':'';
  const html='<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+
   escapeHtml(subject)+'</title><style>@media(max-width:600px){.ory-pad{padding:28px 23px!important}.ory-h1{font-size:27px!important}.ory-outer{padding:12px!important}}</style></head>'+
   '<body style="margin:0;padding:0;background:#F8F7F4;color:#172133;font-family:Arial,Helvetica,sans-serif">'+
@@ -256,7 +291,7 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
   '<p style="font-size:11px;color:#4357E8;letter-spacing:1.6px;font-weight:bold;margin:0 0 15px">'+escapeHtml(def.eyebrow)+'</p>'+
   '<h1 class="ory-h1" style="font-size:32px;font-weight:700;letter-spacing:-1.2px;line-height:1.18;color:#0F1115;margin:0 0 23px">'+escapeHtml(def.headline)+'</h1>'+
   paragraphs.map(p=>'<p style="font-size:15px;line-height:1.77;color:#6B7280;margin:0 0 17px">'+escapeHtml(p)+'</p>').join('')+
-  rows+action+
+  rows+action+whatsappAction+
   (def.footnote?'<p style="padding:15px 17px;border-left:3px solid #4F6BFF;background:#F1F3FF;color:#5d657a;font-size:12px;line-height:1.7;margin:27px 0">'+escapeHtml(def.footnote)+'</p>':'')+
   '<p style="font-size:13px;color:#5d6676;line-height:1.8;margin:30px 0 0">Dúvidas? Responda este e-mail ou escreva para <a style="color:#4357E8" href="mailto:'+escapeHtml(help(input))+'">'+escapeHtml(help(input))+'</a>.<br>'+
   '<strong style="color:#0F1115">Equipe ORYNEO</strong></p>'+

@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import {renderTransactionalEmail,transactionDefinitions,transactionScenarios} from './transactionalTemplates';
 
 const input={
+ whatsappUrl:'https://wa.me/5521974510932',
  firstName:'Marina',company:'Empresa & <Consultoria>',email:'marina@empresa.example',
  newEmail:'novo@empresa.example',plan:'Growth',orderReference:'ORY-TEST-100',
  amountCents:337970,renewalAmountCents:109990,
@@ -11,11 +12,11 @@ const input={
 };
 describe('ORYNEO transactional library',()=>{
  it('tem 12 modelos únicos e organizados por categoria',()=>{
-  expect(transactionDefinitions).toHaveLength(12);
-  expect(transactionScenarios).toHaveLength(12);
-  expect(new Set(transactionDefinitions.map(t=>t.id)).size).toBe(12);
-  expect(transactionDefinitions.filter(t=>t.category==='finance')).toHaveLength(7);
-  expect(transactionDefinitions.filter(t=>t.category==='auth')).toHaveLength(3);
+  expect(transactionDefinitions).toHaveLength(16);
+  expect(transactionScenarios).toHaveLength(16);
+  expect(new Set(transactionDefinitions.map(t=>t.id)).size).toBe(16);
+  expect(transactionDefinitions.filter(t=>t.category==='finance')).toHaveLength(9);
+  expect(transactionDefinitions.filter(t=>t.category==='auth')).toHaveLength(5);
   expect(transactionDefinitions.filter(t=>t.category==='security')).toHaveLength(2);
  });
  it.each(transactionDefinitions)('$id possui assunto, preheader, fallback de texto e HTML responsivo',def=>{
@@ -40,6 +41,28 @@ describe('ORYNEO transactional library',()=>{
    expect(email.html).toContain('background:#F8F7F4');
    expect(email.html).not.toContain('>ORYNEO<span');
   }
+ });
+
+ it('renderiza os quatro novos fluxos E16-E19 com WhatsApp oficial e CTA principal seguro',()=>{
+  const cases:[any,string,string][]=[
+   ['request_received','FALAR NO WHATSAPP','https://wa.me/5521974510932'],
+   ['proposal_sent','AJUSTAR A PROPOSTA? FALE NO WHATSAPP','Ver proposta'],
+   ['payment_link','FALAR COM O FINANCEIRO NO WHATSAPP','Revisar pedido e pagar'],
+   ['implementation_started','FALAR COM A IMPLANTAÇÃO NO WHATSAPP','FALAR COM A IMPLANTAÇÃO NO WHATSAPP'],
+  ];
+  for(const [id,whatsapp,primary] of cases){
+   const email=renderTransactionalEmail(id,{...input,actionUrl:id==='proposal_sent'||id==='payment_link'?input.actionUrl:undefined});
+   expect(email.html).toContain('https://wa.me/5521974510932');
+   expect(email.html).toContain(whatsapp);
+   expect(email.html).not.toContain('javascript:');
+   expect(email.text).toContain(whatsapp);
+   expect(email.text).toContain(primary);
+  }
+ });
+ it('rejeita URL de WhatsApp que não seja wa.me numérico',()=>{
+  const email=renderTransactionalEmail('request_received',{...input,whatsappUrl:'javascript:alert(1)'});
+  expect(email.html).not.toContain('javascript:');
+  expect(email.html).not.toContain('FALAR NO WHATSAPP</a>');
  });
  it('não inventa links ou tokens de segurança quando a URL não foi fornecida',()=>{
   const {html,text}=renderTransactionalEmail('confirm_email',{...input,actionUrl:undefined});
