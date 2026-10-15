@@ -52,6 +52,7 @@ const company=(d:TransactionalInput)=>trim(d.company,120)||'sua empresa';
 const order=(d:TransactionalInput)=>trim(d.orderReference,80)||'—';
 const plan=(d:TransactionalInput)=>trim(d.plan,35)||'ORYNEO';
 const help=(d:TransactionalInput)=>trim(d.supportEmail,120)||'contato@oryneo.com.br';
+const WHATSAPP_HELP_URL = 'https://wa.me/5521974510932';
 const price=(d:TransactionalInput)=>money(d.amountCents);
 const defaultDetails=(d:TransactionalInput)=>[['Empresa',company(d)],['Referência',order(d)]] as Array<[string,string]>;
 
@@ -198,7 +199,7 @@ export const transactionDefinitions:TemplateDefinition[]=[
    'A confirmação de cancelamento não significa necessariamente reembolso nem encerramento imediato de todos os serviços complementares. Nossa equipe poderá esclarecer os efeitos previstos em contrato.',
   ],
   details:d=>defaultDetails(d),
-  footnote:'Se você não reconhece esse cancelamento, responda imediatamente a esta mensagem.'
+  footnote:'Se você não reconhece esse cancelamento, entre em contato imediatamente pelo canal oficial de atendimento.'
  },
  {
   id:'refund_confirmed',category:'finance',label:'Estorno ou reembolso',description:'Reembolso efetivamente confirmado no processador',
@@ -230,11 +231,14 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
  // CTA only when a trusted server-provided URL is available; no invented token or payment link.
  const hasCta=Boolean(def.cta && /^(https:\/\/[^<>"'\s]+|mailto:[^\s<>"']+)$/i.test(target));
  const isAuth=def.category==='auth'||def.category==='security';
+ // O WhatsApp complementa ações financeiras sensíveis; nunca substitui URL de pagamento ou Auth.
+ const allowsWhatsAppHelp = id==='payment_failed'||id==='checkout_expired'||id==='renewal_failed';
  const notice=isAuth?'Se não reconhece esta operação, ignore a mensagem ou entre em contato com o suporte.':
     'Esta é uma comunicação transacional referente à sua relação com a ORYNEO.';
  const copy=paragraphs.join('\n\n');
  const detailText=details.map(([k,v])=>k+': '+trim(v,240)).join('\n');
  const text=[copy,detailText,hasCta?(def.cta+': '+target):'',
+   allowsWhatsAppHelp?('Esclarecer pelo WhatsApp: '+WHATSAPP_HELP_URL):'',
    def.footnote||'', 'Dúvidas? '+help(input),'Equipe ORYNEO · Crescimento em sistema.']
    .filter(Boolean).join('\n\n');
  const rows=details.length?'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:28px 0;border-top:1px solid #e6e9ef">'+
@@ -243,6 +247,7 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
  const action=hasCta?'<table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0"><tr><td style="background:#4357E8;border-radius:8px">'+
   '<a href="'+escapeHtml(target)+'" style="display:inline-block;color:#fff;text-decoration:none;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;padding:15px 24px;border-radius:8px">'+escapeHtml(def.cta)+'</a></td></tr></table>'+
   '<p style="font-size:12px;line-height:1.6;overflow-wrap:anywhere;color:#828b9a;margin:0 0 20px">Se o botão não funcionar, copie este endereço no navegador: '+escapeHtml(target)+'</p>':'';
+ const secondaryHelp=allowsWhatsAppHelp?'<p style="font-size:14px;line-height:1.7;margin:14px 0 24px;color:#5d6676">Precisa esclarecer esta cobrança? <a href="'+WHATSAPP_HELP_URL+'" style="color:#4357E8;text-decoration:underline;font-weight:700">Conversar pelo WhatsApp</a>.</p>':'';
  const html='<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+
   escapeHtml(subject)+'</title><style>@media(max-width:600px){.ory-pad{padding:28px 23px!important}.ory-h1{font-size:27px!important}.ory-outer{padding:12px!important}}</style></head>'+
   '<body style="margin:0;padding:0;background:#F8F7F4;color:#172133;font-family:Arial,Helvetica,sans-serif">'+
@@ -256,9 +261,9 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
   '<p style="font-size:11px;color:#4357E8;letter-spacing:1.6px;font-weight:bold;margin:0 0 15px">'+escapeHtml(def.eyebrow)+'</p>'+
   '<h1 class="ory-h1" style="font-size:32px;font-weight:700;letter-spacing:-1.2px;line-height:1.18;color:#0F1115;margin:0 0 23px">'+escapeHtml(def.headline)+'</h1>'+
   paragraphs.map(p=>'<p style="font-size:15px;line-height:1.77;color:#6B7280;margin:0 0 17px">'+escapeHtml(p)+'</p>').join('')+
-  rows+action+
+  rows+action+secondaryHelp+
   (def.footnote?'<p style="padding:15px 17px;border-left:3px solid #4F6BFF;background:#F1F3FF;color:#5d657a;font-size:12px;line-height:1.7;margin:27px 0">'+escapeHtml(def.footnote)+'</p>':'')+
-  '<p style="font-size:13px;color:#5d6676;line-height:1.8;margin:30px 0 0">Dúvidas? Responda este e-mail ou escreva para <a style="color:#4357E8" href="mailto:'+escapeHtml(help(input))+'">'+escapeHtml(help(input))+'</a>.<br>'+
+  '<p style="font-size:13px;color:#5d6676;line-height:1.8;margin:30px 0 0">Para assuntos relativos a esta comunicação, nosso e-mail é <a style="color:#4357E8" href="mailto:'+escapeHtml(help(input))+'">'+escapeHtml(help(input))+'</a>.<br>'+
   '<strong style="color:#0F1115">Equipe ORYNEO</strong></p>'+
   '</td></tr><tr><td class="ory-pad" style="padding:20px 42px;background:#f9fafb;border-top:1px solid #e9ebf0;color:#8992a0;font-size:11px;line-height:1.7">'+
   escapeHtml(notice)+'<br>ORYNEO · Marketing, vendas e tecnologia.</td></tr></table>'+

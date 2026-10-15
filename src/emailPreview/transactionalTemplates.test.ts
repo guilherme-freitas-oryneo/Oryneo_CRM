@@ -64,6 +64,26 @@ describe('ORYNEO transactional library',()=>{
   expect(email.html).toContain('&lt;script&gt;');
   expect(email.html).toContain('example.invalid');
  });
+ it('exibe WhatsApp apenas como assistência complementar nos casos de cobrança que pedem ação',()=>{
+  const allowed=['payment_failed','checkout_expired','renewal_failed'] as const;
+  for(const id of allowed){
+   const e=renderTransactionalEmail(id,input);
+   expect(e.html).toContain('https://wa.me/5521974510932');
+   expect(e.text).toContain('Esclarecer pelo WhatsApp');
+   expect(e.html).toContain('example.invalid');
+  }
+  for(const def of transactionDefinitions.filter(d=>!allowed.includes(d.id as typeof allowed[number]))){
+   const e=renderTransactionalEmail(def.id,input);
+   expect(e.html).not.toContain('wa.me/');
+  }
+ });
+ it('não trata respostas por e-mail como requisito para avançar processos',()=>{
+  for(const def of transactionDefinitions){
+   const e=renderTransactionalEmail(def.id,input);
+   expect(e.html).not.toContain('Responda este e-mail');
+   expect(e.text).not.toContain('responda imediatamente a esta mensagem');
+  }
+ });
  it('não apresenta valores monetários inventados sem dados da fatura',()=>{
   const e=renderTransactionalEmail('subscription_canceled',{...input,amountCents:undefined});
   expect(e.text).not.toContain('Valor reembolsado:');
