@@ -20,4 +20,7 @@ Deno.test('renderizador canônico funciona no runtime da Edge Function', () => {
   assert.match(email.text, /Também entra no contexto Google/);
   assert.match(email.html, /https:\/\/oryneo\.com\.br\/assets\/oryneo-wordmark-mono-reverse\.png/);
   assert.doesNotMatch(email.html, /fonts\.googleapis|@font-face|oryneo-y/iu);
+  assert.match(email.html, /href="https:\/\/wa\.me\/5521974510932"/);
+  assert.match(email.text, /Conversar pelo WhatsApp: https:\/\/wa\.me\/5521974510932/);
+  assert.doesNotMatch(email.html, /Responder este e-mail|href="mailto:/);
 });
