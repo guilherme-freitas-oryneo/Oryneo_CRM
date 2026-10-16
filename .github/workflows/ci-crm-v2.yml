@@ -18,7 +18,7 @@ jobs:
       - name: TypeScript e build GitHub Pages
         run: npm run build -- --base=/Oryneo_CRM/
       - name: Testar confirmação Stripe em modo de teste
-        run: npm run test -- --run src/billing/PaymentPage.test.tsx src/billing/StripePayment.test.tsx src/proposal/ProposalPage.test.tsx src/delivery/DeliveryPage.test.tsx src/landingReview/LandingReviewPage.test.tsx
+        run: npm run test -- --run src/billing/PaymentPage.test.tsx src/billing/StripePayment.test.tsx src/proposal/ProposalPage.test.tsx src/delivery/DeliveryPage.test.tsx src/landingReview/LandingReviewPage.test.tsx src/offboarding/OffboardingPage.test.tsx
       - name: Validar biblioteca transacional de e-mails
         run: npm run test -- --run src/emailPreview/transactionalTemplates.test.ts src/emailPreview/fixtures.test.ts src/mail/firstContactTemplates.test.ts
       - name: Validar arquivos compilados
@@ -47,6 +47,8 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/delivery-admin/index.ts
           deno check --node-modules-dir=auto supabase/functions/landing-admin/index.ts
           deno check --node-modules-dir=auto supabase/functions/landing-public/index.ts
+          deno check --node-modules-dir=auto supabase/functions/offboarding-public/index.ts
+          deno check --node-modules-dir=auto supabase/functions/offboarding-admin/index.ts
           deno test supabase/functions/tests/landing_preview_url_test.ts
           deno check --node-modules-dir=auto supabase/functions/billing-create-order/index.ts
           deno check --node-modules-dir=auto supabase/functions/_shared/billing/fulfillment.ts
