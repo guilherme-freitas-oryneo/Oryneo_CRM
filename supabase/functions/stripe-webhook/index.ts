@@ -94,7 +94,7 @@ Deno.serve(async (req: Request) => {
       console.warn('Stripe checkout expiration with no internal order',{event_id:event.id,session_id:source.id});
       return json({received:true,unlinked:true});
     }
-    if(disposition==='retry')return json({error:'Checkout order unavailable'},503);
+    if(disposition==='retry' || !expected)return json({error:'Checkout order unavailable'},503);
     if(source.currency!=='brl'||Number(source.amount_total)!==Number(expected.amount_total)||
        (source.metadata?.oryneo_order_id&&source.metadata.oryneo_order_id!==expected.id)){
       console.error('Stripe checkout amount/reference mismatch',{session_id:source.id});
