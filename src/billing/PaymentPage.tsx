@@ -34,15 +34,24 @@ const money = (cents: number) => new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL',
 }).format(cents / 100);
 
+const deliveryLink = () => {
+  const token = new URLSearchParams(window.location.search).get('token');
+  if (!token) return '';
+  const url = new URL('../implantacao/',window.location.href);
+  url.searchParams.set('token',token);
+  return url.toString();
+};
+
 const shortDate = (value?: string | null) => value
   ? new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
   : '';
 
-export function PaymentPageView({ order, paymentSlot, onPay, busy = false }: {
+export function PaymentPageView({ order, paymentSlot, onPay, busy = false, portalUrl = '' }: {
   order: PublicBillingOrder;
   paymentSlot: ReactNode;
   onPay: () => void;
   busy?: boolean;
+  portalUrl?: string;
 }) {
   const [accepted, setAccepted] = useState(false);
   const ready = order.status === 'awaiting_payment';
@@ -63,7 +72,9 @@ export function PaymentPageView({ order, paymentSlot, onPay, busy = false }: {
           <p>Olá, {order.customer_name}. Revise os dados acordados e conclua com segurança. O escopo não pode ser alterado nesta etapa.</p>
         </div>
         <div className="pay-form-body">
-          {ready ? paymentSlot : <StatusMessage status={order.status}/>} 
+          {ready ? paymentSlot : <StatusMessage status={order.status}/>}
+          {order.status==='paid'&&portalUrl&&<p className="pay-help"><a href={portalUrl} rel="noreferrer">
+            Acompanhar implantação e próximos passos</a></p>} 
           {ready && <>
             <label className="pay-consent">
               <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)}/>
@@ -143,7 +154,7 @@ export function PaymentPage() {
   if (error) return <main className="pay-page pay-center"><div className="pay-error"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><h1>Não conseguimos abrir o pedido.</h1><p>{error}</p></div></main>;
   if (!order) return <main className="pay-page pay-center"><div className="pay-loading" aria-label="Carregando pedido"><span/>Preparando seu ambiente seguro…</div></main>;
   if(order.status==='awaiting_payment'&&!checkout)return <PaymentPageView order={{...order,status:'payment_failed'}} paymentSlot={null} onPay={()=>undefined}/>;
-  if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined}/>;
+  if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} portalUrl={order.status==='paid'?deliveryLink():''}/>;
   return <CheckoutElementsProvider stripe={stripePromise} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#5269ff',colorText:'#242931',colorBackground:'#ffffff',borderRadius:'9px',fontFamily:'DM Sans, sans-serif'}}}}}>
     <StripePayment order={order}/>
   </CheckoutElementsProvider>;
@@ -197,7 +208,7 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
     }
   };
 
-  if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined}/>;
+  if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined} portalUrl={completion==='paid'?deliveryLink():''}/>;
   const slot=<div className="pay-element">
     <div className="pay-element-head"><LockKeyhole size={16}/><span>Dados de pagamento</span><small>Processado com segurança</small></div>
     {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
