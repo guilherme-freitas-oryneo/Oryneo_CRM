@@ -268,8 +268,9 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
     'Esta é uma comunicação transacional referente à sua relação com a ORYNEO.';
  const copy=paragraphs.join('\n\n');
  const detailText=details.map(([k,v])=>k+': '+trim(v,240)).join('\n');
+ const supportText=hasWhatsapp?'Dúvidas? Use o WhatsApp oficial acima ou escreva para '+help(input):'Dúvidas? Responda este e-mail ou escreva para '+help(input);
  const text=[copy,detailText,hasCta?(def.cta+': '+target):'',hasWhatsapp?(def.whatsappLabel+': '+whatsapp):'',
-   def.footnote||'', 'Dúvidas? '+help(input),'Equipe ORYNEO · Crescimento em sistema.']
+   def.footnote||'', supportText,'Equipe ORYNEO · Crescimento em sistema.']
    .filter(Boolean).join('\n\n');
  const rows=details.length?'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:28px 0;border-top:1px solid #e6e9ef">'+
   details.map(([key,val])=>'<tr><td style="padding:13px 8px 13px 0;color:#687383;font-size:13px;border-bottom:1px solid #e6e9ef">'+escapeHtml(key)+'</td>'+
@@ -293,7 +294,7 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
   paragraphs.map(p=>'<p style="font-size:15px;line-height:1.77;color:#6B7280;margin:0 0 17px">'+escapeHtml(p)+'</p>').join('')+
   rows+action+whatsappAction+
   (def.footnote?'<p style="padding:15px 17px;border-left:3px solid #4F6BFF;background:#F1F3FF;color:#5d657a;font-size:12px;line-height:1.7;margin:27px 0">'+escapeHtml(def.footnote)+'</p>':'')+
-  '<p style="font-size:13px;color:#5d6676;line-height:1.8;margin:30px 0 0">Dúvidas? Responda este e-mail ou escreva para <a style="color:#4357E8" href="mailto:'+escapeHtml(help(input))+'">'+escapeHtml(help(input))+'</a>.<br>'+
+  '<p style="font-size:13px;color:#5d6676;line-height:1.8;margin:30px 0 0">'+(hasWhatsapp?'Dúvidas? Use o WhatsApp oficial acima ou escreva para ':'Dúvidas? Responda este e-mail ou escreva para ')+'<a style="color:#4357E8" href="mailto:'+escapeHtml(help(input))+'">'+escapeHtml(help(input))+'</a>.<br>'+
   '<strong style="color:#0F1115">Equipe ORYNEO</strong></p>'+
   '</td></tr><tr><td class="ory-pad" style="padding:20px 42px;background:#f9fafb;border-top:1px solid #e9ebf0;color:#8992a0;font-size:11px;line-height:1.7">'+
   escapeHtml(notice)+'<br>ORYNEO · Marketing, vendas e tecnologia.</td></tr></table>'+
