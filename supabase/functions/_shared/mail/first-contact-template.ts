@@ -1,3 +1,5 @@
+const ORYNEO_WHATSAPP_URL = 'https://wa.me/5521974510932';
+
 export type ContactIntent = 'conversation' | 'contract';
 export type BillingCycle = 'monthly' | 'annual';
 export type AddOn = 'landing-page' | 'traffic';
@@ -149,6 +151,8 @@ export function renderFirstContactEmail(input: FirstContactInput): RenderedFirst
     '',
     question,
     '',
+    'Conversar pelo WhatsApp: ' + ORYNEO_WHATSAPP_URL,
+    '',
     ...signature,
   ].join('\n');
 
@@ -190,7 +194,7 @@ export function renderFirstContactEmail(input: FirstContactInput): RenderedFirst
                 ${paragraph(transition)}
                 ${paragraph(question, 'margin:0 0 24px;font-weight:600;')}
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                  <tr><td style="border-radius:8px;background:#4F6BFF;"><a href="mailto:contato@oryneo.com.br?subject=Re%3A%20${encodeURIComponent(subject)}" style="display:inline-block;padding:13px 20px;color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:700;">Responder este e-mail</a></td></tr>
+                  <tr><td style="border-radius:8px;background:#4F6BFF;"><a href="${ORYNEO_WHATSAPP_URL}" style="display:inline-block;padding:13px 20px;color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:700;">Conversar pelo WhatsApp</a></td></tr>
                 </table>
                 <p style="margin:30px 0 0;color:#6B7280;font-size:14px;line-height:1.55;">${escapeHtml(signature[0])}<br><strong style="color:#0F1115;">${escapeHtml(signature[1])}</strong><br>${escapeHtml(signature[2])}</p>
               </td>
