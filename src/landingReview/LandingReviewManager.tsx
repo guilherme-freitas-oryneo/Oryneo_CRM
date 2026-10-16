@@ -19,7 +19,7 @@ export function LandingReviewManager({dealId}:{dealId:string}){
   setError('');
   try{
    const {data:order,error:orderError}=await supabase.from('crm_billing_orders')
-    .select('id,status,selection').eq('deal_id',dealId).order('created_at',{ascending:false}).limit(1).maybeSingle();
+    .select('id,status,selection').eq('deal_id',dealId).eq('status','paid').order('created_at',{ascending:false}).limit(1).maybeSingle();
    if(orderError)throw orderError;
    const addons=(order?.selection as {addons?:string[]}|undefined)?.addons||[];
    const eligible=order?.status==='paid'&&addons.includes('landing-page');
