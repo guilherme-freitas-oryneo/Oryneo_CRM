@@ -34,6 +34,14 @@ const money = (cents: number) => new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL',
 }).format(cents / 100);
 
+const offboardingLink = () => {
+  const token = new URLSearchParams(window.location.search).get('token');
+  if (!token) return '';
+  const url = new URL('../encerramento/',window.location.href);
+  url.searchParams.set('token',token);
+  return url.toString();
+};
+
 const deliveryLink = () => {
   const token = new URLSearchParams(window.location.search).get('token');
   if (!token) return '';
@@ -46,12 +54,13 @@ const shortDate = (value?: string | null) => value
   ? new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
   : '';
 
-export function PaymentPageView({ order, paymentSlot, onPay, busy = false, portalUrl = '' }: {
+export function PaymentPageView({ order, paymentSlot, onPay, busy = false, portalUrl = '', accountUrl = '' }: {
   order: PublicBillingOrder;
   paymentSlot: ReactNode;
   onPay: () => void;
   busy?: boolean;
   portalUrl?: string;
+  accountUrl?: string;
 }) {
   const [accepted, setAccepted] = useState(false);
   const ready = order.status === 'awaiting_payment';
@@ -74,7 +83,8 @@ export function PaymentPageView({ order, paymentSlot, onPay, busy = false, porta
         <div className="pay-form-body">
           {ready ? paymentSlot : <StatusMessage status={order.status}/>}
           {order.status==='paid'&&portalUrl&&<p className="pay-help"><a href={portalUrl} rel="noreferrer">
-            Acompanhar implantação e próximos passos</a></p>} 
+            Acompanhar implantação e próximos passos</a></p>}
+          {order.status==='paid'&&accountUrl&&<p className="pay-help"><a href={accountUrl} rel="noreferrer">Gerenciar assinatura e privacidade</a></p>} 
           {ready && <>
             <label className="pay-consent">
               <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)}/>
@@ -154,7 +164,7 @@ export function PaymentPage() {
   if (error) return <main className="pay-page pay-center"><div className="pay-error"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><h1>Não conseguimos abrir o pedido.</h1><p>{error}</p></div></main>;
   if (!order) return <main className="pay-page pay-center"><div className="pay-loading" aria-label="Carregando pedido"><span/>Preparando seu ambiente seguro…</div></main>;
   if(order.status==='awaiting_payment'&&!checkout)return <PaymentPageView order={{...order,status:'payment_failed'}} paymentSlot={null} onPay={()=>undefined}/>;
-  if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} portalUrl={order.status==='paid'?deliveryLink():''}/>;
+  if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} portalUrl={order.status==='paid'?deliveryLink():''} accountUrl={order.status==='paid'?offboardingLink():''}/>;
   return <CheckoutElementsProvider stripe={stripePromise} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#5269ff',colorText:'#242931',colorBackground:'#ffffff',borderRadius:'9px',fontFamily:'DM Sans, sans-serif'}}}}}>
     <StripePayment order={order}/>
   </CheckoutElementsProvider>;
@@ -208,7 +218,7 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
     }
   };
 
-  if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined} portalUrl={completion==='paid'?deliveryLink():''}/>;
+  if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined} portalUrl={completion==='paid'?deliveryLink():''} accountUrl={completion==='paid'?offboardingLink():''}/>;
   const slot=<div className="pay-element">
     <div className="pay-element-head"><LockKeyhole size={16}/><span>Dados de pagamento</span><small>Processado com segurança</small></div>
     {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
