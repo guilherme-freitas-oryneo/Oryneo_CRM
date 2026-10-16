@@ -14,6 +14,7 @@ const sample:TransactionalInput = {
  newEmail:'marina.novo@empresa.example',plan:'Growth',cycle:'mensal',
  orderReference:'ORY-EXEMPLO-0001',amountCents:337970,renewalAmountCents:109990,
  supportEmail:'contato@oryneo.com.br',
+ whatsappUrl:'https://wa.me/5521974510932',
  // URL demonstrativa: nenhum token/cobrança real é criado nesta biblioteca.
  actionUrl:'https://example.invalid/oryneo/acao-segura',
 };
@@ -49,7 +50,7 @@ export function EmailPreviewGallery() {
     <div className="email-preview-heading">
      <span className="email-preview-kicker">Biblioteca · prévias</span>
      <h1>Comunicações ORYNEO</h1>
-     <p>Identidade visual unificada. Conteúdo responsivo, texto simples e 12 modelos transacionais em prévia, além dos modelos comerciais existentes.</p>
+     <p>Identidade visual unificada. Conteúdo responsivo, texto simples e {transactional.length} modelos transacionais em prévia, além dos modelos comerciais existentes.</p>
     </div>
     <div className="email-preview-filter" aria-label="Filtrar modelos">
      {([
