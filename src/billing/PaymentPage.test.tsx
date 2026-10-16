@@ -21,6 +21,14 @@ const order: PublicBillingOrder = {
 };
 
 describe('PaymentPageView', () => {
+  it('mostra o acompanhamento de implantação apenas após pagamento confirmado',()=>{
+    const url='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/implantacao/?token=token-seguro';
+    const {rerender}=render(<PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} portalUrl={url}/>);
+    expect(screen.queryByRole('link',{name:/Acompanhar implantação/})).not.toBeInTheDocument();
+    rerender(<PaymentPageView order={{...order,status:'paid'}} paymentSlot={null} onPay={()=>undefined} portalUrl={url}/>);
+    expect(screen.getByRole('link',{name:/Acompanhar implantação/})).toHaveAttribute('href',url);
+  });
+
   it('expõe total, composição e recorrência antes do pagamento', () => {
     render(<PaymentPageView order={order} paymentSlot={<div>Pagamento seguro</div>} onPay={() => undefined} />);
     expect(screen.getByRole('heading', { name: 'Finalize sua contratação.' })).toBeInTheDocument();
