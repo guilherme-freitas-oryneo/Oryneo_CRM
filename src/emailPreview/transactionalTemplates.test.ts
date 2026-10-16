@@ -11,7 +11,7 @@ const input={
  actionUrl:'https://example.invalid/oryneo/confirmacao',
 };
 describe('ORYNEO transactional library',()=>{
- it('tem 12 modelos únicos e organizados por categoria',()=>{
+ it('tem 16 modelos únicos e organizados por categoria',()=>{
   expect(transactionDefinitions).toHaveLength(16);
   expect(transactionScenarios).toHaveLength(16);
   expect(new Set(transactionDefinitions.map(t=>t.id)).size).toBe(16);
@@ -57,6 +57,7 @@ describe('ORYNEO transactional library',()=>{
    expect(email.html).not.toContain('javascript:');
    expect(email.text).toContain(whatsapp);
    expect(email.text).toContain(primary);
+   expect(email.html).not.toContain('Dúvidas? Responda este e-mail');
   }
  });
  it('rejeita URL de WhatsApp que não seja wa.me numérico',()=>{
