@@ -4,6 +4,7 @@ create table public.crm_landing_reviews(
  id uuid primary key default gen_random_uuid(),
  order_id uuid not null references public.crm_billing_orders(id) on delete restrict,
  version integer not null check(version>0),
+ review_token_hash text not null unique check(review_token_hash ~ '^[a-f0-9]{64}$'),
  preview_url text not null check(length(preview_url) between 20 and 1200),
  preview_html_sha256 text not null check(preview_html_sha256 ~ '^[a-f0-9]{64}$'),
  status text not null default 'review' check(status in ('review','approved','superseded','published')),
@@ -29,13 +30,13 @@ create policy crm_landing_reviews_members_read on public.crm_landing_reviews for
  using (exists(select 1 from public.crm_members where user_id=(select auth.uid())));
 
 create or replace function public.crm_issue_landing_review(
- p_order_id uuid,p_preview_url text,p_preview_html_sha256 text,p_actor uuid
+ p_order_id uuid,p_preview_url text,p_preview_html_sha256 text,p_review_token_hash text,p_actor uuid
 ) returns jsonb language plpgsql security definer set search_path=''
 as $$
 declare v_version integer;v_id uuid;
 begin
  if p_order_id is null or p_actor is null
-   or p_preview_html_sha256 !~ '^[a-f0-9]{64}$'
+   or p_preview_html_sha256 !~ '^[a-f0-9]{64}$' or p_review_token_hash !~ '^[a-f0-9]{64}$'
    or length(trim(coalesce(p_preview_url,''))) not between 20 and 1200
    then return jsonb_build_object('ok',false,'reason','invalid_input');end if;
  if not exists(select 1 from public.crm_members where user_id=p_actor)
@@ -47,8 +48,8 @@ begin
  select coalesce(max(version),0)+1 into v_version from public.crm_landing_reviews where order_id=p_order_id;
  update public.crm_landing_reviews set status='superseded',updated_at=now()
   where order_id=p_order_id and status='review';
- insert into public.crm_landing_reviews(order_id,version,preview_url,preview_html_sha256,created_by)
- values (p_order_id,v_version,trim(p_preview_url),p_preview_html_sha256,p_actor) returning id into v_id;
+ insert into public.crm_landing_reviews(order_id,version,preview_url,preview_html_sha256,review_token_hash,created_by)
+ values (p_order_id,v_version,trim(p_preview_url),p_preview_html_sha256,p_review_token_hash,p_actor) returning id into v_id;
  return jsonb_build_object('ok',true,'id',v_id,'version',v_version);
 end $$;
 
@@ -59,7 +60,7 @@ as $$
 declare v public.crm_landing_reviews;v_recipient text;
 begin
  if p_order_id is null or p_version is null or p_version<1
-   or p_preview_html_sha256 !~ '^[a-f0-9]{64}$'
+   or p_preview_html_sha256 !~ '^[a-f0-9]{64}$' or p_review_token_hash !~ '^[a-f0-9]{64}$'
    or length(trim(coalesce(p_name,''))) not between 2 and 180
    or length(trim(coalesce(p_email,''))) not between 5 and 254
    then return jsonb_build_object('ok',false,'reason','invalid_input');end if;
@@ -103,9 +104,9 @@ begin
   published_at=now(),updated_at=now() where id=v.id;
  return jsonb_build_object('ok',true,'version',v.version);
 end $$;
-revoke all on function public.crm_issue_landing_review(uuid,text,text,uuid) from public,anon,authenticated;
+revoke all on function public.crm_issue_landing_review(uuid,text,text,text,uuid) from public,anon,authenticated;
 revoke all on function public.crm_approve_landing_review(uuid,integer,text,text,text) from public,anon,authenticated;
 revoke all on function public.crm_publish_landing_review(uuid,integer,text,uuid) from public,anon,authenticated;
-grant execute on function public.crm_issue_landing_review(uuid,text,text,uuid) to service_role;
+grant execute on function public.crm_issue_landing_review(uuid,text,text,text,uuid) to service_role;
 grant execute on function public.crm_approve_landing_review(uuid,integer,text,text,text) to service_role;
 grant execute on function public.crm_publish_landing_review(uuid,integer,text,uuid) to service_role;
