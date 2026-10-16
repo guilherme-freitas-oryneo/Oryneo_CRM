@@ -60,6 +60,7 @@ begin
  if p_id is null or p_actor is null or
    p_state not in ('in_review','fulfilled','rejected')
    or length(coalesce(p_note,''))>2000
+   or (p_state in ('fulfilled','rejected') and length(trim(coalesce(p_note,'')))<10)
  then return jsonb_build_object('ok',false,'reason','invalid_input');end if;
  if not exists(select 1 from public.crm_members where user_id=p_actor)
    then return jsonb_build_object('ok',false,'reason','not_authorized');end if;
