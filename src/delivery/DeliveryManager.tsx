@@ -17,7 +17,7 @@ export function DeliveryManager({dealId}:{dealId:string}){
   setError('');
   try{
    const {data:order,error:billingError}=await supabase.from('crm_billing_orders').select('id,status')
-    .eq('deal_id',dealId).order('created_at',{ascending:false}).limit(1).maybeSingle();
+    .eq('deal_id',dealId).eq('status','paid').order('created_at',{ascending:false}).limit(1).maybeSingle();
    if(billingError)throw billingError;
    if(!order||order.status!=='paid'){setOrderId(null);setProject(null);setMilestones([]);return}
    setOrderId(order.id);
