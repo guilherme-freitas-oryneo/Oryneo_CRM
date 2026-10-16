@@ -54,6 +54,9 @@ Deno.test('e-mail inclui itens adquiridos, assinatura e escapa HTML',()=>{
  assertMatch(data.text,/trimestre/);
  assertMatch(data.text,/6.349,40/);
  assert(data.html.includes('Acme &amp; Filhos'));
+ assert(data.html.includes('src="https://oryneo.com.br/assets/oryneo-wordmark-mono-reverse.png"'));
+ assert(data.html.includes('alt="ORYNEO"'));
+ assert(!data.html.includes('letter-spacing:3px">ORYNEO'));
  assert(data.html.includes('R$'));
 });
 Deno.test('e-mail não exibe complementos ausentes',()=>{
