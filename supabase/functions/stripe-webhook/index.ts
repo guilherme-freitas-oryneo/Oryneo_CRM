@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import {ensureTrafficSubscription,getPaidOrder,sendWelcomeTestSafe} from '../_shared/billing/fulfillment.ts';
+import {classifyCheckoutLookup} from '../_shared/billing/checkout-webhook-policy.ts';
 declare const EdgeRuntime:{waitUntil(p:Promise<unknown>):void};
 
 const db = createClient(
@@ -87,7 +88,13 @@ Deno.serve(async (req: Request) => {
     // Conferir o pedido vinculado: valores não podem ser decididos pelo payload do navegador.
     const {data:expected,error:lookupError}=await db.from('crm_billing_orders')
       .select('id,amount_total,currency').eq('stripe_checkout_session_id',source.id).maybeSingle();
-    if(lookupError || !expected)return json({error:'Checkout order unavailable'},503);
+    const disposition=classifyCheckoutLookup(event.type,Boolean(expected),Boolean(lookupError));
+    if(disposition==='acknowledge_unlinked_expiration'){
+      // Checkout teste sem pedido correspondente: não houve pagamento a reconciliar.
+      console.warn('Stripe checkout expiration with no internal order',{event_id:event.id,session_id:source.id});
+      return json({received:true,unlinked:true});
+    }
+    if(disposition==='retry')return json({error:'Checkout order unavailable'},503);
     if(source.currency!=='brl'||Number(source.amount_total)!==Number(expected.amount_total)||
        (source.metadata?.oryneo_order_id&&source.metadata.oryneo_order_id!==expected.id)){
       console.error('Stripe checkout amount/reference mismatch',{session_id:source.id});
