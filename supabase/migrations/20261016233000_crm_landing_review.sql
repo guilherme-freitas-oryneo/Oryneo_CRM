@@ -60,57 +60,7 @@ as $$
 declare v public.crm_landing_reviews;v_recipient text;
 begin
  if p_order_id is null or p_version is null or p_version<1
-   or p_preview_html_sha256 !~ '^[a-f0-9]{64}
-   or length(trim(coalesce(p_name,''))) not between 2 and 180
-   or length(trim(coalesce(p_email,''))) not between 5 and 254
-   then return jsonb_build_object('ok',false,'reason','invalid_input');end if;
- select r.* into v from public.crm_landing_reviews r
-   where r.order_id=p_order_id and r.version=p_version for update;
- if not found then return jsonb_build_object('ok',false,'reason','not_found');end if;
- if v.preview_html_sha256<>p_preview_html_sha256
-   then return jsonb_build_object('ok',false,'reason','design_changed');end if;
- select lower(trim(customer_email)) into v_recipient from public.crm_billing_orders where id=p_order_id and status='paid';
- if v_recipient is null or v_recipient<>lower(trim(p_email))
-   then return jsonb_build_object('ok',false,'reason','email_mismatch');end if;
- if v.status in ('approved','published')
-   then return jsonb_build_object('ok',true,'already_approved',true,'version',v.version);end if;
- if v.status<>'review' or v.expires_at<=now()
-   or exists(select 1 from public.crm_landing_reviews where order_id=p_order_id and version>v.version)
-   then return jsonb_build_object('ok',false,'reason','expired_or_superseded');end if;
- update public.crm_landing_reviews set status='approved',accepted_at=now(),
-  accepted_name=trim(p_name),accepted_email=lower(trim(p_email)),updated_at=now()
-  where id=v.id and status='review';
- return jsonb_build_object('ok',true,'version',v.version);
-end $$;
-
-create or replace function public.crm_publish_landing_review(
- p_order_id uuid,p_version integer,p_published_url text,p_actor uuid
-) returns jsonb language plpgsql security definer set search_path=''
-as $$
-declare v public.crm_landing_reviews;
-begin
- if p_order_id is null or p_version<1 or p_actor is null or
-    length(trim(coalesce(p_published_url,''))) not between 20 and 1200
-   then return jsonb_build_object('ok',false,'reason','invalid_input');end if;
- if not exists(select 1 from public.crm_members where user_id=p_actor)
-   then return jsonb_build_object('ok',false,'reason','not_authorized');end if;
- select * into v from public.crm_landing_reviews
-  where order_id=p_order_id and version=p_version for update;
- if not found then return jsonb_build_object('ok',false,'reason','not_found');end if;
- if v.status<>'approved'
-  or exists(select 1 from public.crm_landing_reviews where order_id=p_order_id and version>v.version)
-   then return jsonb_build_object('ok',false,'reason','not_approved_or_outdated');end if;
- update public.crm_landing_reviews set status='published',published_url=trim(p_published_url),
-  published_at=now(),updated_at=now() where id=v.id;
- return jsonb_build_object('ok',true,'version',v.version);
-end $$;
-revoke all on function public.crm_issue_landing_review(uuid,text,text,text,uuid) from public,anon,authenticated;
-revoke all on function public.crm_approve_landing_review(uuid,integer,text,text,text) from public,anon,authenticated;
-revoke all on function public.crm_publish_landing_review(uuid,integer,text,uuid) from public,anon,authenticated;
-grant execute on function public.crm_issue_landing_review(uuid,text,text,text,uuid) to service_role;
-grant execute on function public.crm_approve_landing_review(uuid,integer,text,text,text) to service_role;
-grant execute on function public.crm_publish_landing_review(uuid,integer,text,uuid) to service_role;
-
+   or p_preview_html_sha256 !~ '^[a-f0-9]{64}$'
    or length(trim(coalesce(p_name,''))) not between 2 and 180
    or length(trim(coalesce(p_email,''))) not between 5 and 254
    then return jsonb_build_object('ok',false,'reason','invalid_input');end if;
