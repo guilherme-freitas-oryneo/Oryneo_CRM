@@ -25,10 +25,31 @@ Deno.serve(async req=>{
  if(!quote?.plan||!quote?.cycle)return respond({error:'Revise e confirme uma proposta antes de preparar a cobrança.'},422);
  let selection:ReturnType<typeof buildBillingSelection>;
  try{selection=buildBillingSelection({plan:quote.plan,cycle:quote.cycle,addons:(quote.addons||[]).map((a:{key:string})=>a.key)})}catch{return respond({error:'A proposta não corresponde ao catálogo vigente.'},422)}
+ // F01: somente a última proposta imutável e aceita habilita o checkout.
+ const {data:proposal,error:proposalError}=await db.from('crm_proposals')
+  .select('id,status,snapshot,contact_email,expires_at')
+  .eq('deal_id',deal.id).order('version',{ascending:false}).limit(1).maybeSingle();
+ if(proposalError)return respond({error:'Não foi possível validar o aceite da proposta.'},503);
+ if(!proposal||proposal.status!=='accepted')return respond({error:'O cliente precisa aceitar a versão atual da proposta antes da cobrança.'},409);
+ const snapshot=proposal.snapshot as {plan?:string;cycle?:string;addons?:string[];amount_total?:number;catalog_version?:string};
+ const addons=[...new Set((quote.addons||[]).map((addon:{key:string})=>addon.key))].sort();
+ if(snapshot?.plan!==selection.plan||snapshot?.cycle!==selection.cycle||
+    JSON.stringify(snapshot.addons)!==JSON.stringify(addons)||
+    snapshot.amount_total!==selection.amountTotal||
+    snapshot.catalog_version!==selection.catalogVersion||
+    proposal.contact_email!==String(data.email||'').trim().toLowerCase())
+  return respond({error:'A seleção comercial mudou após o aceite. Emita uma nova versão da proposta.'},409);
+ const {data:previous,error:previousError}=await db.from('crm_billing_orders').select('reference')
+  .eq('proposal_id',proposal.id).maybeSingle();
+ if(previousError)return respond({error:'Não foi possível conferir pedidos anteriores.'},503);
+ if(previous)return respond({error:'Já existe um pedido para esta proposta. Revise-o antes de gerar outra cobrança.'},409);
  const publicToken=token(),orderId=crypto.randomUUID(),ref=reference();
  const items=selection.items.map(item=>({key:item.key,label:item.label,detail:item.detail,amount_cents:item.amountCents}));
- const {error:insertError}=await db.from('crm_billing_orders').insert({id:orderId,deal_id:deal.id,reference:ref,public_token_hash:await hash(publicToken),catalog_version:selection.catalogVersion,selection:{plan:selection.plan,cycle:selection.cycle,addons:(quote.addons||[]).map((a:{key:string})=>a.key)},items,amount_total:selection.amountTotal,customer_name:data.contact||'Cliente ORYNEO',customer_email:data.email,company:data.company||data.title,created_by:user.id});
- if(insertError)return respond({error:'Não foi possível preparar o pedido.'},503);
+ const {error:insertError}=await db.from('crm_billing_orders').insert({id:orderId,deal_id:deal.id,proposal_id:proposal.id,reference:ref,public_token_hash:await hash(publicToken),catalog_version:selection.catalogVersion,selection:{plan:selection.plan,cycle:selection.cycle,addons:(quote.addons||[]).map((a:{key:string})=>a.key)},items,amount_total:selection.amountTotal,customer_name:data.contact||'Cliente ORYNEO',customer_email:data.email,company:data.company||data.title,created_by:user.id});
+ if(insertError){
+  if(insertError.code==='23505')return respond({error:'Este aceite já possui um pedido vinculado.'},409);
+  return respond({error:'Não foi possível preparar o pedido.'},503);
+ }
  const form=new URLSearchParams();
  form.set('mode','subscription');form.set('ui_mode','elements');form.set('customer_email',String(data.email));
  form.set('locale','pt-BR');
