@@ -54,23 +54,10 @@ Deno.test('e-mail inclui itens adquiridos, assinatura e escapa HTML',()=>{
  assertMatch(data.text,/trimestre/);
  assertMatch(data.text,/6.349,40/);
  assert(data.html.includes('Acme &amp; Filhos'));
- assert(data.html.includes('R
-});
-Deno.test('e-mail não exibe complementos ausentes',()=>{
- const order={...sample,selection:{plan:'Start',cycle:'annual',addons:[]},amount_total:908882,
- items:[
- {key:'start_annual',label:'Plano Start',detail:'Assinatura anual antecipada',amount_cents:809892},
- {key:'start_setup',label:'Implantação',detail:'Única',amount_cents:98990}
- ]};
- const email=welcomeMarkup(order);
- assert(!email.text.includes('Tráfego:'));
- assert(!email.text.includes('Landing page incluída'));
- assertMatch(email.text,/por ano/);
-});
-));
  assert(data.html.includes('src="https://oryneo.com.br/assets/oryneo-wordmark-mono-reverse.png"'));
- assert(!data.html.includes('<div style="font-size:23px;font-weight:800;letter-spacing:3px">ORYNEO'));
  assert(data.html.includes('alt="ORYNEO"'));
+ assert(!data.html.includes('letter-spacing:3px">ORYNEO'));
+ assert(data.html.includes('R$'));
 });
 Deno.test('e-mail não exibe complementos ausentes',()=>{
  const order={...sample,selection:{plan:'Start',cycle:'annual',addons:[]},amount_total:908882,
