@@ -7,8 +7,15 @@ export async function listFolders(): Promise<MailFolder[]> {
   return data as MailFolder[];
 }
 
-export async function listThreads(folderId: string | null, query = '', filter = 'all'): Promise<MailThreadSummary[]> {
-  const { data, error } = await supabase.rpc('crm_mail_list_threads', { p_folder: folderId, p_query: query, p_filter: filter, p_limit: 50 });
+export const MAIL_THREADS_PAGE_SIZE = 50;
+export type MailThreadCursor = { beforeAt: string; beforeId: string };
+
+export async function listThreads(folderId: string | null, query = '', filter = 'all', cursor?: MailThreadCursor): Promise<MailThreadSummary[]> {
+  const { data, error } = await supabase.rpc('crm_mail_list_threads', {
+    p_folder: folderId, p_query: query, p_filter: filter,
+    p_before_at: cursor?.beforeAt ?? null, p_before_id: cursor?.beforeId ?? null,
+    p_limit: MAIL_THREADS_PAGE_SIZE,
+  });
   if (error) throw error;
   return (data ?? []) as MailThreadSummary[];
 }
