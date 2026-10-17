@@ -101,7 +101,7 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  const mailMetrics=await mailList.evaluate(el=>({overflow:getComputedStyle(el).overflowY,client:el.clientHeight,scroll:el.scrollHeight,count:el.querySelectorAll('button[aria-label^="Abrir conversa"]').length}));
  if(mailMetrics.overflow!=='auto'||mailMetrics.scroll<=mailMetrics.client||mailMetrics.count!==50)throw Error(name+' caixa não está rolável/paginada '+JSON.stringify(mailMetrics));
  await mailList.evaluate(el=>{el.scrollTop=el.scrollHeight;el.dispatchEvent(new Event('scroll',{bubbles:true}))});
- await page.getByRole('button',{name:/Abrir conversa QA conversa antiga 1/}).waitFor({timeout:10000});
+ await page.getByRole('button',{name:'Abrir conversa QA conversa antiga 1',exact:true}).waitFor({timeout:10000});
  const mailCount=await mailList.locator('button[aria-label^="Abrir conversa"]').count();
  if(mailCount!==60||!(await mailList.getByRole('button',{name:/Abrir conversa QA conversa recente 1/}).count()))throw Error(name+' próxima página não preservou as conversas '+mailCount);
  await page.screenshot({path:'qa-results/'+name+'-mailbox-pagination.png',fullPage:false});
