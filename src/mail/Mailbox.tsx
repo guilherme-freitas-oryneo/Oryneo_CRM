@@ -1,5 +1,5 @@
 import { AlertCircle, Edit3, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from 'react';
 import type { DealRow } from '../data';
 import { getStatus, getThread, invokeMailAction, listFolders, listThreads, MAIL_THREADS_PAGE_SIZE, subscribeMail } from './api';
 import { Composer, type ComposePayload } from './Composer';
@@ -51,7 +51,7 @@ export function Mailbox({ deals: _deals, onOpenDeal }: { deals: DealRow[]; onOpe
       loadingMoreRef.current = false; setLoadingMore(false);
     }
   }, [filter, folderId, hasMore, listContext, query, threads]);
-  const handleThreadListScroll = (event: React.UIEvent<HTMLDivElement>) => {
+  const handleThreadListScroll = (event: UIEvent<HTMLDivElement>) => {
     const element = event.currentTarget;
     if (element.scrollHeight - element.scrollTop - element.clientHeight < 180) void loadMore();
   };
