@@ -83,6 +83,24 @@ describe('Mailbox', () => {
     });
   });
 
+  it('marca todas as mensagens não lidas da conversa como lidas', async () => {
+    vi.mocked(api.invokeMailAction).mockResolvedValue({ ok: true });
+    vi.mocked(api.getThread).mockResolvedValue({
+      thread: { id: 'thread', subject: 'Proposta ORYNEO' },
+      messages: [
+        { id: 'message-1', thread_id: 'thread', internet_message_id: '<m1@x>', references: [], subject: 'Proposta ORYNEO', from: { address: 'cliente@exemplo.com', name: 'Cliente' }, to: [{ address: 'contato@oryneo.com.br' }], cc: [], bcc: [], sent_at: '2026-10-12T15:00:00Z', received_at: '2026-10-12T15:00:00Z', body_text: 'Primeira mensagem não lida.', direction: 'inbound', unread: true, starred: false, attachments: [], locations: [{ id: 'location-1', folder_id: 'inbox', uid: 1, flags: [] }] },
+        { id: 'message-2', thread_id: 'thread', internet_message_id: '<m2@x>', references: [], subject: 'Re: Proposta ORYNEO', from: { address: 'cliente@exemplo.com', name: 'Cliente' }, to: [{ address: 'contato@oryneo.com.br' }], cc: [], bcc: [], sent_at: '2026-10-12T16:00:00Z', received_at: '2026-10-12T16:00:00Z', body_text: 'Segunda mensagem não lida.', direction: 'inbound', unread: true, starred: false, attachments: [], locations: [{ id: 'location-2', folder_id: 'inbox', uid: 2, flags: [] }] },
+      ],
+    });
+    render(<Mailbox deals={[]} onOpenDeal={vi.fn()} />);
+    await screen.findByText('Proposta ORYNEO');
+    await userEvent.click(screen.getByRole('button', { name: /abrir conversa proposta oryneo/i }));
+
+    await waitFor(() => expect(api.invokeMailAction).toHaveBeenCalledTimes(2));
+    expect(api.invokeMailAction).toHaveBeenCalledWith('set-flags', { locationId: 'location-1', flag: 'seen', value: true });
+    expect(api.invokeMailAction).toHaveBeenCalledWith('set-flags', { locationId: 'location-2', flag: 'seen', value: true });
+  });
+
   it('executa sincronização manual e atualiza a lista', async () => {
     vi.mocked(api.invokeMailAction).mockResolvedValue({ state: 'success' });
     render(<Mailbox deals={[]} onOpenDeal={vi.fn()} />);
