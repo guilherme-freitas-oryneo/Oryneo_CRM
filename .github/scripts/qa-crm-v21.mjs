@@ -40,6 +40,12 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
   if(path.includes('/rest/v1/crm_records'))return respond(rows);
   if(path.includes('/rest/v1/crm_companies'))return respond([]);
   if(path.includes('/rest/v1/crm_events'))return respond([]);
+  if(path.includes('/rest/v1/crm_mail_folders'))return respond([{id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',mailbox_id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',name:'Caixa de entrada',remote_name:'INBOX',special_use:'inbox',total_count:60,unread_count:0}]);
+  if(path.endsWith('/rest/v1/rpc/crm_mail_get_status'))return respond({mailbox_id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',address:'qa@example.com',backlog:0,last_run:{state:'success',finished_at:now}});
+  if(path.endsWith('/rest/v1/rpc/crm_mail_list_threads')){
+   const input=JSON.parse(req.postData()||'{}'),older=Boolean(input.p_before_at),count=older?10:50;
+   return respond(Array.from({length:count},(_,i)=>({id:(older?'older-':'recent-')+(i+1),subject:'QA conversa '+(older?'antiga ':'recente ')+(i+1),participants:[{address:'qa'+i+'@example.com',name:'Contato QA '+(i+1)}],preview:'Mensagem sintética de homologação',last_message_at:new Date(Date.UTC(2026,9,17,12,0,count-i)).toISOString(),unread:false,starred:false,has_attachments:false,message_count:1,deal_links:[]})));
+  }
   if(path.includes('/rest/v1/rpc/crm_set_action')&&method==='POST'){
    rpcCount++;
    const input=JSON.parse(req.postData()||'{}');
@@ -89,6 +95,16 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  });
  if(img.status!==200||img.bytes<50000)throw Error(name+' wordmark invalido '+JSON.stringify(img));
  await page.screenshot({path:'qa-results/'+name+'-atividades.png',fullPage:false});
+ await page.getByRole('button',{name:'E-mail'}).click();
+ await page.locator('.mail-thread-list').waitFor({timeout:10000});
+ const mailList=page.locator('.mail-thread-list');
+ const mailMetrics=await mailList.evaluate(el=>({overflow:getComputedStyle(el).overflowY,client:el.clientHeight,scroll:el.scrollHeight,count:el.querySelectorAll('button[aria-label^="Abrir conversa"]').length}));
+ if(mailMetrics.overflow!=='auto'||mailMetrics.scroll<=mailMetrics.client||mailMetrics.count!==50)throw Error(name+' caixa não está rolável/paginada '+JSON.stringify(mailMetrics));
+ await mailList.evaluate(el=>{el.scrollTop=el.scrollHeight;el.dispatchEvent(new Event('scroll',{bubbles:true}))});
+ await page.getByRole('button',{name:'Abrir conversa QA conversa antiga 1',exact:true}).waitFor({timeout:10000});
+ const mailCount=await mailList.locator('button[aria-label^="Abrir conversa"]').count();
+ if(mailCount!==60||!(await mailList.getByRole('button',{name:/Abrir conversa QA conversa recente 1/}).count()))throw Error(name+' próxima página não preservou as conversas '+mailCount);
+ await page.screenshot({path:'qa-results/'+name+'-mailbox-pagination.png',fullPage:false});
  if(errors.length)throw Error(name+' JS errors '+JSON.stringify(errors));
  console.log(name+' OK: dashboard, filtros, diagnóstico, RPC de atividade, asset do Drive. Wordmark bytes='+img.bytes);
  await browser.close();
