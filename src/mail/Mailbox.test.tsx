@@ -28,6 +28,32 @@ describe('Mailbox', () => {
     await waitFor(() => expect(api.getThread).toHaveBeenCalledWith('thread'));
   });
 
+  it('carrega conversas seguintes pelo cursor sem apagar as já exibidas', async () => {
+    const firstPage = Array.from({ length: 50 }, (_, index) => ({
+      id: `thread-${index}`, subject: `Mensagem ${index}`, participants: [{ address: `cliente${index}@exemplo.com`, name: `Cliente ${index}` }],
+      preview: 'Mensagem de teste', last_message_at: new Date(Date.UTC(2026, 9, 17, 12, 0, 50 - index)).toISOString(),
+      unread: false, starred: false, has_attachments: false, message_count: 1, deal_links: [],
+    }));
+    const nextPage = [{
+      id: 'thread-older', subject: 'Mensagem mais antiga', participants: [{ address: 'antigo@exemplo.com', name: 'Cliente antigo' }],
+      preview: 'Página seguinte', last_message_at: '2026-10-16T12:00:00.000Z', unread: false, starred: false,
+      has_attachments: false, message_count: 1, deal_links: [],
+    }];
+    vi.mocked(api.listThreads).mockImplementation(async (_folder, _query, _filter, cursor) => cursor ? nextPage : firstPage);
+
+    render(<Mailbox deals={[]} onOpenDeal={vi.fn()} />);
+    expect(await screen.findByText('Mensagem 0')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /carregar mais conversas/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /carregar mais conversas/i }));
+
+    expect(await screen.findByText('Mensagem mais antiga')).toBeInTheDocument();
+    expect(screen.getByText('Mensagem 0')).toBeInTheDocument();
+    expect(api.listThreads).toHaveBeenCalledWith('inbox', '', 'all', {
+      beforeAt: firstPage[firstPage.length - 1].last_message_at, beforeId: 'thread-49',
+    });
+  });
+
   it('executa sincronização manual e atualiza a lista', async () => {
     vi.mocked(api.invokeMailAction).mockResolvedValue({ state: 'success' });
     render(<Mailbox deals={[]} onOpenDeal={vi.fn()} />);
