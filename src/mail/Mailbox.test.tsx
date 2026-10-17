@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Mailbox } from './Mailbox';
@@ -51,6 +51,35 @@ describe('Mailbox', () => {
     expect(screen.getByText('Mensagem 0')).toBeInTheDocument();
     expect(api.listThreads).toHaveBeenCalledWith('inbox', '', 'all', {
       beforeAt: firstPage[firstPage.length - 1].last_message_at, beforeId: 'thread-49',
+    });
+  });
+
+  it('carrega automaticamente a próxima página ao rolar até o fim', async () => {
+    const firstPage = Array.from({ length: 50 }, (_, index) => ({
+      id: `scroll-${index}`, subject: `Conversa ${index}`, participants: [{ address: `scroll${index}@exemplo.com`, name: `Contato ${index}` }],
+      preview: 'Mensagem', last_message_at: new Date(Date.UTC(2026, 9, 17, 12, 0, 50 - index)).toISOString(),
+      unread: false, starred: false, has_attachments: false, message_count: 1, deal_links: [],
+    }));
+    const older = [{
+      id: 'scroll-older', subject: 'Conversa anterior', participants: [{ address: 'anterior@exemplo.com', name: 'Contato anterior' }],
+      preview: 'Mais antiga', last_message_at: '2026-10-16T12:00:00.000Z', unread: false, starred: false,
+      has_attachments: false, message_count: 1, deal_links: [],
+    }];
+    vi.mocked(api.listThreads).mockImplementation(async (_folder, _query, _filter, cursor) => cursor ? older : firstPage);
+
+    render(<Mailbox deals={[]} onOpenDeal={vi.fn()} />);
+    expect(await screen.findByText('Conversa 0')).toBeInTheDocument();
+    const list = screen.getByRole('region', { name: 'Conversas' });
+    Object.defineProperties(list, {
+      scrollHeight: { configurable: true, value: 2400 },
+      scrollTop: { configurable: true, value: 2200 },
+      clientHeight: { configurable: true, value: 200 },
+    });
+    fireEvent.scroll(list);
+
+    expect(await screen.findByText('Conversa anterior')).toBeInTheDocument();
+    expect(api.listThreads).toHaveBeenCalledWith('inbox', '', 'all', {
+      beforeAt: firstPage[firstPage.length - 1].last_message_at, beforeId: 'scroll-49',
     });
   });
 
