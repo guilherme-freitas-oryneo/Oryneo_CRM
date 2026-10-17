@@ -152,7 +152,7 @@ export function welcomeMarkup(order:Order):{subject:string;text:string;html:stri
  '<div style="display:none;max-height:0;overflow:hidden">Sua contratação foi confirmada. Veja o resumo e os próximos passos.</div>'+
  '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f3f5f8"><tr><td align="center" style="padding:25px 12px">'+
  '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:620px;background:#fff">'+
- '<tr><td style="background:#181d28;color:#fff;padding:30px 34px 36px"><img src="https://oryneo.com.br/assets/oryneo-wordmark-mono-reverse.png" width="162" alt="ORYNEO" style="display:block;width:162px;max-width:100%;height:auto;border:0">'+
+ '<tr><td style="background:#181d28;color:#fff;padding:30px 34px 36px"><img src="https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/oryneo-wordmark-mono-reverse.png" width="162" alt="ORYNEO" style="display:block;width:162px;max-width:100%;height:auto;border:0">'+
  '<p style="color:#bfc8ff;font-size:11px;letter-spacing:2px;margin-top:40px">CONTRATAÇÃO CONFIRMADA</p>'+
  '<h1 style="font-size:31px;letter-spacing:-1px;line-height:1.2;margin:15px 0">O próximo passo da sua operação começa aqui.</h1>'+
  '<p style="color:#bdc5d2;font-size:14px;line-height:1.7">Uma parceria para estruturar o que vem pela frente.</p></td></tr>'+
