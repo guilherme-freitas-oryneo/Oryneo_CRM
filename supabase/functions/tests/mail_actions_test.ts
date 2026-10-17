@@ -73,6 +73,22 @@ Deno.test('sendMail envia uma vez, registra aceitação e anexa em Enviados', as
   assert.deepEqual(sequence, ['smtp', 'accepted', 'append', 'sent']);
 });
 
+Deno.test('sendMail encerra o registro da outbox quando credenciais falham antes do SMTP', async () => {
+  let failedCode: string | null = null;
+  const dependencies: MailSendDependencies = {
+    getCredentials: () => Promise.reject(new Error('DB_CREDENTIALS')),
+    beginOutbox: () => Promise.resolve({ state: 'pending', internetMessageId: '<22222222-2222-4222-8222-222222222222@oryneo.com.br>', acceptedAt: null }),
+    findSentMessage: () => Promise.resolve(false),
+    smtpSend: () => Promise.resolve(),
+    appendSent: () => Promise.resolve(),
+    markAccepted: () => Promise.resolve(),
+    markSent: () => Promise.resolve(),
+    markFailed: (_key, code) => { failedCode = code; return Promise.resolve(); },
+  };
+  await assert.rejects(sendMail(dependencies, 'user-1', compose), /MAIL_SEND/);
+  assert.equal(failedCode, 'MAIL_SEND');
+});
+
 Deno.test('mail-api exige JWT e associação ao CRM antes de executar ação', async () => {
   let invoked = false;
   const handler = createMailApiHandler({

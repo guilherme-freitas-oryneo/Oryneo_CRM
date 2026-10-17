@@ -66,21 +66,21 @@ export async function sendMail(dependencies: MailSendDependencies, userId: strin
   const deterministicId = `<${input.idempotencyKey.toLowerCase()}@oryneo.com.br>`;
   const outbox = await dependencies.beginOutbox(userId, input, deterministicId);
   if (outbox.state === 'sent') return { internetMessageId: outbox.internetMessageId, alreadyAccepted: true };
-  const credentials = await dependencies.getCredentials(input.mailboxId);
-  const raw = await buildMimeMessage({
-    messageId: outbox.internetMessageId,
-    from: { name: credentials.displayName, address: credentials.address },
-    to: input.to,
-    cc: input.cc,
-    bcc: input.bcc,
-    subject: input.subject,
-    text: input.text,
-    html: input.html,
-    inReplyTo: input.inReplyTo,
-    references: input.references,
-    attachments: input.attachments,
-  });
   try {
+    const credentials = await dependencies.getCredentials(input.mailboxId);
+    const raw = await buildMimeMessage({
+      messageId: outbox.internetMessageId,
+      from: { name: credentials.displayName, address: credentials.address },
+      to: input.to,
+      cc: input.cc,
+      bcc: input.bcc,
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+      inReplyTo: input.inReplyTo,
+      references: input.references,
+      attachments: input.attachments,
+    });
     if (outbox.acceptedAt) {
       if (!await dependencies.findSentMessage(credentials, outbox.internetMessageId)) await dependencies.appendSent(credentials, raw);
       await dependencies.markSent(input.idempotencyKey);
