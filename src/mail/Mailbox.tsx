@@ -62,8 +62,16 @@ export function Mailbox({ deals: _deals, onOpenDeal }: { deals: DealRow[]; onOpe
     setThreadId(thread.id); setConversationLoading(true);
     try {
       const next = await getThread(thread.id); setDetail(next);
-      const unread = next.messages.flatMap(message => message.locations.map(location => ({ message, location }))).find(item => !item.location.flags.includes('\\Seen') && item.location.id);
-      if (unread?.location.id) void invokeMailAction('set-flags', { locationId: unread.location.id, flag: 'seen', value: true }).then(() => refresh(true));
+      const unreadLocations = next.messages.flatMap(message => message.locations)
+        .filter(location => location.id && !location.flags.includes('\\Seen'));
+      if (unreadLocations.length) {
+        void Promise.allSettled(unreadLocations.map(location =>
+          invokeMailAction('set-flags', { locationId: location.id!, flag: 'seen', value: true }),
+        )).then(async results => {
+          if (results.some(result => result.status === 'rejected')) setError('Não foi possível marcar todas as mensagens como lidas.');
+          await refresh(true);
+        });
+      }
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível abrir a conversa.'); }
     finally { setConversationLoading(false); }
   };
