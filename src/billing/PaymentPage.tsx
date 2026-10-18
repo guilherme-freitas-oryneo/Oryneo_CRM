@@ -152,19 +152,30 @@ export function PaymentPage() {
   const [order, setOrder] = useState<PublicBillingOrder | null>(null);
   const [checkout, setCheckout] = useState<{clientSecret:string;publishableKey:string}|null>(null);
   const [error, setError] = useState('');
+  const [retryable, setRetryable] = useState(false);
   const token = new URLSearchParams(window.location.search).get('token') || '';
   const stripePromise = useMemo(() => checkout ? loadStripe(checkout.publishableKey) : null, [checkout?.publishableKey]);
   useEffect(() => {
     if (!token) { setError('Este link de pagamento está incompleto.'); return; }
     let active = true;
-    supabase.functions.invoke('billing-public', { body: { action: 'read', token } }).then(({ data, error: invokeError }) => {
-      if (!active) return;
-      if (invokeError || !data?.order) setError('Não foi possível abrir este pedido. Confira o link ou fale com a ORYNEO.');
-      else { setOrder(data.order as PublicBillingOrder); if(data.client_secret&&data.publishable_key)setCheckout({clientSecret:data.client_secret,publishableKey:data.publishable_key}); }
-    });
+    void (async () => {
+      try {
+        const { data, error: invokeError } = await supabase.functions.invoke('billing-public', { body: { action: 'read', token } });
+        if (!active) return;
+        if (invokeError) {
+          setError('Não foi possível verificar o status do pagamento agora. Nenhum pagamento foi confirmado. Tente novamente.');
+          setRetryable(true);
+        } else if (!data?.order) setError('Não foi possível abrir este pedido. Confira o link ou fale com a ORYNEO.');
+        else { setOrder(data.order as PublicBillingOrder); if(data.client_secret&&data.publishable_key)setCheckout({clientSecret:data.client_secret,publishableKey:data.publishable_key}); }
+      } catch {
+        if (!active) return;
+        setError('Não foi possível verificar o status do pagamento agora. Nenhum pagamento foi confirmado. Tente novamente.');
+        setRetryable(true);
+      }
+    })();
     return () => { active = false; };
   }, [token]);
-  if (error) return <main className="pay-page pay-center"><div className="pay-error"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><h1>Não conseguimos abrir o pedido.</h1><p>{error}</p></div></main>;
+  if (error) return <main className="pay-page pay-center"><div className="pay-error"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><h1>{retryable?'Não foi possível verificar agora.':'Não conseguimos abrir o pedido.'}</h1><p>{error}</p>{retryable&&<button className="pay-submit" onClick={()=>window.location.reload()}>Tentar novamente</button>}</div></main>;
   if (!order) return <main className="pay-page pay-center"><div className="pay-loading" aria-label="Carregando pedido"><span/>Preparando seu ambiente seguro…</div></main>;
   if(order.status==='awaiting_payment'&&!checkout)return <PaymentPageView order={{...order,status:'payment_failed'}} paymentSlot={null} onPay={()=>undefined}/>;
   if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={order.status==='paid'?deliveryLink():''} accountUrl={order.status==='paid'?offboardingLink():''}/>;

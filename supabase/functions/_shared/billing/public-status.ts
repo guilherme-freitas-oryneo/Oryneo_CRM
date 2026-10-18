@@ -24,9 +24,22 @@ export async function publicCheckoutSnapshot(
   retrieveSession: (sessionId: string) => Promise<StripeSessionState | null>,
   now = Date.now(),
 ): Promise<{ status: string; clientSecret: string | null }> {
-  const session = order.status === 'awaiting_payment' && order.stripe_checkout_session_id
-    ? await retrieveSession(order.stripe_checkout_session_id)
-    : null;
+  let session: StripeSessionState | null = null;
+  if (order.status === 'awaiting_payment') {
+    if (!order.stripe_checkout_session_id) {
+      const status = publicPaymentStatus(order.status, order.expires_at, null, now);
+      if (status === 'expired') return { status, clientSecret: null };
+      throw new Error('BILLING_SESSION_UNAVAILABLE');
+    }
+    try {
+      session = await retrieveSession(order.stripe_checkout_session_id);
+    } catch {
+      throw new Error('BILLING_SESSION_UNAVAILABLE');
+    }
+    if (!session) throw new Error('BILLING_SESSION_UNAVAILABLE');
+  }
   const status = publicPaymentStatus(order.status, order.expires_at, session?.payment_status ?? null, now);
-  return { status, clientSecret: status === 'awaiting_payment' ? session?.client_secret ?? null : null };
+  const clientSecret = status === 'awaiting_payment' ? session?.client_secret ?? null : null;
+  if (status === 'awaiting_payment' && !clientSecret) throw new Error('BILLING_SESSION_UNAVAILABLE');
+  return { status, clientSecret };
 }
