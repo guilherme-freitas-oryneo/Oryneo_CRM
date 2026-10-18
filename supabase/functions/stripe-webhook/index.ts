@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import {ensureTrafficSubscription,getPaidOrder,sendWelcomeTestSafe} from '../_shared/billing/fulfillment.ts';
 import {classifyCheckoutLookup} from '../_shared/billing/checkout-webhook-policy.ts';
+import {runPaidOrderPostpayment} from '../_shared/billing/postpayment.ts';
 declare const EdgeRuntime:{waitUntil(p:Promise<unknown>):void};
 
 const db = createClient(
@@ -119,13 +120,14 @@ Deno.serve(async (req: Request) => {
         if(!paidOrder)return json({error:'Paid order not synchronized'},503);
         const key=Deno.env.get('STRIPE_SECRET_KEY');
         if(!key||!key.startsWith('sk_test_'))return json({error:'Stripe sandbox key unavailable'},503);
-        await ensureTrafficSubscription(db,paidOrder,key);
-        const job=sendWelcomeTestSafe(db,paidOrder).catch(err=>{
-          console.error('Stripe welcome delivery pending review',{code:err instanceof Error?err.message:'unknown'});
+        // A renovação de tráfego não pode impedir o e-mail de boas-vindas de entrar na fila.
+        // O claim persistente da mensagem torna seguro o retry do webhook.
+        await runPaidOrderPostpayment({
+          sendWelcome:()=>sendWelcomeTestSafe(db,paidOrder),
+          ensureTrafficSubscription:()=>ensureTrafficSubscription(db,paidOrder,key),
+          waitUntil:typeof EdgeRuntime!=='undefined'?(job)=>EdgeRuntime.waitUntil(job):undefined,
+          onWelcomeError:err=>console.error('Stripe welcome delivery pending review',{code:err instanceof Error?err.message:'unknown'}),
         });
-        // Envio de teste é restrito a domínio interno; não bloquear o ACK com SMTP.
-        if(typeof EdgeRuntime!=='undefined')EdgeRuntime.waitUntil(job);
-        else await job;
       }catch(err){
         console.error('Stripe postpayment incomplete',{code:err instanceof Error?err.message:'unknown'});
         // Retentar o mesmo evento é seguro: o checkout e a assinatura são idempotentes.
