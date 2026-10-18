@@ -1,7 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { PaymentPageView, type PublicBillingOrder } from './PaymentPage';
+import { PaymentPage, PaymentPageView, type PublicBillingOrder } from './PaymentPage';
+
+const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
+vi.mock('../data', () => ({ supabase: { functions: { invoke } } }));
 
 const order: PublicBillingOrder = {
   reference: 'ORY-00142',
@@ -21,6 +24,18 @@ const order: PublicBillingOrder = {
 };
 
 describe('PaymentPageView', () => {
+  it('mostra indisponibilidade temporária sem rotular o pagamento como recusado', async () => {
+    invoke.mockResolvedValue({ data: null, error: new Error('Edge Function returned a non-2xx status code') });
+    window.history.pushState({}, '', '/pagar/?token=' + 't'.repeat(48));
+
+    render(<PaymentPage />);
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Não foi possível verificar agora.' })).toBeInTheDocument());
+    expect(screen.getByText(/Nenhum pagamento foi confirmado/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
+    expect(screen.queryByText('Pagamento indisponível.')).not.toBeInTheDocument();
+  });
+
   it('mostra o acompanhamento de implantação apenas após pagamento confirmado',()=>{
     const url='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/implantacao/?token=token-seguro';
     const {rerender}=render(<PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} portalUrl={url}/>);
