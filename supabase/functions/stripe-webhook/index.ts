@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import {ensureTrafficSubscription,getPaidOrder,sendWelcomeTestSafe} from '../_shared/billing/fulfillment.ts';
 import {classifyCheckoutLookup} from '../_shared/billing/checkout-webhook-policy.ts';
+import {billingEnvironmentMatchesLivemode,getBillingEnvironmentConfig,parseBillingEnvironment} from '../_shared/billing/environment.ts';
 declare const EdgeRuntime:{waitUntil(p:Promise<unknown>):void};
 
 const db = createClient(
@@ -87,7 +88,7 @@ Deno.serve(async (req: Request) => {
     if(source.object!=='checkout.session')return json({error:'Expected Checkout Session'},400);
     // Conferir o pedido vinculado: valores não podem ser decididos pelo payload do navegador.
     const {data:expected,error:lookupError}=await db.from('crm_billing_orders')
-      .select('id,amount_total,currency').eq('stripe_checkout_session_id',source.id).maybeSingle();
+      .select('id,amount_total,currency,billing_environment').eq('stripe_checkout_session_id',source.id).maybeSingle();
     const disposition=classifyCheckoutLookup(event.type,Boolean(expected),Boolean(lookupError));
     if(disposition==='acknowledge_unlinked_expiration'){
       // Checkout teste sem pedido correspondente: não houve pagamento a reconciliar.
@@ -95,6 +96,14 @@ Deno.serve(async (req: Request) => {
       return json({received:true,unlinked:true});
     }
     if(disposition==='retry' || !expected)return json({error:'Checkout order unavailable'},503);
+    let expectedEnvironment;
+    try{expectedEnvironment=parseBillingEnvironment(expected.billing_environment)}
+    catch{return json({error:'Checkout environment unavailable'},503)}
+    if(!billingEnvironmentMatchesLivemode(expectedEnvironment,event.livemode)||
+       (source.metadata?.oryneo_billing_environment&&source.metadata.oryneo_billing_environment!==expectedEnvironment)){
+      console.error('Stripe checkout environment mismatch',{session_id:source.id});
+      return json({error:'Checkout environment mismatch'},422);
+    }
     if(source.currency!=='brl'||Number(source.amount_total)!==Number(expected.amount_total)||
        (source.metadata?.oryneo_order_id&&source.metadata.oryneo_order_id!==expected.id)){
       console.error('Stripe checkout amount/reference mismatch',{session_id:source.id});
@@ -117,9 +126,10 @@ Deno.serve(async (req: Request) => {
       try{
         const paidOrder=await getPaidOrder(db,source.id);
         if(!paidOrder)return json({error:'Paid order not synchronized'},503);
-        const key=Deno.env.get('STRIPE_SECRET_KEY');
-        if(!key||!key.startsWith('sk_test_'))return json({error:'Stripe sandbox key unavailable'},503);
-        await ensureTrafficSubscription(db,paidOrder,key);
+        const paidEnvironment=parseBillingEnvironment(paidOrder.billing_environment);
+        if(!billingEnvironmentMatchesLivemode(paidEnvironment,event.livemode))return json({error:'Stripe environment mismatch'},503);
+        const config=getBillingEnvironmentConfig(paidEnvironment,name=>Deno.env.get(name));
+        await ensureTrafficSubscription(db,paidOrder,config.secretKey);
         const job=sendWelcomeTestSafe(db,paidOrder).catch(err=>{
           console.error('Stripe welcome delivery pending review',{code:err instanceof Error?err.message:'unknown'});
         });

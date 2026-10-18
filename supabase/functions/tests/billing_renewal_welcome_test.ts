@@ -1,6 +1,6 @@
 import { assert,assertEquals,assertMatch } from 'jsr:@std/assert@1';
-import { buildBillingSelection } from '../_shared/billing/catalog.ts';
-import {threeMonthsAfter,welcomeMarkup,TRAFFIC_QUARTERLY_PRICE} from '../_shared/billing/fulfillment.ts';
+import { BILLING_PRICE_SPECS, buildBillingSelection, type StripePriceRecord } from '../_shared/billing/catalog.ts';
+import {threeMonthsAfter,welcomeMarkup} from '../_shared/billing/fulfillment.ts';
 
 const plans=['Start','Growth','Scale'] as const;
 const cycles=['monthly','annual'] as const;
@@ -8,10 +8,14 @@ const addOns=[[],['landing-page'],['traffic'],['landing-page','traffic']];
 const base={Start:{monthly:74990,annual:809892,setup:98990},Growth:{monthly:109990,annual:1187892,setup:138990},
  Scale:{monthly:147990,annual:1598292,setup:184990}};
 const additional={'landing-page':88990,traffic:296970};
+const prices=Object.fromEntries(BILLING_PRICE_SPECS.map(spec=>[spec.lookupKey,{
+ id:'price_test_'+spec.lookupKey,active:true,currency:'brl',livemode:false,
+ lookup_key:spec.lookupKey,unit_amount:spec.amountCents,recurring:spec.recurring,
+} satisfies StripePriceRecord]));
 Deno.test('24 combinações permanecem com seus preços homologados',()=>{
  let count=0;
  for(const plan of plans)for(const cycle of cycles)for(const addons of addOns){
-  const quote=buildBillingSelection({plan,cycle,addons});
+  const quote=buildBillingSelection({plan,cycle,addons},prices);
   const expected=base[plan][cycle]+base[plan].setup+
     addons.reduce((n,a)=>n+additional[a as keyof typeof additional],0);
   assertEquals(quote.amountTotal,expected);
@@ -23,7 +27,7 @@ Deno.test('24 combinações permanecem com seus preços homologados',()=>{
    const selected=quote.items.find(item=>item.key==='traffic');
    assertEquals(selected?.amountCents,296970);
    assertEquals(selected?.recurring,false); // Primeiros 3 meses continuam cobrança única no Checkout.
-   assertEquals(quote.trafficRenewalPriceId,TRAFFIC_QUARTERLY_PRICE);
+   assertEquals(quote.trafficRenewalPriceId,'price_test_oryneo_traffic_quarterly');
   }else assertEquals(quote.trafficRenewalPriceId,null);
   count++;
  }
@@ -36,9 +40,11 @@ Deno.test('renovação é em meses-calendário e preserva virada do último dia'
 });
 const sample={
  id:'00000000-0000-4000-8000-000000000001',
+ billing_environment:'test' as const,
  reference:'ORY-EXEMPLO',customer_name:'Marina Costa',company:'Acme & Filhos',
  customer_email:'marina@example.com',status:'paid',paid_at:'2026-10-13T20:00:00Z',
  stripe_customer_id:'cus_example',stripe_subscription_id:'sub_example',stripe_traffic_subscription_id:null,
+ stripe_traffic_renewal_price_id:'price_test_oryneo_traffic_quarterly',
  amount_total:634940,
  selection:{plan:'Growth',cycle:'monthly',addons:['landing-page','traffic']},
  items:[

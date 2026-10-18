@@ -1,5 +1,5 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
-import {buildBillingSelection} from '../_shared/billing/catalog.ts';
+import {buildBillingQuote} from '../_shared/billing/catalog.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
  auth:{persistSession:false,autoRefreshToken:false}
@@ -33,9 +33,9 @@ Deno.serve(async(req:Request)=>{
  const data=deal.data as Record<string,unknown>;
  const quote=data.quote as {plan?:string;cycle?:string;addons?:Array<{key:string}>}|undefined;
  if(!quote?.plan||!quote?.cycle)return response({error:'A proposta comercial ainda não foi configurada.'},422);
- let computed:ReturnType<typeof buildBillingSelection>;
+ let computed:ReturnType<typeof buildBillingQuote>;
  const selected=(quote.addons||[]).map(a=>a.key);
- try{computed=buildBillingSelection({plan:quote.plan,cycle:quote.cycle,addons:selected})}
+ try{computed=buildBillingQuote({plan:quote.plan,cycle:quote.cycle,addons:selected})}
  catch{return response({error:'Reveja preços, plano e complementos no catálogo.'},422)}
  const email=String(data.email||'').trim().toLowerCase();
  const name=String(data.contact||'').trim();
