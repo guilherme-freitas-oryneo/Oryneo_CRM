@@ -5,6 +5,7 @@ import { sendFirstContact, type FirstContactActionDependencies } from '../_share
 import type { MailboxAddress, OutgoingAttachment } from '../_shared/mail/mime.ts';
 import { syncMailbox, type MailCredentials } from '../_shared/mail/sync.ts';
 import { ImapClient, SmtpClient } from '../_shared/mail/transport.ts';
+import { sameInitialDraft, validateDraftBody } from './drafts.ts';
 import { createMailApiHandler } from './handler.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -47,7 +48,7 @@ function attachments(value: unknown): OutgoingAttachment[] {
     return {
       filename: requiredString(item.filename, 'INVALID_ATTACHMENT'),
       mimeType: requiredString(item.mimeType, 'INVALID_ATTACHMENT'),
-      content: decodeBase64(requiredString(item.contentBase64, 'INVALID_ATTACHMENT')),
+      content: decodeBase64(typeof item.contentBase64==='string'?item.contentBase64:requiredString(undefined,'INVALID_ATTACHMENT')),
       contentId: typeof item.contentId === 'string' ? item.contentId : undefined,
       inline: item.inline === true,
     };
@@ -181,7 +182,9 @@ const firstContactDependencies: FirstContactActionDependencies = {
 };
 
 async function saveDraft(userId: string, body: Record<string, unknown>): Promise<unknown> {
+  validateDraftBody(body);
   const values = {
+    compose_meta: body.composeMeta ?? {},
     mailbox_id: requiredString(body.mailboxId), created_by: userId,
     thread_id: typeof body.threadId === 'string' ? body.threadId : null,
     reply_to_message_id: typeof body.replyToMessageId === 'string' ? body.replyToMessageId : null,
@@ -189,23 +192,27 @@ async function saveDraft(userId: string, body: Record<string, unknown>): Promise
     subject: typeof body.subject === 'string' ? body.subject : '', body_text: typeof body.text === 'string' ? body.text : '',
     body_html: typeof body.html === 'string' ? body.html : '', attachment_manifest: Array.isArray(body.attachmentManifest) ? body.attachmentManifest : [],
   };
-  if (typeof body.draftId !== 'string') {
-    const { data, error } = await client.from('crm_mail_drafts').insert(values).select('*').single();
-    if (error) throw new Error('INVALID_MESSAGE');
+  if (body.revision === 0) {
+    const { data, error } = await client.from('crm_mail_drafts').insert({ ...values, ...(typeof body.draftId === 'string' ? {id: body.draftId} : {}) }).select('*').single();
+    if(error?.code==='23505'&&typeof body.draftId==='string'){
+      const existing=await client.from('crm_mail_drafts').select('*').eq('id',body.draftId).eq('created_by',userId).maybeSingle();
+      if(!existing.error&&existing.data&&sameInitialDraft(existing.data,values))return existing.data;
+    }
+    if (error) throw new Error('DRAFT_CONFLICT');
     return data;
   }
   const revision = Number(body.revision);
-  if (!Number.isSafeInteger(revision) || revision < 1) throw new Error('DRAFT_CONFLICT');
-  const { data, error } = await client.from('crm_mail_drafts').update({ ...values, revision: revision + 1 }).eq('id', body.draftId).eq('created_by', userId).eq('revision', revision).eq('state', 'active').select('*').maybeSingle();
+  if (typeof body.draftId!=='string'||!Number.isSafeInteger(revision) || revision < 1) throw new Error('DRAFT_CONFLICT');
+  const { data, error } = await client.from('crm_mail_drafts').update({ ...values, revision: revision + 1 }).eq('id', body.draftId).eq('created_by', userId).eq('revision', revision).eq('state', 'active').or('compose_meta->>locked.is.null,compose_meta->>locked.eq.false').select('*').maybeSingle();
   if (error || !data) throw new Error('DRAFT_CONFLICT');
   return data;
 }
 
 async function location(body: Record<string, unknown>) {
-  const { data, error } = await client.from('crm_mail_locations').select('id,uid,flags,message_id,folder:crm_mail_folders!inner(remote_name,mailbox_id),message:crm_mail_messages!inner(thread_id)').eq('id', requiredString(body.locationId)).is('removed_at', null).single();
+  const { data, error } = await client.from('crm_mail_locations').select('id,uid,uid_validity,flags,message_id,folder:crm_mail_folders!inner(remote_name,mailbox_id),message:crm_mail_messages!inner(thread_id)').eq('id', requiredString(body.locationId)).is('removed_at', null).single();
   if (error || !data) throw new Error('NOT_FOUND');
   const raw = data as unknown as {
-    id: string; uid: number; flags: string[]; message_id: string;
+    id: string; uid: number; uid_validity: number; flags: string[]; message_id: string;
     folder: { remote_name: string; mailbox_id: string } | { remote_name: string; mailbox_id: string }[];
     message: { thread_id: string } | { thread_id: string }[];
   };
@@ -221,7 +228,8 @@ async function setFlags(body: Record<string, unknown>): Promise<unknown> {
   if (!flag || typeof body.value !== 'boolean') throw new Error('INVALID_MESSAGE');
   const credentials = await database.getCredentials(item.folder.mailbox_id);
   await withImap(credentials, async (imap) => {
-    await imap.select(item.folder.remote_name);
+    const selected=await imap.select(item.folder.remote_name);
+    if(selected.uidValidity!==Number(item.uid_validity))throw new Error('MESSAGE_CHANGED');
     await imap.storeFlags(Number(item.uid), [flag], body.value ? '+' : '-');
   });
   const flags = new Set<string>(item.flags ?? []);
@@ -238,7 +246,8 @@ async function moveMessage(body: Record<string, unknown>): Promise<unknown> {
   if (error || !target || target.mailbox_id !== item.folder.mailbox_id) throw new Error('NOT_FOUND');
   const credentials = await database.getCredentials(target.mailbox_id);
   await withImap(credentials, async (imap) => {
-    await imap.select(item.folder.remote_name);
+    const selected=await imap.select(item.folder.remote_name);
+    if(selected.uidValidity!==Number(item.uid_validity))throw new Error('MESSAGE_CHANGED');
     await imap.move(Number(item.uid), target.remote_name);
   });
   const update = await client.from('crm_mail_locations').update({ removed_at: new Date().toISOString() }).eq('id', item.id);
@@ -274,7 +283,40 @@ async function execute(userId: string, body: Record<string, unknown>): Promise<u
       if (error) throw new Error('NOT_FOUND');
       source = data.payload;
     }
-    return await sendMail(sendDependencies, userId, composeInput(source));
+    if(source.draftId){
+      const draft=await client.from('crm_mail_drafts').select('id').eq('id',requiredString(source.draftId)).eq('created_by',userId).eq('mailbox_id',requiredString(source.mailboxId)).in('state',['active','sent']).maybeSingle();
+      if(draft.error||!draft.data)throw new Error('NOT_FOUND');
+    }
+    const result=await sendMail(sendDependencies,userId,composeInput(source));
+    if(source.draftId){const finished=await client.from('crm_mail_drafts').update({state:'sent'}).eq('id',source.draftId).eq('created_by',userId);if(finished.error)throw new Error('MAIL_API_INTERNAL');}
+    return result;
+  }
+  if(action==='list-drafts'){
+    const offset=Math.max(0,Math.min(100000,Number(body.offset)||0));
+    const {data,error}=await client.from('crm_mail_drafts').select('id,subject,updated_at,revision,mailbox_id').eq('mailbox_id',requiredString(body.mailboxId)).eq('created_by',userId).eq('state','active').order('updated_at',{ascending:false}).order('id').range(offset,offset+49);
+    if(error)throw new Error('MAIL_API_INTERNAL');return data;
+  }
+  if(action==='get-draft'){
+    const {data,error}=await client.from('crm_mail_drafts').select('*').eq('id',requiredString(body.draftId)).eq('created_by',userId).eq('state','active').single();
+    if(error)throw new Error('NOT_FOUND');return data;
+  }
+  if(action==='quota'){
+    const credentials=await database.getCredentials(requiredString(body.mailboxId));
+    try{return {quota:await withImap(credentials,imap=>imap.quota()),checkedAt:new Date().toISOString()};}
+    catch{return {quota:null,checkedAt:new Date().toISOString()};}
+  }
+  if(action==='export-message'){
+    const item=await location(body);
+    const credentials=await database.getCredentials(item.folder.mailbox_id);
+    const raw=await withImap(credentials,async imap=>{
+      const selected=await imap.select(item.folder.remote_name);
+      if(selected.uidValidity!==Number(item.uid_validity))throw new Error('MESSAGE_CHANGED');
+      const result=(await imap.fetchUids(Number(item.uid),Number(item.uid))).find(m=>m.uid===Number(item.uid));
+      if(!result)throw new Error('NOT_FOUND');
+      if(result.raw.byteLength>15*1024*1024)throw new Error('ATTACHMENT_TOO_LARGE');
+      return result.raw;
+    });
+    return {filename:'mensagem-original.eml',mimeType:'message/rfc822',contentBase64:bytesToBase64(raw)};
   }
   if (action === 'save-draft') return await saveDraft(userId, body);
   if (action === 'delete-draft') {

@@ -8,17 +8,18 @@ describe('EmailPreviewGallery', () => {
     const user = userEvent.setup();
     render(<EmailPreviewGallery />);
 
-    expect(screen.getByRole('heading', { name: 'Primeiro contato' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /cenário/i })).toHaveLength(8);
-    expect(screen.getByTitle('Prévia do e-mail')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Comunicações ORYNEO' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /cenário/i })).toHaveLength(24);
+    expect(screen.getByTitle(/Prévia/)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Mobile' }));
     expect(screen.getByTestId('email-frame-shell')).toHaveClass('is-mobile');
 
+    await user.click(screen.getByRole('button', { name: 'Comercial' }));
     await user.click(screen.getByRole('button', { name: 'Texto simples' }));
     expect(screen.getByText(/Olá, Rafael\./)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /cenário 2/i }));
+    await user.click(screen.getByRole('button', { name: /^cenário 2:/i }));
     expect(screen.getByText('Próximo passo da sua solicitação — ORYNEO')).toBeInTheDocument();
   });
 });

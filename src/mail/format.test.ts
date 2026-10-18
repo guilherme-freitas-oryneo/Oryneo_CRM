@@ -29,7 +29,7 @@ describe('formatMailDate', () => {
   const now = new Date('2026-10-12T18:00:00.000Z');
 
   it('mostra hora para mensagens de hoje', () => {
-    expect(formatMailDate('2026-10-12T14:35:00.000Z', now)).toBe('14:35');
+    expect(formatMailDate('2026-10-12T14:35:00.000Z', now)).toBe(new Date('2026-10-12T14:35:00.000Z').toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
   });
 
   it('mostra dia e mês no mesmo ano', () => {

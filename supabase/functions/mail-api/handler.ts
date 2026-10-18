@@ -1,4 +1,4 @@
-const ACTIONS = new Set(['send', 'send-first-contact', 'save-draft', 'delete-draft', 'set-flags', 'move', 'retry-send', 'attachment-url', 'link-deal', 'unlink-deal', 'sync-now']);
+const ACTIONS = new Set(['list-drafts', 'get-draft', 'export-message', 'quota', 'send', 'send-first-contact', 'save-draft', 'delete-draft', 'set-flags', 'move', 'retry-send', 'attachment-url', 'link-deal', 'unlink-deal', 'sync-now']);
 const ALLOWED_ORIGINS = new Set(['https://guilherme-freitas-oryneo.github.io', 'http://localhost:5173', 'http://127.0.0.1:5173']);
 
 export type MailApiHandlerDependencies = {
@@ -24,9 +24,9 @@ function json(request: Request, body: unknown, status: number): Response {
 
 function publicError(error: unknown): { code: string; status: number } {
   const message = error instanceof Error ? error.message : '';
-  const code = ['DRAFT_CONFLICT', 'MAIL_IN_PROGRESS', 'FIRST_CONTACT_STAGE', 'FIRST_CONTACT_ALREADY_SENT', 'FIRST_CONTACT_RESEND', 'FIRST_CONTACT_INVALID_EMAIL', 'FIRST_CONTACT_INCOMPLETE', 'FIRST_CONTACT_MAILBOX', 'INVALID_MESSAGE', 'INVALID_RECIPIENT', 'INVALID_ATTACHMENT', 'ATTACHMENT_TOO_LARGE', 'ATTACHMENTS_TOO_LARGE', 'NOT_FOUND', 'MAIL_SEND', 'MAIL_APPEND']
+  const code = ['MESSAGE_CHANGED', 'DRAFT_CONFLICT', 'MAIL_IN_PROGRESS', 'FIRST_CONTACT_STAGE', 'FIRST_CONTACT_ALREADY_SENT', 'FIRST_CONTACT_RESEND', 'FIRST_CONTACT_INVALID_EMAIL', 'FIRST_CONTACT_INCOMPLETE', 'FIRST_CONTACT_MAILBOX', 'INVALID_MESSAGE', 'INVALID_RECIPIENT', 'INVALID_ATTACHMENT', 'ATTACHMENT_TOO_LARGE', 'ATTACHMENTS_TOO_LARGE', 'NOT_FOUND', 'MAIL_SEND', 'MAIL_APPEND']
     .find((candidate) => message.startsWith(candidate)) ?? 'MAIL_API_INTERNAL';
-  const status = ['DRAFT_CONFLICT', 'MAIL_IN_PROGRESS', 'FIRST_CONTACT_STAGE', 'FIRST_CONTACT_ALREADY_SENT', 'FIRST_CONTACT_RESEND'].includes(code)
+  const status = ['MESSAGE_CHANGED', 'DRAFT_CONFLICT', 'MAIL_IN_PROGRESS', 'FIRST_CONTACT_STAGE', 'FIRST_CONTACT_ALREADY_SENT', 'FIRST_CONTACT_RESEND'].includes(code)
     ? 409
     : ['NOT_FOUND', 'FIRST_CONTACT_MAILBOX'].includes(code)
     ? 404
@@ -50,9 +50,9 @@ export function createMailApiHandler(dependencies: MailApiHandlerDependencies): 
     if (!await dependencies.isMember(userId)) return json(request, { ok: false, error: 'FORBIDDEN' }, 403);
     try {
       const text = await request.text();
-      if (text.length > 25 * 1024 * 1024) return json(request, { ok: false, error: 'PAYLOAD_TOO_LARGE' }, 413);
+      if (new TextEncoder().encode(text).byteLength > 25 * 1024 * 1024) return json(request, { ok: false, error: 'PAYLOAD_TOO_LARGE' }, 413);
       const body = JSON.parse(text) as Record<string, unknown>;
-      if (!ACTIONS.has(String(body.action ?? ''))) return json(request, { ok: false, error: 'INVALID_ACTION' }, 400);
+      if (!body || typeof body !== 'object' || Array.isArray(body) || !ACTIONS.has(String(body.action ?? ''))) return json(request, { ok: false, error: 'INVALID_ACTION' }, 400);
       return json(request, { ok: true, data: await dependencies.execute(userId, body) }, 200);
     } catch (error) {
       if (error instanceof SyntaxError) return json(request, { ok: false, error: 'INVALID_JSON' }, 400);
