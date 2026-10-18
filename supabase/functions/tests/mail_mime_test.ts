@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { simpleParser } from 'npm:mailparser@3.9.45';
+import { simpleParser } from 'npm:mailparser@3.9.40';
 import { buildMimeMessage, normalizeMessage } from '../_shared/mail/mime.ts';
 
 const decoder = new TextDecoder();
