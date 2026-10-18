@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { sendMail, validateCompose, type ComposeInput, type MailSendDependencies } from '../_shared/mail/actions.ts';
+import { safeToDiscardAttempt, safeToRetryOutbox, sendMail, validateCompose, type ComposeInput, type MailSendDependencies } from '../_shared/mail/actions.ts';
 import { createMailApiHandler } from '../mail-api/handler.ts';
 
 const compose: ComposeInput = {
@@ -86,7 +86,39 @@ Deno.test('sendMail encerra o registro da outbox quando credenciais falham antes
     markFailed: (_key, code) => { failedCode = code; return Promise.resolve(); },
   };
   await assert.rejects(sendMail(dependencies, 'user-1', compose), /MAIL_SEND/);
-  assert.equal(failedCode, 'MAIL_SEND');
+  assert.equal(failedCode, 'MAIL_PRE_SMTP');
+});
+
+Deno.test('falha após tentativa SMTP não se torna reenviável quando aceite é incerto',async()=>{
+  let failed=0,smtp=0;
+  const deps:MailSendDependencies={
+    getCredentials:()=>Promise.resolve({address:'contato@oryneo.com.br',displayName:'ORYNEO',imapHost:'imap.hostinger.com',imapPort:993,smtpHost:'smtp.hostinger.com',smtpPort:465,password:'segredo'}),
+    beginOutbox:()=>Promise.resolve({state:'sending',internetMessageId:'<id@oryneo.com.br>',acceptedAt:null}),
+    findSentMessage:()=>Promise.resolve(false),smtpSend:()=>{smtp++;return Promise.resolve();},
+    markAccepted:()=>Promise.reject(new Error('DB indisponível')),
+    appendSent:()=>Promise.resolve(),markSent:()=>Promise.resolve(),
+    markFailed:()=>{failed++;return Promise.resolve();},
+  };
+  await assert.rejects(sendMail(deps,'user',compose),/MAIL_IN_PROGRESS/);
+  assert.equal(smtp,1);assert.equal(failed,0);
+  assert.equal(safeToRetryOutbox('sending',null,null),false);
+  assert.equal(safeToRetryOutbox('failed',null,'MAIL_SEND'),false);
+  assert.equal(safeToRetryOutbox('failed',null,'MAIL_PRE_SMTP'),true);
+  assert.equal(safeToDiscardAttempt('failed',null,'MAIL_PRE_SMTP'),true);
+  assert.equal(safeToDiscardAttempt('failed','2026-10-18T00:00:00Z','MAIL_SEND'),false);
+});
+
+Deno.test('queda na conexão durante DATA não marca a outbox como falha reenviável',async()=>{
+  let failed=0;
+  const deps:MailSendDependencies={
+    getCredentials:()=>Promise.resolve({address:'contato@oryneo.com.br',displayName:'ORYNEO',imapHost:'imap.hostinger.com',imapPort:993,smtpHost:'smtp.hostinger.com',smtpPort:465,password:'segredo'}),
+    beginOutbox:()=>Promise.resolve({state:'sending',internetMessageId:'<id@oryneo.com.br>',acceptedAt:null}),
+    findSentMessage:()=>Promise.resolve(false),smtpSend:()=>Promise.reject(new Error('conexão caiu durante DATA')),
+    markAccepted:()=>Promise.resolve(),appendSent:()=>Promise.resolve(),markSent:()=>Promise.resolve(),
+    markFailed:()=>{failed++;return Promise.resolve();},
+  };
+  await assert.rejects(sendMail(deps,'user',compose),/MAIL_IN_PROGRESS/);
+  assert.equal(failed,0);
 });
 
 Deno.test('mail-api exige JWT e associação ao CRM antes de executar ação', async () => {

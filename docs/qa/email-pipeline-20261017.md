@@ -9,6 +9,7 @@ Referências: https://support.pipedrive.com/en/article/how-can-i-duplicate-a-dea
 - E-mail: corrigir destinatários descartados silenciosamente, chave de retry, limites; rascunhos no servidor com anexos; menus e ações; exportação .eml original por IMAP; quota IMAP quando suportada; corrigir respostas assíncronas antigas e atualização que elimina páginas carregadas.
 - Rascunhos são privados por autor via endpoints autenticados e política de leitura RLS restrita ao autor. Payload de anexos permanece no JSON existente com limite total seguro; sem nova tabela.
 - Não enviar e-mails a clientes reais na homologação.
+- Se uma tentativa SMTP tiver resultado incerto, a outbox permanece `sending` e o rascunho protegido fica visível como “Envio em conciliação”; não há reenvio automático nem nova cópia enquanto não existir confirmação operacional. Falha explicitamente anterior ao SMTP recebe `MAIL_PRE_SMTP`, libera retry e permite reescrever com nova chave após descarte protegido por comparação de estado.
 ## Baseline
 152 testes: 148 passaram, 4 falharam. Duas falhas em Mailbox: mock não exporta MAIL_THREADS_PAGE_SIZE; uma na galeria: teste antigo espera 8 cenários/heading antigo; uma de horário fixa UTC apesar do fuso local. Investigar e corrigir os testes sem alterar funcionalidades aprovadas da galeria/data.
 ## Marcos

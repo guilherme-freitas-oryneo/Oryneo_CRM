@@ -1,5 +1,5 @@
 import { createClient } from '../_shared/mail/deps.ts';
-import { sendMail, type ComposeInput, type MailSendDependencies } from '../_shared/mail/actions.ts';
+import { safeToDiscardAttempt, safeToRetryOutbox, sendMail, type ComposeInput, type MailSendDependencies } from '../_shared/mail/actions.ts';
 import { SupabaseMailDatabase } from '../_shared/mail/database.ts';
 import { sendFirstContact, type FirstContactActionDependencies } from '../_shared/mail/first-contact.ts';
 import type { MailboxAddress, OutgoingAttachment } from '../_shared/mail/mime.ts';
@@ -122,10 +122,11 @@ const sendDependencies: MailSendDependencies = {
       return { state: insert.data.state, internetMessageId: insert.data.internet_message_id, acceptedAt: insert.data.accepted_at };
     }
     if (insert.error?.code !== '23505') throw new Error('MAIL_SEND');
-    const { data, error } = await client.from('crm_mail_outbox').select('state,internet_message_id,accepted_at,created_by,attempts').eq('idempotency_key', input.idempotencyKey).single();
+    const { data, error } = await client.from('crm_mail_outbox').select('state,internet_message_id,accepted_at,created_by,attempts,error_code').eq('idempotency_key', input.idempotencyKey).single();
     if (error || data.created_by !== userId) throw new Error('MAIL_SEND');
     if (data.state === 'sending' && !data.accepted_at) throw new Error('MAIL_IN_PROGRESS');
     if (data.state === 'failed') {
+      if(!safeToRetryOutbox(data.state,data.accepted_at,data.error_code))throw new Error('MAIL_IN_PROGRESS');
       const update = await client.from('crm_mail_outbox').update({ state: 'sending', attempts: Number(data.attempts) + 1, error_code: null }).eq('idempotency_key', input.idempotencyKey).eq('state', 'failed').select('id').maybeSingle();
       if (update.error || !update.data) throw new Error('MAIL_IN_PROGRESS');
     }
@@ -287,21 +288,39 @@ async function execute(userId: string, body: Record<string, unknown>): Promise<u
       if (error) throw new Error('NOT_FOUND');
       source = data.payload;
     }
-    if(source.draftId){
-      const draft=await client.from('crm_mail_drafts').select('id').eq('id',requiredString(source.draftId)).eq('created_by',userId).eq('mailbox_id',requiredString(source.mailboxId)).in('state',['active','sent']).maybeSingle();
-      if(draft.error||!draft.data)throw new Error('NOT_FOUND');
+    const draftId=source.draftId?requiredString(source.draftId):null;
+    if(draftId){
+      if(draftId!==requiredString(source.idempotencyKey))throw new Error('INVALID_MESSAGE');
+      // Both send and discard claim the same active row. Only one can win.
+      const claim=await client.from('crm_mail_drafts').update({state:'sending'}).eq('id',draftId).eq('created_by',userId).eq('mailbox_id',requiredString(source.mailboxId)).eq('state','active').contains('compose_meta',{locked:true}).select('id').maybeSingle();
+      if(claim.error)throw new Error('MAIL_API_INTERNAL');
+      if(!claim.data){
+        const finished=await client.from('crm_mail_outbox').select('state,internet_message_id').eq('idempotency_key',draftId).eq('created_by',userId).eq('state','sent').maybeSingle();
+        if(!finished.error&&finished.data){await client.from('crm_mail_drafts').update({state:'sent'}).eq('id',draftId).eq('created_by',userId).eq('state','sending');return {internetMessageId:finished.data.internet_message_id,alreadyAccepted:true};}
+        throw new Error('MAIL_IN_PROGRESS');
+      }
     }
-    const result=await sendMail(sendDependencies,userId,composeInput(source));
-    if(source.draftId){const finished=await client.from('crm_mail_drafts').update({state:'sent'}).eq('id',source.draftId).eq('created_by',userId);if(finished.error)throw new Error('MAIL_API_INTERNAL');}
-    return result;
+    try{
+      const result=await sendMail(sendDependencies,userId,composeInput(source));
+      if(draftId){const finished=await client.from('crm_mail_drafts').update({state:'sent'}).eq('id',draftId).eq('created_by',userId).eq('state','sending');if(finished.error)throw new Error('MAIL_API_INTERNAL');}
+      return result;
+    }catch(reason){
+      if(draftId){
+        const attempt=await client.from('crm_mail_outbox').select('state,accepted_at,error_code').eq('idempotency_key',draftId).eq('created_by',userId).maybeSingle();
+        // A missing outbox or a known pre-SMTP failure is safe to edit/retry.
+        if(!attempt.error&&(!attempt.data||safeToRetryOutbox(attempt.data.state,attempt.data.accepted_at,attempt.data.error_code)))
+          await client.from('crm_mail_drafts').update({state:'active'}).eq('id',draftId).eq('created_by',userId).eq('state','sending');
+      }
+      throw reason;
+    }
   }
   if(action==='list-drafts'){
     const offset=Math.max(0,Math.min(100000,Number(body.offset)||0));
-    const {data,error}=await client.from('crm_mail_drafts').select('id,subject,updated_at,revision,mailbox_id').eq('mailbox_id',requiredString(body.mailboxId)).eq('created_by',userId).eq('state','active').order('updated_at',{ascending:false}).order('id').range(offset,offset+49);
+    const {data,error}=await client.from('crm_mail_drafts').select('id,subject,updated_at,revision,mailbox_id,state').eq('mailbox_id',requiredString(body.mailboxId)).eq('created_by',userId).in('state',['active','sending']).order('updated_at',{ascending:false}).order('id').range(offset,offset+49);
     if(error)throw new Error('MAIL_API_INTERNAL');return data;
   }
   if(action==='get-draft'){
-    const {data,error}=await client.from('crm_mail_drafts').select('*').eq('id',requiredString(body.draftId)).eq('created_by',userId).eq('state','active').single();
+    const {data,error}=await client.from('crm_mail_drafts').select('*').eq('id',requiredString(body.draftId)).eq('created_by',userId).in('state',['active','sending']).single();
     if(error)throw new Error('NOT_FOUND');return data;
   }
   if(action==='quota'){
@@ -324,7 +343,11 @@ async function execute(userId: string, body: Record<string, unknown>): Promise<u
   }
   if (action === 'save-draft') return await saveDraft(userId, body);
   if (action === 'delete-draft') {
-    const { data, error } = await client.from('crm_mail_drafts').update({ state: 'discarded' }).eq('id', requiredString(body.draftId)).eq('created_by', userId).eq('state', 'active').select('id').maybeSingle();
+    const draftId=requiredString(body.draftId);
+    const outbox=await client.from('crm_mail_outbox').select('state,accepted_at,error_code').eq('idempotency_key',draftId).eq('created_by',userId).maybeSingle();
+    if(outbox.error)throw new Error('MAIL_API_INTERNAL');
+    if(outbox.data&&!safeToDiscardAttempt(outbox.data.state,outbox.data.accepted_at,outbox.data.error_code))throw new Error('MAIL_IN_PROGRESS');
+    const { data, error } = await client.from('crm_mail_drafts').update({ state: 'discarded' }).eq('id', draftId).eq('created_by', userId).eq('state', 'active').select('id').maybeSingle();
     if (error || !data) throw new Error('NOT_FOUND');
     return { deleted: true };
   }

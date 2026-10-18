@@ -73,7 +73,7 @@ export function subscribeMail(onChange: () => void): () => void {
   return () => { void supabase.removeChannel(channel); };
 }
 
-export type DraftSummary = {id:string;subject:string;updated_at:string;revision:number;mailbox_id:string};
+export type DraftSummary = {id:string;subject:string;updated_at:string;revision:number;mailbox_id:string;state:'active'|'sending'};
 export async function listDrafts(mailboxId:string,offset=0) { return invokeMailAction<DraftSummary[]>('list-drafts',{mailboxId,offset}); }
 export async function getDraft(draftId:string):Promise<import('./Composer').DraftSnapshot> {
   const raw=await invokeMailAction<{id:string;revision:number;recipients_to:MailMessage['to'];recipients_cc:MailMessage['cc'];recipients_bcc:MailMessage['bcc'];subject:string;body_text:string;attachment_manifest:import('./compose').AttachmentPayload[];reply_to_message_id?:string;compose_meta?:{inReplyTo?:string;references?:string[];locked?:boolean}}>('get-draft',{draftId});

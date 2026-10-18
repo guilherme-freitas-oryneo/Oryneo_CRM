@@ -76,8 +76,41 @@ describe('Composer', () => {
    expect(onSaveDraft.mock.calls[0][0]).toMatchObject({revision:0,locked:false});
    expect(onSaveDraft.mock.calls[1][0]).toMatchObject({revision:1,locked:true});
    await userEvent.click(screen.getByRole('button',{name:/tentar novamente/i}));
-   await screen.findByText('Envio iniciado. Tentar novamente usa a mesma mensagem para evitar duplicação.');
+   await screen.findByText(/Tentativa de envio protegida/);
    expect(onSaveDraft).toHaveBeenCalledTimes(2);
    expect(onSend).toHaveBeenCalledTimes(2);
    expect(onSend.mock.calls[0][0]).toEqual(onSend.mock.calls[1][0]);
+ });
+
+ it('reescreve uma tentativa só após descarte seguro no servidor',async()=>{
+   vi.spyOn(window,'confirm').mockReturnValue(true);
+   const onRestart=vi.fn(),onDiscardDraft=vi.fn().mockResolvedValue(undefined);
+   render(<Composer mailboxId="box" initialDraft={{id:'draft-old',revision:2,to:'ana@example.com',cc:'',bcc:'',subject:'Corrigir',text:'Corpo',attachments:[],locked:true}} onClose={vi.fn()} onSend={vi.fn()} onDiscardDraft={onDiscardDraft} onRestart={onRestart}/>);
+   await userEvent.click(screen.getByRole('button',{name:'Reescrever tentativa'}));
+   await waitFor(()=>expect(onRestart).toHaveBeenCalledOnce());
+   expect(onDiscardDraft).toHaveBeenCalledWith('draft-old');
+   expect(onRestart.mock.calls[0][0]).toMatchObject({revision:0,to:'ana@example.com',subject:'Corrigir',locked:false});
+   expect(onRestart.mock.calls[0][0].id).not.toBe('draft-old');
+   vi.restoreAllMocks();
+ });
+
+ it('bloqueia nova tentativa quando o aceite SMTP é incerto',async()=>{
+   vi.spyOn(window,'confirm').mockReturnValue(true);
+   const onRestart=vi.fn(),onDiscardDraft=vi.fn().mockRejectedValue(new Error('MAIL_IN_PROGRESS'));
+   render(<Composer mailboxId="box" initialDraft={{id:'draft-old',revision:2,to:'ana@example.com',cc:'',bcc:'',subject:'Corrigir',text:'Corpo',attachments:[],locked:true}} onClose={vi.fn()} onSend={vi.fn()} onDiscardDraft={onDiscardDraft} onRestart={onRestart}/>);
+   await userEvent.click(screen.getByRole('button',{name:'Reescrever tentativa'}));
+   expect(await screen.findByRole('alert')).toHaveTextContent(/Não é seguro criar outra tentativa/);
+   expect(onRestart).not.toHaveBeenCalled();
+   expect(screen.getByRole('button',{name:'Tentar novamente'})).toBeDisabled();
+   vi.restoreAllMocks();
+ });
+
+ it('não considera salvo um rascunho recriado ainda sem revisão',()=>{
+   const warn=vi.fn();
+   render(<Composer mailboxId="box" initialDraft={{id:'novo',revision:0,to:'ana@example.com',cc:'',bcc:'',subject:'Novo',text:'Corpo',attachments:[]}} onClose={vi.fn()} onSend={vi.fn()} onSaveDraft={vi.fn().mockResolvedValue({revision:1})}/>);
+   expect(screen.getByRole('status')).toHaveTextContent('Alterações pendentes');
+   window.addEventListener('beforeunload',warn);
+   const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);
+   expect(event.defaultPrevented).toBe(true);
+   window.removeEventListener('beforeunload',warn);
  });

@@ -4,12 +4,12 @@ import type { MailAddress, MailMessage } from './types';
 import { addressInput, assertPayloadSize, filePayload, MAX_ATTACHMENTS_BYTES, MAX_FILE_BYTES, parseAddresses, payloadFile, type AttachmentPayload } from './compose';
 export type ComposePayload = { mailboxId: string; idempotencyKey: string; draftId?:string; to: MailAddress[]; cc: MailAddress[]; bcc: MailAddress[]; subject: string; text: string; html?: string; inReplyTo?: string; references?: string[]; attachments: AttachmentPayload[] };
 export type DraftSnapshot = {id:string;revision:number;to:string;cc:string;bcc:string;subject:string;text:string;attachments:AttachmentPayload[];replyToMessageId?:string;inReplyTo?:string;references?:string[];locked?:boolean};
-type Props = {mailboxId:string; replyTo?:MailMessage|null; initialDraft?:DraftSnapshot; initialAttachments?:AttachmentPayload[]; initialSubject?:string; onClose():void; onSend(payload:ComposePayload):Promise<void>; onSaveDraft?(draft:DraftSnapshot):Promise<{revision:number}>; onDiscardDraft?(id:string):Promise<void>};
-export function Composer({ mailboxId, replyTo, initialDraft, initialAttachments=[], initialSubject, onClose, onSend, onSaveDraft, onDiscardDraft }: Props) {
+type Props = {mailboxId:string; replyTo?:MailMessage|null; initialDraft?:DraftSnapshot; initialAttachments?:AttachmentPayload[]; initialSubject?:string; onClose():void; onSend(payload:ComposePayload):Promise<void>; onSaveDraft?(draft:DraftSnapshot):Promise<{revision:number}>; onDiscardDraft?(id:string):Promise<void>; onRestart?(draft:DraftSnapshot):void};
+export function Composer({ mailboxId, replyTo, initialDraft, initialAttachments=[], initialSubject, onClose, onSend, onSaveDraft, onDiscardDraft, onRestart }: Props) {
   const [to,setTo]=useState(initialDraft?.to??(replyTo?addressInput([replyTo.from]):'')),[cc,setCc]=useState(initialDraft?.cc??''),[bcc,setBcc]=useState(initialDraft?.bcc??'');
   const [subject,setSubject]=useState(initialDraft?.subject??initialSubject??(replyTo?(/^re:/i.test(replyTo.subject)?replyTo.subject:`Re: ${replyTo.subject}`):'')),[text,setText]=useState(initialDraft?.text??'');
-  const [files,setFiles]=useState<File[]>(()=> (initialDraft?.attachments??initialAttachments).map(payloadFile)),[busy,setBusy]=useState(false),[error,setError]=useState(''),[dragging,setDragging]=useState(false),[saveState,setSaveState]=useState(initialDraft?'Salvo':'');
-  const [locked,setLocked]=useState(initialDraft?.locked??false);
+  const [files,setFiles]=useState<File[]>(()=> (initialDraft?.attachments??initialAttachments).map(payloadFile)),[busy,setBusy]=useState(false),[error,setError]=useState(''),[dragging,setDragging]=useState(false),[saveState,setSaveState]=useState(initialDraft?(initialDraft.revision?'Salvo':'Alterações pendentes'):'');
+  const [locked,setLocked]=useState(initialDraft?.locked??false),[uncertain,setUncertain]=useState(false);
   const id=useRef(initialDraft?.id??crypto.randomUUID()),revision=useRef(initialDraft?.revision??0),fileInput=useRef<HTMLInputElement>(null),queue=useRef<Promise<unknown>>(Promise.resolve()),sending=useRef(false),lastSaved=useRef('');
   const attachmentCache=useRef(new WeakMap<File,Promise<AttachmentPayload>>());
   const inReplyTo=initialDraft?.inReplyTo??replyTo?.internet_message_id;
@@ -50,8 +50,15 @@ export function Composer({ mailboxId, replyTo, initialDraft, initialAttachments=
       // Save the immutable attempt before submitting; reopening retries the same message/key.
       if(onSaveDraft&&!locked){const saved=await onSaveDraft({...draft,revision:revision.current,locked:true});revision.current=saved.revision;}
       setLocked(true);await onSend(payload);onClose();
-    }catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível enviar.');}
+    }catch(reason){if(reason instanceof Error&&reason.message.includes('MAIL_IN_PROGRESS'))setUncertain(true);setError(reason instanceof Error?reason.message:'Não foi possível enviar.');}
     finally{sending.current=false;setBusy(false);}
+  };
+  const restart=async()=>{
+    if(!onDiscardDraft||!onRestart||!window.confirm('Criar uma nova tentativa editável? A tentativa anterior só será descartada se o servidor confirmar que o SMTP não foi iniciado.'))return;
+    setBusy(true);setError('');
+    try{await queue.current.catch(()=>{});await onDiscardDraft(id.current);const current=await snapshot();onRestart({...current,id:crypto.randomUUID(),revision:0,locked:false});}
+    catch(reason){setError(reason instanceof Error&&reason.message.includes('MAIL_IN_PROGRESS')?'O envio anterior pode ter sido aceito. Não é seguro criar outra tentativa sem conciliação.':reason instanceof Error?reason.message:'Não foi possível recuperar o rascunho.');setUncertain(true);}
+    finally{setBusy(false);}
   };
   return <section className={`mail-composer ${dragging?'is-dragging':''}`} role="dialog" aria-label="Nova mensagem" onDragOver={event=>{if(event.dataTransfer.types.includes('Files')){event.preventDefault();setDragging(true);}}} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node))setDragging(false);}} onDrop={event=>{event.preventDefault();setDragging(false);addFiles(Array.from(event.dataTransfer.files));}}>
     <header><strong>{replyTo?'Responder':initialDraft?'Rascunho':'Nova mensagem'}</strong><button disabled={busy} onClick={()=>void close()} aria-label="Salvar e fechar composição"><X size={18}/></button></header>
@@ -61,8 +68,8 @@ export function Composer({ mailboxId, replyTo, initialDraft, initialAttachments=
     {dragging&&<div className="mail-drop-hint">Solte os arquivos para anexar</div>}
     {!!files.length&&<div className="mail-compose-files">{files.map((file,index)=><span key={index}>{file.name} · {(file.size/1024).toFixed(0)} KiB<button disabled={busy||locked} aria-label={`Remover ${file.name}`} onClick={()=>setFiles(files.filter((_,i)=>i!==index))}><X size={13}/></button></span>)}</div>}
     <small className="mail-compose-meta">15 MiB por arquivo · 18 MiB no total <span role="status">{saveState}</span></small>
-    {locked&&<p className="mail-compose-meta">Envio iniciado. Tentar novamente usa a mesma mensagem para evitar duplicação.</p>}
+    {locked&&<p className="mail-compose-meta">{uncertain?'Aceite do SMTP não confirmado. Não reenvie em outra mensagem antes da conciliação.':'Tentativa de envio protegida. Repetir usa a mesma chave; para editar, crie uma nova tentativa somente após confirmação do servidor.'}</p>}
     {error&&<p className="mail-compose-error" role="alert">{error}</p>}
-    <footer><input aria-label="Anexar arquivos" ref={fileInput} type="file" multiple hidden onChange={event=>{addFiles(Array.from(event.target.files??[]));event.target.value='';}}/><button className="mail-attach" disabled={busy||locked} onClick={()=>fileInput.current?.click()}><Paperclip size={16}/>Anexar</button>{onSaveDraft&&<button disabled={busy} onClick={()=>void close()} aria-label="Salvar rascunho"><Save size={16}/></button>}{onDiscardDraft&&!locked&&<button disabled={busy} aria-label="Descartar rascunho" onClick={()=>{if(window.confirm('Descartar este rascunho?')){setBusy(true);void queue.current.catch(()=>{}).then(()=>onDiscardDraft(id.current)).then(onClose).catch(reason=>setError(String(reason))).finally(()=>setBusy(false));}}}><Trash2 size={16}/></button>}<button className="mail-send" onClick={()=>void send()} disabled={busy}>{busy?<Loader2 className="spinner" size={16}/>:<Send size={16}/>} {locked?'Tentar novamente':'Enviar'}</button></footer>
+    <footer><input aria-label="Anexar arquivos" ref={fileInput} type="file" multiple hidden onChange={event=>{addFiles(Array.from(event.target.files??[]));event.target.value='';}}/><button className="mail-attach" disabled={busy||locked} onClick={()=>fileInput.current?.click()}><Paperclip size={16}/>Anexar</button>{onSaveDraft&&<button disabled={busy} onClick={()=>void close()} aria-label="Salvar rascunho"><Save size={16}/></button>}{onDiscardDraft&&!locked&&<button disabled={busy} aria-label="Descartar rascunho" onClick={()=>{if(window.confirm('Descartar este rascunho?')){setBusy(true);void queue.current.catch(()=>{}).then(()=>onDiscardDraft(id.current)).then(onClose).catch(reason=>setError(String(reason))).finally(()=>setBusy(false));}}}><Trash2 size={16}/></button>}{locked&&onRestart&&<button disabled={busy||uncertain} onClick={()=>void restart()}>Reescrever tentativa</button>}<button className="mail-send" onClick={()=>void send()} disabled={busy||uncertain}>{busy?<Loader2 className="spinner" size={16}/>:<Send size={16}/>} {locked?'Tentar novamente':'Enviar'}</button></footer>
   </section>;
 }
