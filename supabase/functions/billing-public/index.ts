@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
+import { publicPaymentStatus } from '../_shared/billing/public-status.ts';
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
 const origins=new Set(['https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br','http://localhost:4175']);
 const hash=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(v=>v.toString(16).padStart(2,'0')).join('');
@@ -11,9 +12,11 @@ Deno.serve(async req=>{
  const {data:order,error:orderError}=await db.from('crm_billing_orders').select('*').eq('public_token_hash',await hash(publicToken)).maybeSingle();
  if(orderError){console.error('billing-public order lookup failed',{code:orderError.code,message:orderError.message});return respond({error:'Não foi possível consultar este pedido.'},503)}
  if(!order)return respond({error:'Pedido não encontrado.'},404);
- let status=order.status;if(status==='awaiting_payment'&&new Date(order.expires_at).getTime()<Date.now()){status='expired';await db.from('crm_billing_orders').update({status}).eq('id',order.id)}
+ let stripePaymentStatus:string|null=null;
  let clientSecret:string|null=null;
- if(status==='awaiting_payment'&&order.stripe_checkout_session_id){const stripe=await fetch(`https://api.stripe.com/v1/checkout/sessions/${order.stripe_checkout_session_id}`,{headers:{Authorization:`Bearer ${Deno.env.get('STRIPE_SECRET_KEY')||''}`,'Stripe-Version':'2026-08-26.dahlia'}});const session=await stripe.json();if(stripe.ok){clientSecret=session.client_secret||null;if(session.payment_status==='paid'){status='paid';clientSecret=null;await db.from('crm_billing_orders').update({status:'paid',paid_at:new Date().toISOString(),stripe_customer_id:session.customer||null,stripe_subscription_id:session.subscription||null,stripe_invoice_id:session.invoice||null,updated_at:new Date().toISOString()}).eq('id',order.id)}}}
+ if(order.status==='awaiting_payment'&&order.stripe_checkout_session_id){const stripe=await fetch(`https://api.stripe.com/v1/checkout/sessions/${order.stripe_checkout_session_id}`,{headers:{Authorization:`Bearer ${Deno.env.get('STRIPE_SECRET_KEY')||''}`,'Stripe-Version':'2026-08-26.dahlia'}});const session=await stripe.json();if(stripe.ok){stripePaymentStatus=typeof session.payment_status==='string'?session.payment_status:null;clientSecret=session.client_secret||null}}
+ const status=publicPaymentStatus(order.status,order.expires_at,stripePaymentStatus);
+ if(status!=='awaiting_payment')clientSecret=null;
  const selection=order.selection as {plan:string;cycle:string};
  return respond({order:{reference:order.reference,company:order.company,customer_name:order.customer_name,status,currency:'brl',amount_total:order.amount_total,items:order.items,recurring:{label:`Plano ${selection.plan}`,amount_cents:(order.items as any[])[0]?.amount_cents||0,interval_label:selection.cycle==='annual'?'por ano':'por mês',next_charge_at:null},expires_at:order.expires_at,test_mode:true},client_secret:clientSecret,publishable_key:'pk_test_51UQ90aCi4hhgz3b9Ma0YIjlRWbMTJBfOYVvIpKg7e2OB9zf3bWkSmVqrzWuCYJbvsmoAbRYqq9AX0xMPpQH9gPzV00rtDgVQOp'});
 });
