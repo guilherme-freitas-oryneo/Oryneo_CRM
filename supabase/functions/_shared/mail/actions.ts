@@ -32,7 +32,7 @@ export function safeToDiscardAttempt(state: string, acceptedAt: string|null, err
 
 export type MailSendDependencies = {
   getCredentials(mailboxId: string): Promise<MailCredentials>;
-  beginOutbox(userId: string, input: ComposeInput, internetMessageId: string): Promise<OutboxState>;
+  beginOutbox(userId: string | null, input: ComposeInput, internetMessageId: string): Promise<OutboxState>;
   findSentMessage(credentials: MailCredentials, internetMessageId: string): Promise<boolean>;
   smtpSend(credentials: MailCredentials, envelope: { from: string; recipients: string[]; raw: Uint8Array }): Promise<void>;
   appendSent(credentials: MailCredentials, raw: Uint8Array): Promise<void>;
@@ -69,7 +69,7 @@ export function validateCompose(input: ComposeInput): void {
   if (aggregate > 20 * 1024 * 1024) throw new Error('ATTACHMENTS_TOO_LARGE');
 }
 
-export async function sendMail(dependencies: MailSendDependencies, userId: string, input: ComposeInput): Promise<{ internetMessageId: string; alreadyAccepted: boolean }> {
+export async function sendMail(dependencies: MailSendDependencies, userId: string | null, input: ComposeInput): Promise<{ internetMessageId: string; alreadyAccepted: boolean }> {
   validateCompose(input);
   const deterministicId = `<${input.idempotencyKey.toLowerCase()}@oryneo.com.br>`;
   const outbox = await dependencies.beginOutbox(userId, input, deterministicId);
