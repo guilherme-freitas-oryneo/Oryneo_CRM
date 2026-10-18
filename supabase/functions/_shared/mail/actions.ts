@@ -22,6 +22,14 @@ export type OutboxState = {
   acceptedAt: string | null;
 };
 
+/** Only a failure explicitly recorded before SMTP starts may be resent. */
+export function safeToRetryOutbox(state: string, acceptedAt: string|null, errorCode: string|null): boolean {
+  return state==='failed' && (acceptedAt!==null || errorCode==='MAIL_PRE_SMTP');
+}
+export function safeToDiscardAttempt(state: string, acceptedAt: string|null, errorCode: string|null): boolean {
+  return state==='failed' && acceptedAt===null && errorCode==='MAIL_PRE_SMTP';
+}
+
 export type MailSendDependencies = {
   getCredentials(mailboxId: string): Promise<MailCredentials>;
   beginOutbox(userId: string, input: ComposeInput, internetMessageId: string): Promise<OutboxState>;
@@ -66,6 +74,7 @@ export async function sendMail(dependencies: MailSendDependencies, userId: strin
   const deterministicId = `<${input.idempotencyKey.toLowerCase()}@oryneo.com.br>`;
   const outbox = await dependencies.beginOutbox(userId, input, deterministicId);
   if (outbox.state === 'sent') return { internetMessageId: outbox.internetMessageId, alreadyAccepted: true };
+  let smtpAttempted=false,acceptanceRecorded=Boolean(outbox.acceptedAt);
   try {
     const credentials = await dependencies.getCredentials(input.mailboxId);
     const raw = await buildMimeMessage({
@@ -86,18 +95,23 @@ export async function sendMail(dependencies: MailSendDependencies, userId: strin
       await dependencies.markSent(input.idempotencyKey);
       return { internetMessageId: outbox.internetMessageId, alreadyAccepted: true };
     }
+    smtpAttempted=true;
     await dependencies.smtpSend(credentials, {
       from: credentials.address,
       recipients: [...input.to, ...(input.cc ?? []), ...(input.bcc ?? [])].map((address) => address.address),
       raw,
     });
     await dependencies.markAccepted(input.idempotencyKey);
+    acceptanceRecorded=true;
     await dependencies.appendSent(credentials, raw);
     await dependencies.markSent(input.idempotencyKey);
     return { internetMessageId: outbox.internetMessageId, alreadyAccepted: false };
   } catch (error) {
+    // SMTP can accept DATA then lose the connection. Never make that key retryable
+    // until acceptance is durably recorded; an operator must reconcile uncertainty.
+    if(smtpAttempted&&!acceptanceRecorded)throw new Error('MAIL_IN_PROGRESS');
     const code = error instanceof Error && error.message === 'MAIL_APPEND' ? 'MAIL_APPEND' : 'MAIL_SEND';
-    await dependencies.markFailed(input.idempotencyKey, code);
+    await dependencies.markFailed(input.idempotencyKey, !smtpAttempted&&!acceptanceRecorded?'MAIL_PRE_SMTP':code);
     throw new Error(code);
   }
 }

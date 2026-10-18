@@ -1,3 +1,4 @@
+import { parseStorageQuota } from './quota.ts';
 import { ImapFrameReader, parseFetchFlags, parseFetchFrames, parseListResponse, parseSelectState, quoteImap, type ImapFetchedFlags, type ImapFetchedMessage, type ImapFrame, type ImapListEntry, type ImapSelectState } from './protocol.ts';
 
 export interface MailConnection {
@@ -72,6 +73,10 @@ export class ImapClient {
   async list(): Promise<ImapListEntry[]> {
     const frames = await this.#command('LIST "" "*"');
     return frames.map((frame) => parseListResponse(frame.line)).filter((entry): entry is ImapListEntry => entry !== null);
+  }
+
+  async quota(mailbox = 'INBOX'): Promise<{usedBytes:number;limitBytes:number}|null> {
+    return parseStorageQuota((await this.#command(`GETQUOTAROOT ${quoteImap(mailbox)}`)).map(frame=>frame.line));
   }
 
   async select(mailbox: string): Promise<ImapSelectState> {

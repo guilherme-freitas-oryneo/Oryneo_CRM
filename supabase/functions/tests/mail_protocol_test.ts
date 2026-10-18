@@ -135,3 +135,11 @@ Deno.test('SmtpClient autentica, envia envelope completo e escapa pontos no DATA
   assert.ok(connection.writes.some((value) => value === 'AUTH LOGIN\r\n'));
   assert.equal(connection.closed, true);
 });
+
+Deno.test('ImapClient consulta quota real do provedor em bytes', async () => {
+  const connection=new ScriptedConnection(['* OK ready\r\n','A0001 OK login\r\n','* QUOTAROOT INBOX ""\r\n* QUOTA "" (STORAGE 512 1024)\r\nA0002 OK quota\r\n']);
+  const imap=new ImapClient({host:'test',port:993,username:'qa',password:'qa'},async()=>connection);
+  await imap.connect();await imap.login();
+  assert.deepEqual(await imap.quota(),{usedBytes:524288,limitBytes:1048576});
+  assert.equal(connection.writes.at(-1),'A0002 GETQUOTAROOT "INBOX"\r\n');imap.close();
+});

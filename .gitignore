@@ -7,3 +7,5 @@ qa-results/
 artifacts/
 .superpowers/
 .worktrees/
+
+supabase/.temp/

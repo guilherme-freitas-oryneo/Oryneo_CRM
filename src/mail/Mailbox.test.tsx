@@ -5,6 +5,7 @@ import { Mailbox } from './Mailbox';
 import * as api from './api';
 
 vi.mock('./api', () => ({
+  MAIL_THREADS_PAGE_SIZE: 50, listDrafts: vi.fn().mockResolvedValue([]), getDraft: vi.fn(), saveDraft: vi.fn(), getQuota: vi.fn().mockResolvedValue(null),
   listFolders: vi.fn(), listThreads: vi.fn(), getThread: vi.fn(), getStatus: vi.fn(), invokeMailAction: vi.fn(), subscribeMail: vi.fn(() => () => {}),
 }));
 
@@ -108,4 +109,19 @@ describe('Mailbox', () => {
     await userEvent.click(screen.getByRole('button', { name: /sincronizar agora/i }));
     await waitFor(() => expect(api.invokeMailAction).toHaveBeenCalledWith('sync-now', {}));
   });
+});
+
+it('ignora resposta atrasada de uma conversa que deixou de estar selecionada',async()=>{
+  const thread=(id:string)=>({id,subject:id,participants:[],preview:'',last_message_at:'2026-10-17',unread:false,starred:false,has_attachments:false,message_count:0,deal_links:[]});
+  vi.mocked(api.listFolders).mockResolvedValue([{id:'inbox',mailbox_id:'box',name:'Entrada',remote_name:'INBOX',special_use:'inbox',total_count:2,unread_count:0}]);
+  vi.mocked(api.getStatus).mockResolvedValue({state:'idle',backlog:0,mailbox_id:'box'});
+  vi.mocked(api.listThreads).mockResolvedValue([thread('Primeira'),thread('Segunda')]);
+  let finish!:(value:Awaited<ReturnType<typeof api.getThread>>)=>void;
+  vi.mocked(api.getThread).mockImplementation(id=>id==='Primeira'?new Promise(resolve=>{finish=resolve;}):Promise.resolve({thread:{id,subject:'Segunda aberta'},messages:[]}));
+  render(<Mailbox deals={[]} onOpenDeal={vi.fn()}/>);
+  await userEvent.click(await screen.findByRole('button',{name:'Abrir conversa Primeira'}));
+  await userEvent.click(screen.getByRole('button',{name:'Abrir conversa Segunda'}));
+  expect(await screen.findByRole('heading',{name:'Segunda aberta'})).toBeInTheDocument();
+  finish({thread:{id:'Primeira',subject:'Primeira atrasada'},messages:[]});
+  await waitFor(()=>expect(screen.queryByRole('heading',{name:'Primeira atrasada'})).not.toBeInTheDocument());
 });

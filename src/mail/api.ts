@@ -1,3 +1,4 @@
+import { addressInput, parseAddresses } from './compose';
 import { supabase } from '../data';
 import type { MailFolder, MailMessage, MailSyncStatus, MailThreadDetail, MailThreadSummary } from './types';
 
@@ -71,3 +72,14 @@ export function subscribeMail(onChange: () => void): () => void {
     .subscribe();
   return () => { void supabase.removeChannel(channel); };
 }
+
+export type DraftSummary = {id:string;subject:string;updated_at:string;revision:number;mailbox_id:string;state:'active'|'sending'};
+export async function listDrafts(mailboxId:string,offset=0) { return invokeMailAction<DraftSummary[]>('list-drafts',{mailboxId,offset}); }
+export async function getDraft(draftId:string):Promise<import('./Composer').DraftSnapshot> {
+  const raw=await invokeMailAction<{id:string;revision:number;recipients_to:MailMessage['to'];recipients_cc:MailMessage['cc'];recipients_bcc:MailMessage['bcc'];subject:string;body_text:string;attachment_manifest:import('./compose').AttachmentPayload[];reply_to_message_id?:string;compose_meta?:{inReplyTo?:string;references?:string[];locked?:boolean}}>('get-draft',{draftId});
+  return {id:raw.id,revision:raw.revision,to:addressInput(raw.recipients_to),cc:addressInput(raw.recipients_cc),bcc:addressInput(raw.recipients_bcc),subject:raw.subject,text:raw.body_text,attachments:raw.attachment_manifest,replyToMessageId:raw.reply_to_message_id,...raw.compose_meta};
+}
+export async function saveDraft(mailboxId:string,draft:import('./Composer').DraftSnapshot){
+  return invokeMailAction<{revision:number}>('save-draft',{mailboxId,draftId:draft.id,revision:draft.revision,to:parseAddresses(draft.to,false),cc:parseAddresses(draft.cc,false),bcc:parseAddresses(draft.bcc,false),subject:draft.subject,text:draft.text,attachmentManifest:draft.attachments,replyToMessageId:draft.replyToMessageId,composeMeta:{inReplyTo:draft.inReplyTo,references:draft.references,locked:!!draft.locked}});
+}
+export async function getQuota(mailboxId:string) {return invokeMailAction<{quota:{usedBytes:number;limitBytes:number}|null;checkedAt:string}>('quota',{mailboxId});}

@@ -9,6 +9,7 @@ export type FormSubmission={intent?:string;goals?:string[];primary_goal?:string;
 export type CrmEvent={id:string;deal_id:string;event_type:string;actor_label:string;detail:Record<string,any>;created_at:string};
 export type Deal = { title:string; company:string; contact:string; email:string; phone:string; value_cents:number; stage_id:string; notes:string; source:string; due_date:string;
  company_cnpj?:string|null;company_profile?:CompanyProfile|null;quote?:Quote|null;next_action?:NextAction;first_contact?:FirstContactStatus;
+ duplicated_from?:string;
  form_submission?:FormSubmission
 };
 export type RecordRow<T=Stage|Deal> = { id:string; kind:'stage'|'deal'; data:T; revision:number; deleted:boolean; created_at:string; updated_at:string };

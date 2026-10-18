@@ -17,10 +17,8 @@ jobs:
       - run: npm ci
       - name: TypeScript e build GitHub Pages
         run: npm run build -- --base=/Oryneo_CRM/
-      - name: Testar confirmação Stripe em modo de teste
-        run: npm run test -- --run src/billing/PaymentPage.test.tsx src/billing/StripePayment.test.tsx src/proposal/ProposalPage.test.tsx src/delivery/DeliveryPage.test.tsx src/landingReview/LandingReviewPage.test.tsx src/offboarding/OffboardingPage.test.tsx
-      - name: Validar biblioteca transacional de e-mails
-        run: npm run test -- --run src/emailPreview/transactionalTemplates.test.ts src/emailPreview/fixtures.test.ts src/mail/firstContactTemplates.test.ts
+      - name: Testar todo o frontend, caixa de e-mail e pipeline
+        run: npm run test -- --run
       - name: Validar arquivos compilados
         run: |
           test -s dist/index.html
