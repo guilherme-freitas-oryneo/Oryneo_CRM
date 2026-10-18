@@ -8,8 +8,8 @@ export interface FirstContactInput {
   intent: ContactIntent;
   firstName: string;
   company: string;
-  plan: 'Start' | 'Growth' | 'Scale';
-  cycle: BillingCycle;
+  plan?: 'Start' | 'Growth' | 'Scale';
+  cycle?: BillingCycle;
   addOns: AddOn[];
   goals?: string[];
   primaryGoal?: string;
@@ -71,7 +71,8 @@ function humanList(values: string[]): string {
   return `${values.slice(0, -1).join(', ')} e ${values.at(-1)}`;
 }
 
-function selectionSummary(input: FirstContactInput): string {
+function selectionSummary(input: FirstContactInput): string | null {
+  if (!input.plan || !input.cycle) return null;
   const cycle = input.cycle === 'annual' ? 'anual' : 'mensal';
   const additions: string[] = [];
   if (input.addOns.includes('landing-page')) additions.push('landing page de conversão');
@@ -128,8 +129,10 @@ export function renderFirstContactEmail(input: FirstContactInput): RenderedFirst
     : `Recebemos o contexto da ${company} e já temos um bom ponto de partida.`;
   const selection = selectionSummary(input);
   const opening = intent === 'contract'
-    ? `Recebi sua solicitação para avançar com o ${selection}. Antes de formalizarmos a contratação, quero validar a configuração escolhida e alinhar os próximos passos com o momento da ${company}.`
-    : `Recebi sua solicitação e vi que você está avaliando o ${selection}. O contexto que compartilhou sobre a ${company} já nos dá um bom ponto de partida para a conversa.`;
+    ? `Recebi sua solicitação${selection ? ` para avançar com o ${selection}` : ''}. Antes de formalizarmos a contratação, quero validar a configuração escolhida e alinhar os próximos passos com o momento da ${company}.`
+    : selection
+      ? `Recebi sua solicitação e vi que você está avaliando o ${selection}. O contexto que compartilhou sobre a ${company} já nos dá um bom ponto de partida para a conversa.`
+      : `Recebi sua solicitação. Como você ainda não selecionou um plano, vamos usar a conversa para entender o momento da ${company} e indicar a configuração mais coerente.`;
   const goal = goalContext(input);
   const channel = acquisitionContext(input);
   const transition = intent === 'contract'

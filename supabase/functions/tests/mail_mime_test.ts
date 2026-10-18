@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
+import { simpleParser } from 'npm:mailparser@3.9.45';
 import { buildMimeMessage, normalizeMessage } from '../_shared/mail/mime.ts';
 
 const decoder = new TextDecoder();
@@ -37,6 +39,75 @@ Deno.test('buildMimeMessage recusa injeção em cabeçalhos', async () => {
     subject: 'Seguro',
     text: 'teste',
   }), /cabeçalho inválido/i);
+});
+
+Deno.test('HTML sem anexo mantém multipart/alternative no cabeçalho principal', async () => {
+  const raw = await buildMimeMessage({
+    messageId: '<mime-regression@oryneo.com.br>',
+    date: new Date('2026-10-18T17:30:00.000Z'),
+    from: { name: 'Equipe ORYNEO', address: 'contato@oryneo.com.br' },
+    to: [{ address: 'cliente@example.com' }],
+    subject: 'Bem-vindo à ORYNEO',
+    text: 'Olá, cliente. Seu acesso está pronto.',
+    html: '<!doctype html><html><body><h1>Olá, cliente</h1><p>Seu acesso está pronto.</p></body></html>',
+  });
+  const source = decoder.decode(raw);
+  const [headers] = source.split('\r\n\r\n', 1);
+  assert.match(headers, /Content-Type: multipart\/alternative; boundary="=_oryneo_/);
+
+  const received = await normalizeMessage(raw);
+  assert.match(received.text, /Olá, cliente\. Seu acesso está pronto\./);
+  assert.match(received.html, /<h1>Olá, cliente<\/h1>/);
+  assert.doesNotMatch(received.text, /Content-Type:|--=_oryneo_/);
+});
+
+Deno.test('texto simples declara tipo e transferência no cabeçalho principal', async () => {
+  const raw = await buildMimeMessage({
+    messageId: '<plain-regression@oryneo.com.br>',
+    from: { address: 'contato@oryneo.com.br' },
+    to: [{ address: 'cliente@example.com' }],
+    subject: 'Mensagem simples',
+    text: 'Conteúdo legível.',
+  });
+  const source = decoder.decode(raw);
+  const [headers] = source.split('\r\n\r\n', 1);
+  assert.match(headers, /Content-Type: text\/plain; charset=utf-8/);
+  assert.match(headers, /Content-Transfer-Encoding: base64/);
+  assert.equal((await normalizeMessage(raw)).text.trim(), 'Conteúdo legível.');
+});
+
+Deno.test('parser MIME independente valida .eml, resposta e anexo encaminhado', async () => {
+  const forwarded = new TextEncoder().encode([
+    'Message-ID: <forwarded@example.com>',
+    'From: remetente@example.com',
+    'To: contato@oryneo.com.br',
+    'Subject: Mensagem encaminhada',
+    '',
+    'Conteúdo original.',
+  ].join('\r\n'));
+  const raw = await buildMimeMessage({
+    messageId: '<independent-parser@oryneo.com.br>',
+    date: new Date('2026-10-18T17:30:00.000Z'),
+    from: { name: 'Equipe ORYNEO', address: 'contato@oryneo.com.br' },
+    to: [{ name: 'Cliente QA', address: 'cliente@example.com' }],
+    subject: 'Re: Implantação ORYNEO',
+    text: 'Versão em texto para clientes sem HTML.',
+    html: '<!doctype html><html><body><h1>Implantação ORYNEO</h1><p>Conteúdo formatado.</p></body></html>',
+    inReplyTo: '<thread-root@example.com>',
+    references: ['<thread-root@example.com>', '<thread-middle@example.com>'],
+    attachments: [{ filename: 'mensagem encaminhada.eml', mimeType: 'message/rfc822', content: forwarded }],
+  });
+
+  const parsed = await simpleParser(Buffer.from(raw));
+  assert.equal(parsed.messageId, '<independent-parser@oryneo.com.br>');
+  assert.equal(parsed.inReplyTo, '<thread-root@example.com>');
+  assert.deepEqual(parsed.references, ['<thread-root@example.com>', '<thread-middle@example.com>']);
+  assert.equal(parsed.text?.trim(), 'Versão em texto para clientes sem HTML.');
+  assert.match(String(parsed.html), /<h1>Implantação ORYNEO<\/h1>/);
+  assert.equal(parsed.attachments.length, 1);
+  assert.equal(parsed.attachments[0].filename, 'mensagem encaminhada.eml');
+  assert.equal(parsed.attachments[0].contentType, 'message/rfc822');
+  assert.match(parsed.attachments[0].content.toString('utf8'), /Message-ID: <forwarded@example\.com>/);
 });
 
 Deno.test('normalizeMessage interpreta alternativa, Unicode, CID e anexo binário', async () => {

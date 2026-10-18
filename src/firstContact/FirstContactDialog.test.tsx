@@ -57,4 +57,19 @@ describe('FirstContactDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar reenvio de e-mail' }));
     expect(sendFirstContact).toHaveBeenCalledWith(expect.objectContaining({ dealId: deal.id, resend: true }));
   });
+
+  it('gera prévia consultiva quando a landing page não recebeu seleção de plano', async () => {
+    const consultiveDeal: DealRow = {
+      ...deal,
+      data: { ...deal.data, quote: null, form_submission: { ...deal.data.form_submission, intent: 'conversation' } },
+    };
+
+    render(<FirstContactDialog deal={consultiveDeal} onClose={vi.fn()} onSent={vi.fn()}/>);
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('Sua solicitação na ORYNEO')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Ver versão em texto' }));
+    expect(screen.getByText(/ainda não selecionou um plano/iu)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar e enviar e-mail' })).toBeEnabled();
+  });
 });

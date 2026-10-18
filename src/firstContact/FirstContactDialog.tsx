@@ -11,15 +11,17 @@ const cycles = new Set(['monthly', 'annual']);
 
 function previewFor(deal: DealRow) {
   const quote = deal.data.quote;
-  if (!quote || !plans.has(quote.plan) || !cycles.has(quote.cycle)) return null;
   const submission = deal.data.form_submission;
+  const intent = (submission?.intent === 'contract' ? 'contract' : 'conversation') as ContactIntent;
+  const hasValidSelection = Boolean(quote && plans.has(quote.plan) && cycles.has(quote.cycle));
+  if (!hasValidSelection && (intent === 'contract' || quote)) return null;
   return renderFirstContactEmail({
-    intent: (submission?.intent === 'contract' ? 'contract' : 'conversation') as ContactIntent,
+    intent,
     firstName: deal.data.contact.trim().split(/\s+/)[0],
     company: deal.data.company.trim(),
-    plan: quote.plan as 'Start' | 'Growth' | 'Scale',
-    cycle: quote.cycle as BillingCycle,
-    addOns: quote.addons.map(item => item.key).filter((key): key is AddOn => key === 'landing-page' || key === 'traffic'),
+    plan: hasValidSelection ? quote!.plan as 'Start' | 'Growth' | 'Scale' : undefined,
+    cycle: hasValidSelection ? quote!.cycle as BillingCycle : undefined,
+    addOns: hasValidSelection ? quote!.addons.map(item => item.key).filter((key): key is AddOn => key === 'landing-page' || key === 'traffic') : [],
     goals: submission?.goals,
     primaryGoal: submission?.primary_goal,
     acquisitionChannels: submission?.acquisition_channels,
