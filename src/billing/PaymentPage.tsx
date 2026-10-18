@@ -54,10 +54,11 @@ const shortDate = (value?: string | null) => value
   ? new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
   : '';
 
-export function PaymentPageView({ order, paymentSlot, onPay, busy = false, portalUrl = '', accountUrl = '' }: {
+export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = false, portalUrl = '', accountUrl = '' }: {
   order: PublicBillingOrder;
   paymentSlot: ReactNode;
   onPay: () => void;
+  onRefresh?: () => void;
   busy?: boolean;
   portalUrl?: string;
   accountUrl?: string;
@@ -81,7 +82,7 @@ export function PaymentPageView({ order, paymentSlot, onPay, busy = false, porta
           <p>Olá, {order.customer_name}. Revise os dados acordados e conclua com segurança. O escopo não pode ser alterado nesta etapa.</p>
         </div>
         <div className="pay-form-body">
-          {ready ? paymentSlot : <StatusMessage status={order.status}/>}
+          {ready ? paymentSlot : <StatusMessage status={order.status} onRefresh={onRefresh}/>}
           {order.status==='paid'&&portalUrl&&<p className="pay-help"><a href={portalUrl} rel="noreferrer">
             Acompanhar implantação e próximos passos</a></p>}
           {order.status==='paid'&&accountUrl&&<p className="pay-help"><a href={accountUrl} rel="noreferrer">Gerenciar assinatura e privacidade</a></p>} 
@@ -100,7 +101,7 @@ export function PaymentPageView({ order, paymentSlot, onPay, busy = false, porta
       <aside className="pay-summary">
         <div className="pay-summary-head">
           <div><small>PEDIDO {order.reference}</small><h2>{order.company}</h2></div>
-          <span>{order.status === 'paid' ? 'Pago' : 'Aguardando pagamento'}</span>
+          <span>{order.status === 'paid' ? 'Pago' : order.status === 'processing' ? 'Em confirmação' : order.status === 'expired' ? 'Expirado' : 'Aguardando pagamento'}</span>
         </div>
         <div className="pay-items">
           {order.items.map(item => <div key={item.key}>
@@ -125,7 +126,7 @@ export function PaymentPageView({ order, paymentSlot, onPay, busy = false, porta
   </main>;
 }
 
-function StatusMessage({ status }: { status: PublicBillingOrder['status'] }) {
+function StatusMessage({ status, onRefresh }: { status: PublicBillingOrder['status']; onRefresh?: () => void }) {
   const copy = status === 'paid'
     ? ['Pagamento confirmado.', 'Este pedido já foi concluído. A equipe ORYNEO seguirá com os próximos passos.']
     : status === 'processing'
@@ -133,7 +134,9 @@ function StatusMessage({ status }: { status: PublicBillingOrder['status'] }) {
     : status === 'expired'
       ? ['Este link expirou.', 'Solicite um novo link à equipe ORYNEO para continuar.']
       : ['Pagamento indisponível.', 'Fale com a equipe ORYNEO para revisar este pedido.'];
-  return <div className="pay-state"><ShieldCheck size={26}/><h2>{copy[0]}</h2><p>{copy[1]}</p></div>;
+  return <div className="pay-state"><ShieldCheck size={26}/><h2>{copy[0]}</h2><p>{copy[1]}</p>
+    {status === 'processing' && onRefresh && <button type="button" className="pay-submit" onClick={onRefresh}>Verificar status</button>}
+  </div>;
 }
 
 function PaymentSkeleton() {
@@ -164,7 +167,7 @@ export function PaymentPage() {
   if (error) return <main className="pay-page pay-center"><div className="pay-error"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><h1>Não conseguimos abrir o pedido.</h1><p>{error}</p></div></main>;
   if (!order) return <main className="pay-page pay-center"><div className="pay-loading" aria-label="Carregando pedido"><span/>Preparando seu ambiente seguro…</div></main>;
   if(order.status==='awaiting_payment'&&!checkout)return <PaymentPageView order={{...order,status:'payment_failed'}} paymentSlot={null} onPay={()=>undefined}/>;
-  if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} portalUrl={order.status==='paid'?deliveryLink():''} accountUrl={order.status==='paid'?offboardingLink():''}/>;
+  if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={order.status==='paid'?deliveryLink():''} accountUrl={order.status==='paid'?offboardingLink():''}/>;
   return <CheckoutElementsProvider stripe={stripePromise} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#5269ff',colorText:'#242931',colorBackground:'#ffffff',borderRadius:'9px',fontFamily:'DM Sans, sans-serif'}}}}}>
     <StripePayment order={order}/>
   </CheckoutElementsProvider>;
@@ -218,11 +221,11 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
     }
   };
 
-  if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined} portalUrl={completion==='paid'?deliveryLink():''} accountUrl={completion==='paid'?offboardingLink():''}/>;
+  if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={completion==='paid'?deliveryLink():''} accountUrl={completion==='paid'?offboardingLink():''}/>;
   const slot=<div className="pay-element">
     <div className="pay-element-head"><LockKeyhole size={16}/><span>Dados de pagamento</span><small>Processado com segurança</small></div>
     {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
     {error&&<p className="pay-inline-error" role="alert">{error}</p>}
   </div>;
-  return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} busy={busy||result.type!=='success'}/>;
+  return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} onRefresh={()=>window.location.reload()} busy={busy||result.type!=='success'}/>;
 }

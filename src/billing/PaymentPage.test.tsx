@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PaymentPageView, type PublicBillingOrder } from './PaymentPage';
 
 const order: PublicBillingOrder = {
@@ -27,6 +27,17 @@ describe('PaymentPageView', () => {
     expect(screen.queryByRole('link',{name:/Acompanhar implantação/})).not.toBeInTheDocument();
     rerender(<PaymentPageView order={{...order,status:'paid'}} paymentSlot={null} onPay={()=>undefined} portalUrl={url}/>);
     expect(screen.getByRole('link',{name:/Acompanhar implantação/})).toHaveAttribute('href',url);
+  });
+
+  it('permite consultar novamente enquanto o webhook confirma o pagamento', async () => {
+    const user = userEvent.setup();
+    const onRefresh = vi.fn();
+    render(<PaymentPageView order={{ ...order, status: 'processing' }} paymentSlot={null} onPay={() => undefined} onRefresh={onRefresh} />);
+    expect(screen.getByRole('heading', { name: 'Estamos confirmando seu pagamento.' })).toBeInTheDocument();
+    expect(screen.getByText('Em confirmação')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Confirmar pagamento' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Verificar status' }));
+    expect(onRefresh).toHaveBeenCalledOnce();
   });
 
   it('expõe total, composição e recorrência antes do pagamento', () => {
