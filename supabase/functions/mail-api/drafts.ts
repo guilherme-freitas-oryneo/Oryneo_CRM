@@ -15,9 +15,9 @@ export function validateDraftBody(body: Record<string,unknown>): void {
   if(meta!==undefined&&(!meta||typeof meta!=='object'||Array.isArray(meta)||JSON.stringify(meta).length>10000))throw new Error('INVALID_MESSAGE');
 }
 
-/** A lost insert response may be retried; only the author's identical active draft is a success. */
-export function sameInitialDraft(existing: Record<string,unknown>, values: Record<string,unknown>): boolean {
-  if(existing.state!=='active'||Number(existing.revision)!==1)return false;
+/** A lost save response may be retried; only the author's identical active revision is a success. */
+export function sameSavedDraft(existing: Record<string,unknown>, values: Record<string,unknown>, revision: number): boolean {
+  if(existing.state!=='active'||Number(existing.revision)!==revision)return false;
   const canonical=(value:unknown):string=>JSON.stringify(value,(_key,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.entries(item).sort(([a],[b])=>a.localeCompare(b))):item);
   return Object.entries(values).every(([key,value])=>canonical(existing[key])===canonical(value));
 }

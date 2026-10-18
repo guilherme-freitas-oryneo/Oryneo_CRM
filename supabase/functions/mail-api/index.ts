@@ -5,7 +5,7 @@ import { sendFirstContact, type FirstContactActionDependencies } from '../_share
 import type { MailboxAddress, OutgoingAttachment } from '../_shared/mail/mime.ts';
 import { syncMailbox, type MailCredentials } from '../_shared/mail/sync.ts';
 import { ImapClient, SmtpClient } from '../_shared/mail/transport.ts';
-import { sameInitialDraft, validateDraftBody } from './drafts.ts';
+import { sameSavedDraft, validateDraftBody } from './drafts.ts';
 import { createMailApiHandler } from './handler.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -196,15 +196,19 @@ async function saveDraft(userId: string, body: Record<string, unknown>): Promise
     const { data, error } = await client.from('crm_mail_drafts').insert({ ...values, ...(typeof body.draftId === 'string' ? {id: body.draftId} : {}) }).select('*').single();
     if(error?.code==='23505'&&typeof body.draftId==='string'){
       const existing=await client.from('crm_mail_drafts').select('*').eq('id',body.draftId).eq('created_by',userId).maybeSingle();
-      if(!existing.error&&existing.data&&sameInitialDraft(existing.data,values))return existing.data;
+      if(!existing.error&&existing.data&&sameSavedDraft(existing.data,values,1))return existing.data;
     }
     if (error) throw new Error('DRAFT_CONFLICT');
     return data;
   }
   const revision = Number(body.revision);
   if (typeof body.draftId!=='string'||!Number.isSafeInteger(revision) || revision < 1) throw new Error('DRAFT_CONFLICT');
-  const { data, error } = await client.from('crm_mail_drafts').update({ ...values, revision: revision + 1 }).eq('id', body.draftId).eq('created_by', userId).eq('revision', revision).eq('state', 'active').or('compose_meta->>locked.is.null,compose_meta->>locked.eq.false').select('*').maybeSingle();
-  if (error || !data) throw new Error('DRAFT_CONFLICT');
+  const { data, error } = await client.from('crm_mail_drafts').update({ ...values, revision: revision + 1 }).eq('id', body.draftId).eq('created_by', userId).eq('revision', revision).eq('state', 'active').not('compose_meta','cs','{"locked":true}').select('*').maybeSingle();
+  if(error||!data){
+    const existing=await client.from('crm_mail_drafts').select('*').eq('id',body.draftId).eq('created_by',userId).maybeSingle();
+    if(!existing.error&&existing.data&&sameSavedDraft(existing.data,values,revision+1))return existing.data;
+    throw new Error('DRAFT_CONFLICT');
+  }
   return data;
 }
 
