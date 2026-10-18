@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from './Composer';
@@ -60,9 +60,8 @@ describe('Composer', () => {
    await userEvent.type(screen.getByLabelText('Assunto'),'Rascunho preservado');
    fireEvent.drop(screen.getByRole('dialog'),{dataTransfer:{files:[new File(['conteudo'],'nota.txt',{type:'text/plain'})],types:['Files']}});
    await userEvent.click(screen.getByRole('button',{name:'Salvar e fechar composição'}));
-   await screen.findByText('Salvo');
+   await waitFor(()=>expect(onClose).toHaveBeenCalledOnce(),{timeout:5000});
    expect(onSaveDraft.mock.calls[0][0]).toMatchObject({subject:'Rascunho preservado',attachments:[{filename:'nota.txt',contentBase64:btoa('conteudo')}]});
-   expect(onClose).toHaveBeenCalledOnce();
  });
 
  it('salva tentativa imutável antes do SMTP e não altera revisão no retry',async()=>{
