@@ -146,6 +146,32 @@ Deno.test('caixa inativa e dados comerciais incompletos são bloqueados no servi
   );
 });
 
+Deno.test('conversa sem plano gera primeiro contato consultivo sem bloquear o transporte', async () => {
+  const fake = dependencies(deal({ quote: null, form_submission: {
+    intent: 'conversation',
+    goals: ['Acompanhar resultados e gestão'],
+    primary_goal: 'Acompanhar resultados e gestão',
+    acquisition_channels: ['Google'],
+    primary_acquisition_channel: 'Google',
+  } }));
+
+  await sendFirstContact(fake.value, 'user-1', {
+    dealId: DEAL_ID, mailboxId: MAILBOX_ID, idempotencyKey: KEY,
+  });
+
+  assertEquals(fake.sent.length, 1);
+  assert(String(fake.sent[0].text).includes('ainda não selecionou um plano'));
+});
+
+Deno.test('contratação sem plano continua bloqueada no servidor', async () => {
+  const fake = dependencies(deal({ quote: null, form_submission: { intent: 'contract' } }));
+  await assertRejects(
+    () => sendFirstContact(fake.value, 'user-1', { dealId: DEAL_ID, mailboxId: MAILBOX_ID, idempotencyKey: KEY }),
+    Error, 'FIRST_CONTACT_INCOMPLETE',
+  );
+  assertEquals(fake.sent.length, 0);
+});
+
 Deno.test('mail-api autoriza a ação autenticada e traduz erros de primeiro contato', async () => {
   let invoked = false;
   const handler = createMailApiHandler({

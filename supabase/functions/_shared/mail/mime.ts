@@ -132,10 +132,14 @@ export async function buildMimeMessage(input: BuildMimeInput): Promise<Uint8Arra
     body.push(`--${mixedBoundary}`);
   }
   if (input.html) {
-    body.push(`Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`, '');
+    if (attachments.length) body.push(`Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`, '');
+    else headers.push(`Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`);
     body.push(`--${alternativeBoundary}`, ...textPart('text/plain', input.text));
     body.push(`--${alternativeBoundary}`, ...textPart('text/html', input.html));
     body.push(`--${alternativeBoundary}--`);
+  } else if (!attachments.length) {
+    headers.push('Content-Type: text/plain; charset=utf-8', 'Content-Transfer-Encoding: base64');
+    body.push(foldedBase64(encoder.encode(input.text)));
   } else {
     body.push(...textPart('text/plain', input.text));
   }

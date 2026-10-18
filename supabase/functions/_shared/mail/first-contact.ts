@@ -58,10 +58,12 @@ function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
-function commercial(data: Record<string, unknown>): { plan: 'Start' | 'Growth' | 'Scale'; cycle: BillingCycle; addOns: AddOn[] } {
+function commercial(data: Record<string, unknown>, intent: ContactIntent): { plan?: 'Start' | 'Growth' | 'Scale'; cycle?: BillingCycle; addOns: AddOn[] } {
   const quote = object(data.quote);
   const plan = text(quote.plan);
   const cycle = text(quote.cycle) as BillingCycle;
+  const hasCommercialData = Boolean(plan || cycle || (Array.isArray(quote.addons) && quote.addons.length));
+  if (intent === 'conversation' && !hasCommercialData) return { addOns: [] };
   if (!PLANS.has(plan) || !CYCLES.has(cycle)) throw new Error('FIRST_CONTACT_INCOMPLETE');
   const addOns = Array.isArray(quote.addons)
     ? [...new Set(quote.addons.map((item) => text(object(item).key)).filter((item): item is AddOn => ADD_ONS.has(item as AddOn)))]
@@ -102,9 +104,9 @@ export async function sendFirstContact(
   const contact = text(data.contact);
   const company = text(data.company);
   if (!contact || !company) throw new Error('FIRST_CONTACT_INCOMPLETE');
-  const selection = commercial(data);
   const submission = object(data.form_submission);
   const intent: ContactIntent = submission.intent === 'contract' ? 'contract' : 'conversation';
+  const selection = commercial(data, intent);
   const rendered = renderFirstContactEmail({
     intent,
     firstName: contact.split(/\s+/)[0],
