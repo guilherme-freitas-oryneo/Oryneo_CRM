@@ -27,6 +27,7 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  const mobile=name!=='chromium';
  const page=await browser.newPage({viewport:{width:mobile?390:1440,height:900},isMobile:mobile,hasTouch:mobile});
  let rows=createRows(),rpcCount=0;
+ const drafts=new Map();let sent=[];let duplicated=null;
  const exp=Math.floor(Date.now()/1000)+7200;
  const fakeJwt=[{alg:'HS256',typ:'JWT'},{sub:userId,email:'qa@example.com',role:'authenticated',aud:'authenticated',exp}].map(o=>Buffer.from(JSON.stringify(o)).toString('base64url')).join('.')+'.mock_signature';
  const session={access_token:fakeJwt,token_type:'bearer',expires_in:7200,expires_at:exp,refresh_token:'mock-refresh',user:{id:userId,aud:'authenticated',role:'authenticated',email:'qa@example.com',app_metadata:{provider:'email',providers:['email']},user_metadata:{},identities:[],created_at:now}};
@@ -40,6 +41,23 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
   if(path.includes('/rest/v1/crm_records'))return respond(rows);
   if(path.includes('/rest/v1/crm_companies'))return respond([]);
   if(path.includes('/rest/v1/crm_events'))return respond([]);
+  if(path.endsWith('/functions/v1/mail-api')){
+   const input=JSON.parse(req.postData()||'{}');
+   if(input.action==='list-drafts')return respond({ok:true,data:[...drafts.values()].filter(d=>d.state==='active').map(({id,subject,revision,mailbox_id})=>({id,subject,revision,mailbox_id,updated_at:now}))});
+   if(input.action==='get-draft')return respond({ok:true,data:drafts.get(input.draftId)});
+   if(input.action==='save-draft'){
+    const previous=drafts.get(input.draftId),revision=(previous?.revision??0)+1;
+    if(input.revision!==revision-1)return respond({ok:false,error:'DRAFT_CONFLICT'},409);
+    const next={id:input.draftId,mailbox_id:input.mailboxId,state:'active',revision,subject:input.subject,body_text:input.text,attachment_manifest:input.attachmentManifest,recipients_to:input.to,recipients_cc:input.cc,recipients_bcc:input.bcc,compose_meta:input.composeMeta,reply_to_message_id:input.replyToMessageId};
+    drafts.set(input.draftId,next);return respond({ok:true,data:{revision}});
+   }
+   if(input.action==='send'){
+    if(!drafts.get(input.draftId)?.compose_meta.locked)return respond({ok:false,error:'DRAFT_CONFLICT'},409);
+    sent.push(input);drafts.get(input.draftId).state='sent';return respond({ok:true,data:{internetMessageId:'<qa@oryneo.com.br>',alreadyAccepted:false}});
+   }
+   if(input.action==='delete-draft'){drafts.delete(input.draftId);return respond({ok:true,data:{deleted:true}});}
+   return respond({ok:false,error:'QA_ACTION_UNEXPECTED'},400);
+  }
   if(path.includes('/rest/v1/crm_mail_folders'))return respond([{id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',mailbox_id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',name:'Caixa de entrada',remote_name:'INBOX',special_use:'inbox',total_count:60,unread_count:0}]);
   if(path.endsWith('/rest/v1/rpc/crm_mail_get_status'))return respond({mailbox_id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',address:'qa@example.com',backlog:0,last_run:{state:'success',finished_at:now}});
   if(path.endsWith('/rest/v1/rpc/crm_mail_list_threads')){
@@ -55,6 +73,13 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
    record.data.next_action={title:input.p_title,due_at:input.p_due_at,done:input.p_done};
    record.revision++;
    return respond('44444444-4444-4444-8444-444444444444');
+  }
+  if(path.endsWith('/rest/v1/rpc/crm_mutate')&&method==='POST'){
+   const input=JSON.parse(req.postData()||'{}');
+   if(input.p_kind!=='deal'||input.p_revision!==0)return respond({message:'QA unexpected mutation'},400);
+   duplicated=input.p_data;
+   rows.push({id:input.p_id,kind:'deal',data:duplicated,revision:1,deleted:false,created_at:now,updated_at:now});
+   return respond('55555555-5555-4555-8555-555555555555');
   }
   return respond({message:'QA mock: rota inesperada '+path},404);
  });
@@ -105,6 +130,28 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  const mailCount=await mailList.locator('button[aria-label^="Abrir conversa"]').count();
  if(mailCount!==60||!(await mailList.getByRole('button',{name:/Abrir conversa QA conversa recente 1/}).count()))throw Error(name+' próxima página não preservou as conversas '+mailCount);
  await page.screenshot({path:'qa-results/'+name+'-mailbox-pagination.png',fullPage:false});
+ await page.getByRole('button',{name:'Escrever'}).click();
+ await page.getByLabel('Para',{exact:true}).fill('ana@example.com');
+ await page.getByLabel('Assunto',{exact:true}).fill('Rascunho QA');
+ await page.getByLabel('Mensagem',{exact:true}).fill('Olá, teste controlado.');
+ await page.getByLabel('Anexar arquivos').setInputFiles({name:'qa.txt',mimeType:'text/plain',buffer:Buffer.from('conteudo de teste')});
+ await page.getByRole('button',{name:'Salvar e fechar composição'}).click();
+ await page.locator('.mail-composer').waitFor({state:'hidden'});
+ if(drafts.size!==1||[...drafts.values()][0].attachment_manifest[0].contentBase64!==Buffer.from('conteudo de teste').toString('base64'))throw Error(name+' rascunho/anexo não persistidos');
+ await page.getByRole('button',{name:'Meus rascunhos'}).click();
+ await page.getByRole('button',{name:/Rascunho QA/}).click();
+ await page.getByLabel('Mensagem',{exact:true}).waitFor();
+ if(await page.getByLabel('Mensagem',{exact:true}).inputValue()!=='Olá, teste controlado.')throw Error(name+' corpo do rascunho não restaurado');
+ await page.getByRole('button',{name:'Enviar',exact:true}).click();
+ await page.locator('.mail-composer').waitFor({state:'hidden'});
+ if(sent.length!==1||sent[0].attachments[0].contentBase64!==Buffer.from('conteudo de teste').toString('base64'))throw Error(name+' envio simulado perdeu o anexo');
+ await page.getByRole('button',{name:'Pipeline'}).click();
+ await page.getByRole('button',{name:/Opções de Solicitação · Empresa QA Ltda\./}).click();
+ await page.getByRole('menuitem',{name:'Duplicar oportunidade'}).click();
+ await page.getByRole('heading',{name:'Duplicar oportunidade'}).waitFor();
+ await page.getByRole('button',{name:'Salvar oportunidade'}).click();
+ await page.getByText('Alterações salvas.').waitFor();
+ if(!duplicated||duplicated.duplicated_from!=='22222222-2222-4222-8222-222222222222'||'quote'in duplicated||'form_submission'in duplicated||duplicated.next_action?.done)throw Error(name+' duplicação herdou histórico/finanças');
  if(errors.length)throw Error(name+' JS errors '+JSON.stringify(errors));
  console.log(name+' OK: dashboard, filtros, diagnóstico, RPC de atividade, asset do Drive. Wordmark bytes='+img.bytes);
  await browser.close();
