@@ -1,7 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
-import { PaymentPageView, type PublicBillingOrder } from './PaymentPage';
+import { describe, expect, it, vi } from 'vitest';
+import { PaymentPage, PaymentPageView, type PublicBillingOrder } from './PaymentPage';
+
+const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
+vi.mock('../data', () => ({ supabase: { functions: { invoke } } }));
 
 const order: PublicBillingOrder = {
   reference: 'ORY-00142',
@@ -21,12 +24,35 @@ const order: PublicBillingOrder = {
 };
 
 describe('PaymentPageView', () => {
+  it('mostra indisponibilidade temporária sem rotular o pagamento como recusado', async () => {
+    invoke.mockResolvedValue({ data: null, error: new Error('Edge Function returned a non-2xx status code') });
+    window.history.pushState({}, '', '/pagar/?token=' + 't'.repeat(48));
+
+    render(<PaymentPage />);
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Não foi possível verificar agora.' })).toBeInTheDocument());
+    expect(screen.getByText(/Nenhum pagamento foi confirmado/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
+    expect(screen.queryByText('Pagamento indisponível.')).not.toBeInTheDocument();
+  });
+
   it('mostra o acompanhamento de implantação apenas após pagamento confirmado',()=>{
     const url='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/implantacao/?token=token-seguro';
     const {rerender}=render(<PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} portalUrl={url}/>);
     expect(screen.queryByRole('link',{name:/Acompanhar implantação/})).not.toBeInTheDocument();
     rerender(<PaymentPageView order={{...order,status:'paid'}} paymentSlot={null} onPay={()=>undefined} portalUrl={url}/>);
     expect(screen.getByRole('link',{name:/Acompanhar implantação/})).toHaveAttribute('href',url);
+  });
+
+  it('permite consultar novamente enquanto o webhook confirma o pagamento', async () => {
+    const user = userEvent.setup();
+    const onRefresh = vi.fn();
+    render(<PaymentPageView order={{ ...order, status: 'processing' }} paymentSlot={null} onPay={() => undefined} onRefresh={onRefresh} />);
+    expect(screen.getByRole('heading', { name: 'Estamos confirmando seu pagamento.' })).toBeInTheDocument();
+    expect(screen.getByText('Em confirmação')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Confirmar pagamento' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Verificar status' }));
+    expect(onRefresh).toHaveBeenCalledOnce();
   });
 
   it('expõe total, composição e recorrência antes do pagamento', () => {

@@ -6,13 +6,13 @@ import { buildMimeMessage } from '../mail/mime.ts';
 type Db = SupabaseClient<any,'public','public',any,any>;
 type Order = {
  id:string; reference:string; customer_name:string; customer_email:string; company:string;
+ billing_environment:'test'|'live';
  status:string; paid_at:string|null; stripe_customer_id:string|null; stripe_subscription_id:string|null;
- stripe_traffic_subscription_id:string|null; amount_total:number;
+ stripe_traffic_subscription_id:string|null; stripe_traffic_renewal_price_id:string|null; amount_total:number;
  items:Array<{key:string;label:string;detail:string;amount_cents:number}>;
  selection:{plan:string;cycle:string;addons:string[]};
 };
 
-export const TRAFFIC_QUARTERLY_PRICE = 'price_1UQA2kCi4hhgz3b9IrEEF42i';
 const STRIPE_VERSION = '2026-08-26.dahlia';
 const format = (cents:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(cents/100);
 const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -47,6 +47,7 @@ export async function getPaidOrder(db:Db,sessionId:string):Promise<Order|null>{
 
 export async function ensureTrafficSubscription(db:Db,order:Order,stripeSecret:string):Promise<void>{
  if(!(order.selection.addons||[]).includes('traffic')||order.stripe_traffic_subscription_id)return;
+ if(!order.stripe_traffic_renewal_price_id?.startsWith('price_'))throw Error('TRAFFIC_PRICE_UNAVAILABLE');
  if(!order.paid_at||!order.stripe_customer_id||!order.stripe_subscription_id)
    throw Error('TRAFFIC_REQUIRES_VERIFIED_CHECKOUT');
  const anchor=threeMonthsAfter(order.paid_at);
@@ -93,7 +94,7 @@ export async function ensureTrafficSubscription(db:Db,order:Order,stripeSecret:s
 
  const form=new URLSearchParams();
  form.set('customer',order.stripe_customer_id);
- form.set('items[0][price]',TRAFFIC_QUARTERLY_PRICE);
+ form.set('items[0][price]',order.stripe_traffic_renewal_price_id);
  form.set('items[0][quantity]','1');
  form.set('default_payment_method',paymentMethod);
  form.set('trial_end',String(anchor));
@@ -178,7 +179,7 @@ export async function sendWelcomeTestSafe(db:Db,order:Order):Promise<'sent'|'sup
     .select('state,attempts').eq('order_id',order.id).maybeSingle();
  if(loadError||!row||row.state!=='pending')return 'skipped';
  const internal=/^[^\s@]+@oryneo\.com\.br$/i.test(order.customer_email);
- if(!internal){
+ if(order.billing_environment==='test'&&!internal){
     await db.from('crm_billing_welcome').update({
       state:'suppressed_test',last_error:'TEST_MODE_EXTERNAL_RECIPIENT_NOT_SENT',updated_at:new Date().toISOString()
     }).eq('order_id',order.id).eq('state','pending');

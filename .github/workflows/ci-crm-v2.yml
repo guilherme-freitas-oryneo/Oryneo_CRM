@@ -32,12 +32,13 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Typecheck das Edge Functions e testes de e-mail
+      - name: Typecheck das Edge Functions e contratos críticos
         run: |
           deno check --node-modules-dir=auto supabase/functions/lead-intake/index.ts
           deno check --node-modules-dir=auto supabase/functions/company-enrich/index.ts
           deno check --node-modules-dir=auto supabase/functions/mail-sync/index.ts
           deno check --node-modules-dir=auto supabase/functions/mail-api/index.ts
+          deno check --node-modules-dir=auto supabase/functions/intake-mail-worker/index.ts
           deno check --node-modules-dir=auto supabase/functions/stripe-webhook/index.ts
           deno check --node-modules-dir=auto supabase/functions/proposal-create/index.ts
           deno check --node-modules-dir=auto supabase/functions/proposal-public/index.ts
@@ -49,7 +50,12 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/offboarding-admin/index.ts
           deno test supabase/functions/tests/landing_preview_url_test.ts
           deno check --node-modules-dir=auto supabase/functions/billing-create-order/index.ts
+          deno check --node-modules-dir=auto supabase/functions/billing-public/index.ts
+          deno check --node-modules-dir=auto supabase/functions/checkout-intake/index.ts
           deno check --node-modules-dir=auto supabase/functions/_shared/billing/fulfillment.ts
           deno test --node-modules-dir=auto supabase/functions/tests/billing_renewal_welcome_test.ts
           deno test supabase/functions/tests/stripe_orphan_checkout_policy_test.ts
-          deno test supabase/functions/tests/lead_intake_contract_test.ts supabase/functions/tests/mail_protocol_test.ts supabase/functions/tests/mail_mime_test.ts supabase/functions/tests/mail_sync_test.ts supabase/functions/tests/mail_actions_test.ts supabase/functions/tests/first_contact_template_test.ts supabase/functions/tests/first_contact_action_test.ts
+          deno test supabase/functions/tests/webhook_environment_test.ts
+          deno test supabase/functions/tests/billing_public_status_test.ts
+          deno test --node-modules-dir=auto supabase/functions/tests/direct_checkout_contract_test.ts
+          deno test supabase/functions/tests/lead_intake_contract_test.ts supabase/functions/tests/mail_protocol_test.ts supabase/functions/tests/mail_mime_test.ts supabase/functions/tests/mail_sync_test.ts supabase/functions/tests/mail_actions_test.ts supabase/functions/tests/first_contact_template_test.ts supabase/functions/tests/first_contact_action_test.ts supabase/functions/tests/intake_confirmation_test.ts
