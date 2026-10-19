@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import {ensureTrafficSubscription,getPaidOrder,sendWelcomeTestSafe} from '../_shared/billing/fulfillment.ts';
 import {classifyCheckoutLookup} from '../_shared/billing/checkout-webhook-policy.ts';
+import {runPaidOrderPostpayment} from '../_shared/billing/postpayment.ts';
 import {billingEnvironmentMatchesLivemode,getBillingEnvironmentConfig,parseBillingEnvironment} from '../_shared/billing/environment.ts';
 import { verifiedWebhookEnvironment } from '../_shared/billing/webhook-environment.ts';
 declare const EdgeRuntime:{waitUntil(p:Promise<unknown>):void};
@@ -139,13 +140,14 @@ Deno.serve(async (req: Request) => {
         const paidEnvironment=parseBillingEnvironment(paidOrder.billing_environment);
         if(!billingEnvironmentMatchesLivemode(paidEnvironment,livemode))return json({error:'Stripe environment mismatch'},503);
         const config=getBillingEnvironmentConfig(paidEnvironment,name=>Deno.env.get(name));
-        await ensureTrafficSubscription(db,paidOrder,config.secretKey);
-        const job=sendWelcomeTestSafe(db,paidOrder).catch(err=>{
-          console.error('Stripe welcome delivery pending review',{code:err instanceof Error?err.message:'unknown'});
+        // A renovação de tráfego não pode impedir o e-mail de boas-vindas de entrar na fila.
+        // O claim persistente da mensagem torna seguro o retry do webhook.
+        await runPaidOrderPostpayment({
+          sendWelcome:()=>sendWelcomeTestSafe(db,paidOrder),
+          ensureTrafficSubscription:()=>ensureTrafficSubscription(db,paidOrder,config.secretKey),
+          waitUntil:typeof EdgeRuntime!=='undefined'?(job)=>EdgeRuntime.waitUntil(job):undefined,
+          onWelcomeError:err=>console.error('Stripe welcome delivery pending review',{code:err instanceof Error?err.message:'unknown'}),
         });
-        // Envio de teste é restrito a domínio interno; não bloquear o ACK com SMTP.
-        if(typeof EdgeRuntime!=='undefined')EdgeRuntime.waitUntil(job);
-        else await job;
       }catch(err){
         console.error('Stripe postpayment incomplete',{code:err instanceof Error?err.message:'unknown'});
         // Retentar o mesmo evento é seguro: o checkout e a assinatura são idempotentes.
