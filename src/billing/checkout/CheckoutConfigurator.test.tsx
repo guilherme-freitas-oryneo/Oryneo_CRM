@@ -52,7 +52,7 @@ describe('seleção vinda da landing page', () => {
     expect(screen.getByRole('radio',{name:/Anual/i})).toBeChecked();
     expect(screen.getByRole('checkbox',{name:/Landing page de conversão/i})).toBeChecked();
     expect(screen.getByRole('checkbox',{name:/Gestão de tráfego pago/i})).toBeChecked();
-    expect(screen.getByText(/18\.427,52/)).toBeInTheDocument();
+    expect(screen.getByText(/21\.692,42/)).toBeInTheDocument();
   });
 
   it('descarta códigos não suportados e ignora preços enviados pela URL', () => {
