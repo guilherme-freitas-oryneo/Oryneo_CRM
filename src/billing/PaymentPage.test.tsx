@@ -61,6 +61,8 @@ describe('PaymentPageView', () => {
     expect(screen.getByText('R$ 3.279,80')).toBeInTheDocument();
     expect(screen.getByText('R$ 1.099,90 por mês')).toBeInTheDocument();
     expect(screen.getByText(/Ambiente de homologação/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Privacidade' })).toHaveAttribute('href', 'https://guilherme-freitas-oryneo.github.io/Oryneo_Landing_Page/privacidade.html');
+    expect(screen.getByRole('link', { name: 'Suporte' })).toHaveAttribute('href', 'mailto:contato@oryneo.com.br');
   });
 
   it('só libera a confirmação após o aceite explícito', async () => {
