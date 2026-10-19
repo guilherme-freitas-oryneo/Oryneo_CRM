@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import { TermsDialog } from '../legal/TermsDialog';
 import {supabase} from '../data';
 import './proposal.css';
 
@@ -61,6 +62,7 @@ export function ProposalView({proposal,onAccept,busy=false,error=''}:{
       value={email} onChange={event=>setEmail(event.target.value)}/>
      <label className="proposal-check"><input type="checkbox" checked={consent} onChange={event=>setConsent(event.target.checked)}/>
       <span>Li e concordo com a versão {proposal.version}, os itens, o valor do primeiro pagamento e os ciclos de cobrança apresentados.</span></label>
+     <div className="proposal-terms-access"><TermsDialog label="Consultar os Termos Gerais de Contratação" /></div>
      <button disabled={busy||!consent||!name.trim()||!email.trim()} type="submit">{busy?'Registrando…':'Aceitar esta versão'}</button>
      {error&&<p className="proposal-error" role="alert">{error}</p>}
     </form>}
