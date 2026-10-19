@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/**'
       - 'pagar/**'
+      - 'contratar/**'
       - 'public/**'
       - 'index.html'
       - 'package.json'
@@ -49,6 +50,7 @@ jobs:
           set -euo pipefail
           test -s dist/index.html
           test -s dist/pagar/index.html
+          test -s dist/contratar/index.html
           test -s dist/oryneo-wordmark.png
           test -s dist/oryneo-y.svg
           test -n "$(find dist/assets -type f -name '*.js' -print -quit)"
