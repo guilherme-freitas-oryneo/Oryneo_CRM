@@ -1,6 +1,6 @@
 # ORYNEO — mapa operacional da auditoria de interações V2
 
-Checkpoint: 2026-10-19 UTC. Este mapa foi reconstruído do repositório, GitHub Actions, Supabase e Stripe. O ZIP original, a conversa anterior, a matriz integral E01–E45, o relatório de gaps e o runbook não estão disponíveis neste workspace nem foram encontrados pelo nome no Drive conectado. Nenhuma etapa ausente é presumida concluída.
+Checkpoint: 2026-10-19 UTC. Este mapa foi reconstruído do repositório, GitHub Actions, Supabase, Stripe e documentos históricos do Drive. O ZIP original, a conversa anterior, o relatório de gaps e o runbook não estão disponíveis neste workspace nem foram encontrados pelo nome no Drive conectado. O [plano PM50 de 14/10](https://docs.google.com/document/d/1SA1tqQ-GlnHLv8tmaGZACth6NhKzvkatRgn27Nus1wY/edit) define E01–E45 e F01–F05, mas suas classificações históricas não representam o estado atual. Nenhuma etapa ausente é presumida concluída.
 
 ## Reconciliação prioritária da PR #37
 
@@ -8,6 +8,7 @@ Checkpoint: 2026-10-19 UTC. Este mapa foi reconstruído do repositório, GitHub 
 - Workflow `39229276278`: `build` falhou com 5 testes de `StripePayment` após introdução de `record_consent`; o mock não fornecia a resposta desse novo RPC. `edge` falhou com dois `TS2345` em `stripe-webhook/index.ts` (linhas 110 e 139): `event.livemode` opcional foi passado a uma função que exige `boolean`. O build TypeScript/Vite daquela execução passou; o workflow de QA de navegador `39229276367` passou no head inicial.
 - Supabase `ucikrafwfzamxvweuvgk`: `checkout-intake` v3, `billing-public` v6 e `stripe-webhook` v5 ativos. O conteúdo de todos os 18 arquivos empacotados nessas três funções corresponde exatamente ao head inicial da PR #37. A migration `20261019041910_crm_live_checkout_webhooks` consta aplicada. **A main não contém essas mudanças. Publicar as funções da main apagaria o suporte LIVE já implantado.**
 - Correção na branch da PR: testes do pagamento agora distinguem a gravação do aceite da leitura posterior do pedido; o webhook deriva um booleano do ambiente selecionado pela assinatura verificada; o teste de segregação do webhook foi incluído no CI. Nenhum deploy/rollback foi executado neste checkpoint.
+- A primeira rodada de CI no SHA `1f3547304e7eba728d07a89011c1cc81a8eb31c8` aprovou `build`, mas encontrou mais dois erros `TS2339` em `billing-public` ao tipar a resposta JSON da RPC de aceite. O commit `6f0fcc7` tipa e valida essa resposta; o typecheck local das funções afetadas passou. Aguardar o CI remoto do novo SHA.
 - Verificação local da correção: `npm run build` passou, `npm run test -- --run` passou com 29 arquivos e 183 testes, `deno check --node-modules-dir=auto supabase/functions/stripe-webhook/index.ts` passou e `deno test supabase/functions/tests/webhook_environment_test.ts` passou. A primeira suíte local sofreu interferência por execução simultânea de Deno em `node_modules`; após `npm ci` e execução isolada, passou integralmente. Aguardar CI remoto no novo SHA antes de integrar.
 
 ## Estado operacional observado
@@ -29,4 +30,4 @@ Checkpoint: 2026-10-19 UTC. Este mapa foi reconstruído do repositório, GitHub 
 
 Próximo passo exato: validar o CI remoto da PR #37 no novo SHA; conferir que a integração não sobrescreve as funções publicadas; manter checkout LIVE e cron E16 fechados até os gates acima. Os gaps e a matriz de evidências deste checkpoint estão em `docs/auditoria/interacoes-v2-20261019.md`.
 
-**Percentual:** os ~65% externos não são uma medição auditável sem o denominador e os critérios do ZIP/matriz original. Este checkpoint não atribui um percentual substituto aos 45 eventos ou às jornadas sem evidência.
+**Percentual:** o plano PM50 fornece denominador de 50 entregas (45 modelos + F01–F05), mas nenhuma das 50 possui neste checkpoint evidência completa de aceite E2E pelos gates do próprio plano. Assim, o fechamento estritamente comprovado é **0/50 = 0%**; isso mede homologação integral, não volume de código, design ou implantação parcial. Os ~65% externos não são recalculáveis como progresso de implementação sem a escala e os critérios originais do ZIP.
