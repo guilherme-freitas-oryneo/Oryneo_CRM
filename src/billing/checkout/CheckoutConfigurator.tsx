@@ -22,11 +22,26 @@ const additions = {
   traffic: { label: 'Gestão de tráfego pago', price: 296_970, detail: 'Primeiros 3 meses antecipados' },
 } as const;
 const money = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+/** Client-side convenience only: catalog prices and permitted combinations are validated server-side. */
+export function parseCheckoutPrefill(search: string): Pick<DirectCheckoutSelection,'plan'|'cycle'|'addons'> {
+  const params=new URLSearchParams(search);
+  const selectedPlan=params.get('plan');
+  const selectedCycle=params.get('cycle');
+  const plan:DirectCheckoutSelection['plan']=selectedPlan==='Growth'||selectedPlan==='Scale'?selectedPlan:'Start';
+  const cycle:DirectCheckoutSelection['cycle']=selectedCycle==='annual'?'annual':'monthly';
+  const addons:Array<'landing-page'|'traffic'>=[];
+  for(const raw of params.getAll('services').flatMap(value=>value.split(','))) {
+    if ((raw==='landing-page'||raw==='traffic')&&!addons.includes(raw))addons.push(raw);
+  }
+  return {plan,cycle,addons};
+}
+
 
 export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: Props) {
-  const [plan, setPlan] = useState<DirectCheckoutSelection['plan']>('Start');
-  const [cycle, setCycle] = useState<DirectCheckoutSelection['cycle']>('monthly');
-  const [addons, setAddons] = useState<DirectCheckoutSelection['addons']>([]);
+  const [initialSelection] = useState(() => parseCheckoutPrefill(window.location.search));
+  const [plan, setPlan] = useState<DirectCheckoutSelection['plan']>(initialSelection.plan);
+  const [cycle, setCycle] = useState<DirectCheckoutSelection['cycle']>(initialSelection.cycle);
+  const [addons, setAddons] = useState<DirectCheckoutSelection['addons']>(initialSelection.addons);
   const [customerName, setCustomerName] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
