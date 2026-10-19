@@ -4,9 +4,11 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'contratar/**'
       - 'public/**'
       - '.github/scripts/qa-crm-v21.mjs'
       - '.github/scripts/qa-login-brand.mjs'
+      - '.github/scripts/qa-direct-checkout.mjs'
       - '.github/workflows/qa-crm-v21.yml'
   workflow_dispatch:
 permissions:
@@ -40,6 +42,7 @@ jobs:
       - name: Executar testes funcionais sem acesso ao Supabase
         run: |
           node .github/scripts/qa-login-brand.mjs
+          node .github/scripts/qa-direct-checkout.mjs
           node .github/scripts/qa-crm-v21.mjs
       - name: Publicar capturas de QA
         if: always()

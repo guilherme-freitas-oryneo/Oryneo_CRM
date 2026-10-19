@@ -6,6 +6,7 @@ import { getBillingEnvironmentConfig, parseBillingEnvironment } from '../_shared
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false, autoRefreshToken: false } });
 const origins = new Set(['https://oryneo-lp-preview.guilherme-frei160023.chatgpt.site','https://oryneo.com.br','https://www.oryneo.com.br','https://guilherme-freitas-oryneo.github.io']);
 const origin = 'https://guilherme-freitas-oryneo.github.io';
+type CreatedCheckout = { order_id: string; reference: string; stripe_checkout_session_id: string | null };
 const sha256 = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))).map(byte => byte.toString(16).padStart(2, '0')).join('');
 const reference = () => `ORY-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${crypto.randomUUID().slice(0,6).toUpperCase()}`;
 const identifier = () => 'oryneo_' + Array.from(crypto.getRandomValues(new Uint8Array(8)), value => String.fromCharCode(97 + value % 26)).join('');
@@ -36,7 +37,8 @@ Deno.serve(async req => {
       amount_total: selection.amountTotal, customer_name:input.customer_name, customer_email:input.customer_email, company:input.company,
     };
     const dealPayload = {title:`Contratação direta · ${input.company}`.slice(0,160),company:input.company,contact:input.customer_name,email:input.customer_email,phone:'',value_cents:selection.amountTotal,quote:{plan:selection.plan,cycle:selection.cycle,addons:selection.items.filter(item=>input.addons.includes(item.key as typeof input.addons[number])).map(item=>({key:item.key,label:item.label}))},notes:'Pedido iniciado pelo checkout direto em sandbox.'};
-    const {data:created,error:creationError} = await db.rpc('crm_create_direct_checkout_sandbox',{p_request_id:input.request_id,p_fingerprint:fingerprint,p_token_hash:tokenHash,p_deal_data:dealPayload,p_order:orderPayload}).single();
+    const {data:createdRaw,error:creationError} = await db.rpc('crm_create_direct_checkout_sandbox',{p_request_id:input.request_id,p_fingerprint:fingerprint,p_token_hash:tokenHash,p_deal_data:dealPayload,p_order:orderPayload}).single();
+    const created = createdRaw as CreatedCheckout | null;
     if (creationError || !created?.order_id) { console.error('direct checkout storage failed',{code:creationError?.code}); return respond({error:'Não foi possível preparar o pedido agora. Nenhuma cobrança foi realizada.'},503); }
     let sessionId = created.stripe_checkout_session_id as string | null;
     if (!sessionId) {

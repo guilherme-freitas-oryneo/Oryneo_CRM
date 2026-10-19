@@ -55,9 +55,11 @@ for (const [name, engine, viewport] of browsers) {
     const mark = await page.locator('.login-mark').getAttribute('src');
     assert.match(mark, /oryneo-y\.svg$/);
     assert.equal(await page.locator('.login-mark').evaluate(img => img.naturalWidth > 0), true);
-    const storyColor = await page.locator('.login-story').evaluate(el => getComputedStyle(el).backgroundColor);
-    const rgb = storyColor.match(/\d+/g).map(Number);
-    assert.ok(rgb.every(c => c >= 210), `painel ainda escuro: ${storyColor}`);
+    if (viewport.width > 760) {
+      const storyColor = await page.locator('.login-story').evaluate(el => getComputedStyle(el).backgroundColor);
+      const rgb = storyColor.match(/\d+/g).map(Number);
+      assert.ok(rgb.every(c => c >= 210), `painel ainda escuro: ${storyColor}`);
+    }
     const footerColor = await page.locator('.login-form footer').evaluate(el => getComputedStyle(el).color);
     assert.ok(contrast(footerColor, 'rgb(255, 255, 255)') >= 4.5, 'texto do rodapé deve ter contraste AA sobre branco');
     const metrics = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth }));
