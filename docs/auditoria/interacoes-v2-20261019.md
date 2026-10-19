@@ -6,7 +6,7 @@ Referências de escopo recuperadas no Drive: [plano PM50 E01–E45/F01–F05](ht
 
 | Interação/gate | Evidência positiva | Falta para homologação |
 | --- | --- | --- |
-| E13, boas-vindas pós-pagamento | Código de fulfillment no webhook; PR #29 ainda aberta | Reconciliar falha da renovação de tráfego e provar envio após pagamento confirmado sem duplicidade |
+| E13, boas-vindas pós-pagamento | PR #29 integrada e `stripe-webhook` v6 publicado; claim por pedido | Provar pagamento sandbox confirmado, recebimento e falha/retry da renovação sem duplicidade |
 | E14/E15, primeiro contato | PR #30 integrada; teste de template e MIME presente | Homologação controlada em Apple Mail, Gmail e Outlook e confronto com Canva/Drive |
 | E16, confirmação de entrada | PR #31 integrada; worker/outbox implantados; 1 pendente, 11 suprimidos | Cron desativado; teste controlado de renderização, retry e observabilidade antes da ativação |
 | E01–E12 e E17–E45 | Definição e gatilho previstos no PM50; estudos 45/45 indexados no Drive | Confrontar aprovações, templates, eventos e aceites atuais por interação; não atribuir estado por inferência |
@@ -19,10 +19,11 @@ Referências de escopo recuperadas no Drive: [plano PM50 E01–E45/F01–F05](ht
 
 - **P0 resolvido no código** — PR #37 integrada em `59552bf` após checks verdes. O bundle Edge em execução ainda é a versão anterior às correções de tipagem, por isso qualquer futuro redeploy deve usar a main atual e comparar o pacote completo.
 - **P0** — Checkout LIVE financeiro não homologado: 0 sessões, 0 assinaturas, 0 pedidos e 0 eventos LIVE observados. Não liberar comercialização irrestrita ou produzir cobrança real para testar.
-- **P0** — E13 versus renovação de tráfego permanece na PR #29; precisa prova de que falha de renovação não suprime boas-vindas de um pedido pago.
+- **P0 resolvido no código** — PR #29 integrada em `d580dc3` e webhook v6 publicado; o teste de regressão cobre a ordem de execução. O recebimento E13 após pagamento real em sandbox ainda não foi homologado.
 - **P1** — E16 pendente e cron inativo; falta renderização em três clientes e homologação controlada do worker/retry. Preservar 11 históricos suprimidos.
 - **P1** — Pix/boleto, renovação mensal/anual/trimestral, duplicatas, retries, expirados, estornos e cancelamentos sem cobertura E2E documentada.
 - **P1** — ZIP original, relatório de gaps, runbook e conversa anterior indisponíveis. PM50 oferece denominador 50 e permite dizer que 0/50 tem aceite E2E integral comprovado neste checkpoint; não permite converter os ~65% externos em progresso de implementação comparável.
+- **P1 segurança** — Advisor Supabase aponta proteção contra senhas vazadas desativada e quatro RPCs `SECURITY DEFINER` executáveis por membros autenticados. As funções checam `crm_members`, mas o modelo global precisa revisão antes de acesso multi-tenant. Tabelas internas com RLS sem política permanecem fechadas ao cliente. Ver [advisor de RPC](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) e [Auth](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
 - **P2** — README e documentos antigos contêm checkpoints históricos; reconciliar com este mapa antes de usá-los para operação.
 
 Rollback seguro: preservar migration aditiva e funções atuais; qualquer reversão de Edge Function exige comparar o pacote completo publicado e o SHA de origem antes de substituir. Não reverter estados financeiros nem suprimidos por script genérico.
