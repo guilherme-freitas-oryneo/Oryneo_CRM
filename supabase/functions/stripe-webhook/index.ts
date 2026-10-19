@@ -77,6 +77,7 @@ Deno.serve(async (req: Request) => {
   try {event=JSON.parse(raw)} catch {return json({error:'Invalid JSON'},400)}
   const environment=verifiedWebhookEnvironment(verification,event.livemode);
   if(!environment)return json({error:'Invalid signature or environment'},400);
+  const livemode=environment==='live';
   if(!event.id||!event.type)return json({error:'Invalid Stripe event'},400);
 
   const checkoutEvents=new Set([
@@ -107,7 +108,7 @@ Deno.serve(async (req: Request) => {
     let expectedEnvironment;
     try{expectedEnvironment=parseBillingEnvironment(expected.billing_environment)}
     catch{return json({error:'Checkout environment unavailable'},503)}
-    if(!billingEnvironmentMatchesLivemode(expectedEnvironment,event.livemode)||
+    if(!billingEnvironmentMatchesLivemode(expectedEnvironment,livemode)||
        (source.metadata?.oryneo_billing_environment&&source.metadata.oryneo_billing_environment!==expectedEnvironment)){
       console.error('Stripe checkout environment mismatch',{session_id:source.id});
       return json({error:'Checkout environment mismatch'},422);
@@ -123,7 +124,7 @@ Deno.serve(async (req: Request) => {
       p_customer_id:typeof source.customer==='string'?source.customer:null,
       p_subscription_id:typeof source.subscription==='string'?source.subscription:null,
       p_invoice_id:typeof source.invoice==='string'?source.invoice:null,
-      p_livemode:event.livemode,
+      p_livemode:livemode,
     });
     if(error||!outcome?.ok){
       console.error('Stripe checkout reconciliation failed',{code:error?.code});
@@ -136,7 +137,7 @@ Deno.serve(async (req: Request) => {
         const paidOrder=await getPaidOrder(db,source.id);
         if(!paidOrder)return json({error:'Paid order not synchronized'},503);
         const paidEnvironment=parseBillingEnvironment(paidOrder.billing_environment);
-        if(!billingEnvironmentMatchesLivemode(paidEnvironment,event.livemode))return json({error:'Stripe environment mismatch'},503);
+        if(!billingEnvironmentMatchesLivemode(paidEnvironment,livemode))return json({error:'Stripe environment mismatch'},503);
         const config=getBillingEnvironmentConfig(paidEnvironment,name=>Deno.env.get(name));
         await ensureTrafficSubscription(db,paidOrder,config.secretKey);
         const job=sendWelcomeTestSafe(db,paidOrder).catch(err=>{
@@ -166,7 +167,7 @@ Deno.serve(async (req: Request) => {
       p_amount_cents:Math.round(Number(source.amount_paid??source.amount_due??0)),
       p_currency:source.currency||'brl',
       p_billing_reason:typeof source.billing_reason==='string'?source.billing_reason:null,
-      p_livemode:event.livemode,
+      p_livemode:livemode,
     });
     if(error||!result?.ok)return json({error:'Invoice reconciliation unavailable'},503);
     return json({received:true,unlinked:!!result.unlinked,duplicate:!!result.duplicate});
@@ -176,7 +177,7 @@ Deno.serve(async (req: Request) => {
   const status=event.type==='customer.subscription.deleted'?'canceled':String(source.status||'unknown');
   const {data:result,error}=await db.rpc('crm_record_stripe_subscription_event',{
     p_event_id:event.id,p_event_type:event.type,p_subscription_id:source.id,p_status:status,
-    p_livemode:event.livemode,
+    p_livemode:livemode,
   });
   if(error||!result?.ok)return json({error:'Subscription reconciliation unavailable'},503);
   return json({received:true,unlinked:!!result.unlinked,duplicate:!!result.duplicate});
