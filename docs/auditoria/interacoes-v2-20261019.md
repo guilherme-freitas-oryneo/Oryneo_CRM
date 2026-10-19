@@ -17,7 +17,7 @@ Referências de escopo recuperadas no Drive: [plano PM50 E01–E45/F01–F05](ht
 
 ## Gaps priorizados
 
-- **P0** — Código LIVE já publicado fora da main com PR #37 inicialmente reprovada. Impedir deploy da main nessas funções até reconciliação e CI verde.
+- **P0 resolvido no código** — PR #37 integrada em `59552bf` após checks verdes. O bundle Edge em execução ainda é a versão anterior às correções de tipagem, por isso qualquer futuro redeploy deve usar a main atual e comparar o pacote completo.
 - **P0** — Checkout LIVE financeiro não homologado: 0 sessões, 0 assinaturas, 0 pedidos e 0 eventos LIVE observados. Não liberar comercialização irrestrita ou produzir cobrança real para testar.
 - **P0** — E13 versus renovação de tráfego permanece na PR #29; precisa prova de que falha de renovação não suprime boas-vindas de um pedido pago.
 - **P1** — E16 pendente e cron inativo; falta renderização em três clientes e homologação controlada do worker/retry. Preservar 11 históricos suprimidos.
