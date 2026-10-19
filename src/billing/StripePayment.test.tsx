@@ -37,6 +37,17 @@ describe('StripePayment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.history.replaceState({}, '', '/pagar/?token=token-de-teste');
+    mocks.invoke.mockResolvedValue({data:{ok:true},error:null});
+  });
+
+  it('não chama a Stripe se o aceite não puder ser registrado', async () => {
+    const confirm=vi.fn();
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
+    mocks.invoke.mockResolvedValueOnce({data:null,error:{message:'indisponível'}});
+    render(<StripePayment order={order}/>);
+    await consentAndPay();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível registrar seu aceite');
+    expect(confirm).not.toHaveBeenCalled();
   });
 
   it('mostra uma exceção retornada pela Stripe e permite tentar novamente', async () => {
@@ -61,7 +72,7 @@ describe('StripePayment', () => {
   it('não anuncia pagamento como confirmado apenas pelo resultado do navegador', async () => {
     const confirm = vi.fn().mockResolvedValueOnce({ type: 'success' });
     mocks.checkout.mockReturnValue({ type:'success', checkout:{canConfirm:true,confirm} });
-    mocks.invoke.mockResolvedValue({ data:{order:{status:'awaiting_payment'}},error:null });
+    mocks.invoke.mockResolvedValueOnce({data:{ok:true},error:null}).mockResolvedValue({ data:{order:{status:'awaiting_payment'}},error:null });
     render(<StripePayment order={order} />);
     await consentAndPay();
     expect(await screen.findByRole('heading', {name:'Estamos confirmando seu pagamento.'})).toBeInTheDocument();
@@ -71,7 +82,7 @@ describe('StripePayment', () => {
   it('só exibe confirmação depois de validação server-side', async () => {
     const confirm = vi.fn().mockResolvedValueOnce({type:'success'});
     mocks.checkout.mockReturnValue({type:'success', checkout:{canConfirm:true,confirm}});
-    mocks.invoke.mockResolvedValue({data:{order:{status:'paid'}},error:null});
+    mocks.invoke.mockResolvedValueOnce({data:{ok:true},error:null}).mockResolvedValue({data:{order:{status:'paid'}},error:null});
     render(<StripePayment order={order} />);
     await consentAndPay();
     expect(await screen.findByRole('heading', {name:'Pagamento confirmado.'})).toBeInTheDocument();

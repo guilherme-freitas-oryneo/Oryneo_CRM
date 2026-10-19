@@ -217,6 +217,10 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
     setBusy(true);
     setError('');
     try{
+      const token=new URLSearchParams(window.location.search).get('token');
+      if(!token)throw new Error('Link de pagamento inválido. Atualize a página e tente novamente.');
+      const {data:consent,error:consentError}=await supabase.functions.invoke('billing-public',{body:{action:'record_consent',token}});
+      if(consentError||!consent?.ok)throw new Error('Não foi possível registrar seu aceite agora. Nenhum pagamento foi confirmado. Tente novamente.');
       const returnUrl=new URL(window.location.href);
       returnUrl.searchParams.set('retorno','1');
       const confirmation=await result.checkout.confirm({returnUrl:returnUrl.toString()});

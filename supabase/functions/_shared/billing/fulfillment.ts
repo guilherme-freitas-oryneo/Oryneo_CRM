@@ -179,7 +179,7 @@ export async function sendWelcomeTestSafe(db:Db,order:Order):Promise<'sent'|'sup
     .select('state,attempts').eq('order_id',order.id).maybeSingle();
  if(loadError||!row||row.state!=='pending')return 'skipped';
  const internal=/^[^\s@]+@oryneo\.com\.br$/i.test(order.customer_email);
- if(!internal){
+ if(order.billing_environment==='test'&&!internal){
     await db.from('crm_billing_welcome').update({
       state:'suppressed_test',last_error:'TEST_MODE_EXTERNAL_RECIPIENT_NOT_SENT',updated_at:new Date().toISOString()
     }).eq('order_id',order.id).eq('state','pending');

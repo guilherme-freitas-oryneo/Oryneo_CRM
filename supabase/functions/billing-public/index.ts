@@ -8,11 +8,17 @@ Deno.serve(async req=>{
  const origin=req.headers.get('origin')||'';const headers:Record<string,string>={'Content-Type':'application/json','Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store','Vary':'Origin'};if(origins.has(origin))headers['Access-Control-Allow-Origin']=origin;
  const respond=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
  if(origin&&!origins.has(origin))return respond({error:'Origem não autorizada.'},403);if(req.method==='OPTIONS')return new Response(null,{status:204,headers});if(req.method!=='POST')return respond({error:'Método não permitido.'},405);
- let body:{token?:string};try{body=await req.json()}catch{return respond({error:'Solicitação inválida.'},400)}
+ let body:{token?:string;action?:string};try{body=await req.json()}catch{return respond({error:'Solicitação inválida.'},400)}
  const publicToken=typeof body.token==='string'?body.token:'';if(publicToken.length<40)return respond({error:'Link inválido.'},400);
  const {data:order,error:orderError}=await db.from('crm_billing_orders').select('*').eq('public_token_hash',await hash(publicToken)).maybeSingle();
  if(orderError){console.error('billing-public order lookup failed',{code:orderError.code,message:orderError.message});return respond({error:'Não foi possível consultar este pedido.'},503)}
  if(!order)return respond({error:'Pedido não encontrado.'},404);
+ if(body.action==='record_consent'){
+  const {data,error}=await db.rpc('crm_record_billing_consent',{p_token_hash:await hash(publicToken),p_version:'checkout-2026-10-19'}).single();
+  const receipt=data as {ok?:boolean;recorded?:boolean}|null;
+  if(error||receipt?.ok!==true){console.error('billing consent receipt failed',{code:error?.code});return respond({error:'Não foi possível registrar o aceite agora.'},503)}
+  return respond({ok:true,recorded:receipt.recorded===true});
+ }
  let environment:ReturnType<typeof parseBillingEnvironment>;
  let config:ReturnType<typeof getBillingEnvironmentConfig>;
  try{
