@@ -122,7 +122,7 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
         <p className="pay-help">Dúvidas sobre o pedido? Fale com a ORYNEO antes de concluir.</p>
       </aside>
     </div>
-    <footer className="pay-shell pay-footer"><span>ORYNEO · Crescimento em sistema.</span><span>Privacidade · Termos comerciais · Suporte</span></footer>
+    <footer className="pay-shell pay-footer"><span>ORYNEO · Crescimento em sistema.</span><span><a href="https://guilherme-freitas-oryneo.github.io/Oryneo_Landing_Page/privacidade.html">Privacidade</a> · Termos comerciais · <a href="mailto:contato@oryneo.com.br">Suporte</a></span></footer>
   </main>;
 }
 
