@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import {ensureTrafficSubscription,getPaidOrder,sendWelcomeTestSafe} from '../_shared/billing/fulfillment.ts';
 import {classifyCheckoutLookup} from '../_shared/billing/checkout-webhook-policy.ts';
 import {billingEnvironmentMatchesLivemode,getBillingEnvironmentConfig,parseBillingEnvironment} from '../_shared/billing/environment.ts';
+import { verifiedWebhookEnvironment } from '../_shared/billing/webhook-environment.ts';
 declare const EdgeRuntime:{waitUntil(p:Promise<unknown>):void};
 
 const db = createClient(
@@ -48,9 +49,12 @@ Deno.serve(async (req: Request) => {
   const signature = req.headers.get('Stripe-Signature') || '';
   if (!signature) return json({error:'Missing signature'},400);
 
-  const {data:secret, error:secretError} = await db.rpc('crm_stripe_test_webhook_secret');
-  if (secretError || !secret || typeof secret !== 'string') {
-    console.error('Stripe webhook secret unavailable', {code:secretError?.code});
+  const [{data:testSecret,error:testSecretError},{data:liveSecret,error:liveSecretError}] = await Promise.all([
+    db.rpc('crm_stripe_webhook_secret',{p_environment:'test'}),
+    db.rpc('crm_stripe_webhook_secret',{p_environment:'live'}),
+  ]);
+  if (testSecretError || liveSecretError || (!testSecret && !liveSecret)) {
+    console.error('Stripe webhook secret unavailable', {test_code:testSecretError?.code,live_code:liveSecretError?.code});
     return json({error:'Webhook not configured'},503);
   }
 
@@ -61,14 +65,18 @@ Deno.serve(async (req: Request) => {
   } catch {
     return json({error:'Invalid payload'},400);
   }
-  if (!(await verify(raw,signature,secret))) return json({error:'Invalid signature'},400);
+  const verification={
+    test:typeof testSecret==='string'&&await verify(raw,signature,testSecret),
+    live:typeof liveSecret==='string'&&await verify(raw,signature,liveSecret),
+  };
 
   let event: {
     id?:string;type?:string;livemode?:boolean;
     data?:{object?:Record<string,any>}
   };
   try {event=JSON.parse(raw)} catch {return json({error:'Invalid JSON'},400)}
-  if(event.livemode!==false)return json({error:'Live events are not accepted'},400);
+  const environment=verifiedWebhookEnvironment(verification,event.livemode);
+  if(!environment)return json({error:'Invalid signature or environment'},400);
   if(!event.id||!event.type)return json({error:'Invalid Stripe event'},400);
 
   const checkoutEvents=new Set([
@@ -115,6 +123,7 @@ Deno.serve(async (req: Request) => {
       p_customer_id:typeof source.customer==='string'?source.customer:null,
       p_subscription_id:typeof source.subscription==='string'?source.subscription:null,
       p_invoice_id:typeof source.invoice==='string'?source.invoice:null,
+      p_livemode:event.livemode,
     });
     if(error||!outcome?.ok){
       console.error('Stripe checkout reconciliation failed',{code:error?.code});
@@ -157,6 +166,7 @@ Deno.serve(async (req: Request) => {
       p_amount_cents:Math.round(Number(source.amount_paid??source.amount_due??0)),
       p_currency:source.currency||'brl',
       p_billing_reason:typeof source.billing_reason==='string'?source.billing_reason:null,
+      p_livemode:event.livemode,
     });
     if(error||!result?.ok)return json({error:'Invoice reconciliation unavailable'},503);
     return json({received:true,unlinked:!!result.unlinked,duplicate:!!result.duplicate});
@@ -166,6 +176,7 @@ Deno.serve(async (req: Request) => {
   const status=event.type==='customer.subscription.deleted'?'canceled':String(source.status||'unknown');
   const {data:result,error}=await db.rpc('crm_record_stripe_subscription_event',{
     p_event_id:event.id,p_event_type:event.type,p_subscription_id:source.id,p_status:status,
+    p_livemode:event.livemode,
   });
   if(error||!result?.ok)return json({error:'Subscription reconciliation unavailable'},503);
   return json({received:true,unlinked:!!result.unlinked,duplicate:!!result.duplicate});
