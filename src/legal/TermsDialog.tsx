@@ -3,7 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { BookOpenText, X } from 'lucide-react';
 import './terms-dialog.css';
 
-const TERMS_URL = `${import.meta.env.BASE_URL}legal/oryneo-termos-v0.9-homologacao.txt`;
+const TERMS_URL = new URL('../legal/oryneo-termos-v0.9-homologacao.txt', window.location.href).toString();
 
 export function TermsDialog({ label='Consultar termos completos' }: {label?:string}) {
   const [open,setOpen]=useState(false);
