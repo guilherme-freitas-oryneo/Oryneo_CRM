@@ -15,8 +15,9 @@ Deno.serve(async req=>{
  if(!order)return respond({error:'Pedido não encontrado.'},404);
  if(body.action==='record_consent'){
   const {data,error}=await db.rpc('crm_record_billing_consent',{p_token_hash:await hash(publicToken),p_version:'checkout-2026-10-19'}).single();
-  if(error||!data?.ok){console.error('billing consent receipt failed',{code:error?.code});return respond({error:'Não foi possível registrar o aceite agora.'},503)}
-  return respond({ok:true,recorded:!!data.recorded});
+  const receipt=data as {ok?:boolean;recorded?:boolean}|null;
+  if(error||receipt?.ok!==true){console.error('billing consent receipt failed',{code:error?.code});return respond({error:'Não foi possível registrar o aceite agora.'},503)}
+  return respond({ok:true,recorded:receipt.recorded===true});
  }
  let environment:ReturnType<typeof parseBillingEnvironment>;
  let config:ReturnType<typeof getBillingEnvironmentConfig>;
