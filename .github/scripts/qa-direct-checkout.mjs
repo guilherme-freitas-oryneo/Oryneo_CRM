@@ -19,7 +19,7 @@ for (const [name, engine, viewport] of [
     page.on('pageerror', error => errors.push(error.message));
     await page.route(supabase, async route => {
       checkoutRequest = JSON.parse(route.request().postData() || '{}');
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: 'https://checkout.stripe.com/c/pay/cs_qa_controlled' }) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: `${root}#checkout-qa-controlado` }) });
     });
     const response = await page.goto(root, { waitUntil: 'domcontentloaded' });
     assert.equal(response.status(), 200);
@@ -34,8 +34,10 @@ for (const [name, engine, viewport] of [
     await page.getByLabel('Empresa').fill('Oryneo QA Controlado');
     const action = page.getByRole('button', { name: 'Continuar para o pagamento' });
     const checkoutResponse = page.waitForResponse(response => response.url() === supabase && response.request().method() === 'POST');
+    const returnedToCheckout = page.waitForURL(`${root}#checkout-qa-controlado`);
     await action.click();
     await checkoutResponse;
+    await returnedToCheckout;
     assert.equal(checkoutRequest.plan, 'Scale');
     assert.equal(checkoutRequest.cycle, 'annual');
     assert.deepEqual(checkoutRequest.addons, ['landing-page', 'traffic']);
