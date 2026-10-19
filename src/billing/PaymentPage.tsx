@@ -4,6 +4,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { CheckoutElementsProvider, PaymentElement, useCheckoutElements } from '@stripe/react-stripe-js/checkout';
 import { supabase } from '../data';
 import './payment.css';
+import { TermsDialog } from '../legal/TermsDialog';
 
 export type PublicBillingItem = {
   key: string;
@@ -91,6 +92,7 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
               <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)}/>
               <span><Check size={15}/> Li e aceito as condições comerciais e a recorrência descritas neste pedido.</span>
             </label>
+            <div className="pay-terms-access"><TermsDialog /></div>
             <button className="pay-submit" disabled={!accepted || busy} onClick={onPay}>
               <LockKeyhole size={17}/>{busy ? 'Processando…' : 'Confirmar pagamento'}
             </button>
@@ -122,7 +124,7 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
         <p className="pay-help">Dúvidas sobre o pedido? Fale com a ORYNEO antes de concluir.</p>
       </aside>
     </div>
-    <footer className="pay-shell pay-footer"><span>ORYNEO · Crescimento em sistema.</span><span><a href="https://guilherme-freitas-oryneo.github.io/Oryneo_Landing_Page/privacidade.html">Privacidade</a> · Termos comerciais · <a href="mailto:contato@oryneo.com.br">Suporte</a></span></footer>
+    <footer className="pay-shell pay-footer"><span>ORYNEO · Crescimento em sistema.</span><span><a href="https://guilherme-freitas-oryneo.github.io/Oryneo_Landing_Page/privacidade.html">Privacidade</a> · <TermsDialog label="Termos comerciais" /> · <a href="mailto:contato@oryneo.com.br">Suporte</a></span></footer>
   </main>;
 }
 
