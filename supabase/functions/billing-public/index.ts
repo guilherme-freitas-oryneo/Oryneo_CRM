@@ -51,7 +51,6 @@ Deno.serve(async req=>{
    }
   }else snapshot={status:order.status,clientSecret:null};
  }else{
-  let snapshot:{status:string;clientSecret:string|null};
   try {
    snapshot=await publicCheckoutSnapshot(order,async sessionId=>{
     const stripe=await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`,{headers:{Authorization:`Bearer ${config.secretKey}`,'Stripe-Version':'2026-08-26.dahlia'}});
