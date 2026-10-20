@@ -97,7 +97,7 @@ BEGIN
  IF v.state NOT IN ('awaiting_payment','failed') THEN
   RAISE EXCEPTION 'QA_ORDER_NOT_LINKABLE'; END IF;
  IF (v.method='pix' AND (
-      (p_checkout_session_id IS NULL OR p_checkout_session_id !~ '^cs_test_[A-Za-z0-9_]+
+      (p_checkout_session_id IS NULL OR p_checkout_session_id !~ '^cs_test_[A-Za-z0-9_]+$')
       OR p_customer_id IS NOT NULL OR p_subscription_id IS NOT NULL OR p_invoice_id IS NOT NULL))
   OR (v.method='boleto' AND (
       p_checkout_session_id IS NOT NULL OR
