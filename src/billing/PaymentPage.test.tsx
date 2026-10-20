@@ -84,4 +84,20 @@ describe('PaymentPageView', () => {
     expect(screen.getByText(/Verba de mídia paga separadamente/)).toBeInTheDocument();
   });
 
+  it('boleto exige aceite antes de abrir a fatura e esclarece liquidação assíncrona',async()=>{
+    const user=userEvent.setup();
+    const onPay=vi.fn();
+    render(<PaymentPageView order={{...order,payment_method:'boleto'}} paymentSlot={<div>Boleto Stripe</div>} onPay={onPay} payLabel="Abrir boleto seguro"/>);
+    expect(screen.getByText(/pagamento individual de cada fatura/i)).toBeInTheDocument();
+    const button=screen.getByRole('button',{name:'Abrir boleto seguro'});
+    expect(button).toBeDisabled();
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(button);
+    expect(onPay).toHaveBeenCalledOnce();
+  });
+  it('Pix avulso não promete renovação automática',()=>{
+    render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code Pix</div>} onPay={()=>undefined}/>);
+    expect(screen.getByText(/não renova automaticamente/i)).toBeInTheDocument();
+  });
+
 });
