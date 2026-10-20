@@ -21,4 +21,26 @@ A função `public.crm_create_direct_checkout` escreve em `public.crm_records` (
 4. Executar roteiro de pagamentos teste, webhook, duplicação, falha, boleto de assinatura e renovação; confirmar estados com auditoria.
 5. Publicar produção seletivamente apenas com suite verde, smoke E2E e rollback verificado.
 
-**Estado:** Stripe TEST aceitou Pix e boleto em Checkout `payment`; integração Supabase completa NÃO homologada. Sem branch adicional, sem migração aplicada, sem deploy, sem pagamentos reais.
+**Estado atualizado:** Stripe TEST aceitou Pix e boleto em Checkout `payment` e a criação de uma assinatura recorrente boleto com implantação única. O sandbox QA no Supabase existente está implantado, mas a jornada autenticada de pagamento + webhook E2E ainda NÃO está homologada. Sem branch paga, sem pagamentos LIVE.
+
+## Implantação isolada efetivamente realizada no Supabase existente
+- Migrations aplicadas: `oryneo_financial_qa_isolation` e `oryneo_financial_qa_pix_identity_enforcement`.
+- Schema privado `oryneo_financial_qa`: `orders` e `events`, RLS ligado, zero gatilhos, sem relacionamentos com CRM comercial.
+- RPCs `oryneo_qa_billing_*` restritas a `service_role`. Confirmado: `anon` e `authenticated` sem permissão de execução.
+- Nova Edge Function `checkout-intake-noncard-test`, v1, `verify_jwt=true`, membro CRM autenticado e isolamento por proprietário. Usa apenas `getBillingEnvironmentConfig('test')` e e-mail fictício `qa@example.com`.
+- Testes SQL dentro de transações revertidas: Pix e boleto, criação idempotente, link de fornecedor, boleto pendente, liquidação simulada, duplicidade, valores inválidos, eventos fora de ordem e rejeição de Checkout Pix sem ID; nenhum registro de QA preservado.
+- Snapshot após testes: `qa_orders=0`, `qa_events=0`, `live_orders=0`.
+- As funções existentes `checkout-intake` v5, `billing-create-order` v9, `billing-public` v6, `stripe-webhook` v6 não foram substituídas. Stripe LIVE não foi alterada.
+- CI estático bloqueia qualquer referência direta do endpoint QA às tabelas comerciais ou à chave Stripe LIVE.
+
+## Compatibilidade de assinatura boleto comprovada na Stripe TEST
+- Cliente fictício TEST `cus_VTbYLvq5OZO8dT`, `qa@example.com`.
+- Assinatura TEST `sub_1USeLtCi4hhgz3b9KL9u5Xnu` criada com `collection_method=send_invoice`, boleto e vencimento de 3 dias.
+- Mensalidade Start (recorrente) R$ 749,90 + implantação (uma vez) R$ 989,90; primeira fatura `in_1USeLtCi4hhgz3b9UEld2Hek`, total **R$ 1.739,80**, BRL, status `draft`, não paga.
+- A assinatura foi **cancelada em Stripe TEST** (`status=canceled`) após comprovar o contrato. Nenhum valor real cobrado ou boleto liquidado.
+
+## Limites ainda existentes
+1. O backend QA está pronto para requests autenticados, porém não foi executado um POST autenticado pelo frontend contra ele; a criação Stripe TEST acima foi direta via API.
+2. A conciliação TEST é por consulta autenticada ao provedor (polling). O webhook atual recebe eventos de teste e permanece intocado; a segregação completa de eventos TEST por webhook ainda precisa ser validada antes de realizar pagamento teste E2E.
+3. Ainda faltam tela QA com PaymentElement Pix, fatura boleto disponível, renovação trimestral de tráfego, disparos transacionais efetivos, cenários de falha/expiração e formalização final.
+4. A migration original de conciliação de fatura no CRM ficou somente na PR; **não foi aplicada** e não deve ser confundida com o schema QA.
