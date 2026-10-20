@@ -1,6 +1,6 @@
 /**
  * ORYNEO finance QA — exclusively Stripe TEST and isolated QA database RPCs.
- * Does NOT write crm_records, crm_billing_orders, crm_events, mail, onboarding or LIVE.
+ * Does NOT write commercial CRM, customer delivery, email, or LIVE payment data.
  * Authentication: valid Supabase user AND crm_members membership AND order ownership.
  */
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
