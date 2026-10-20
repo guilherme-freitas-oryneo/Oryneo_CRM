@@ -60,6 +60,7 @@ async function reconcile(order:QaOrder,userId:string,key:string){
   if(provider.id!==linked||provider.currency!=='brl'||provider.total!==order.amount_cents
     ||provider.customer!==order.stripe_customer_id)
     throw Error('QA_BOLETO_PROVIDER_MISMATCH');
+  if(!order.stripe_subscription_id||!order.stripe_customer_id)throw Error('QA_BOLETO_NOT_LINKED');
   const sub=await stripeRead('subscriptions/'+encodeURIComponent(order.stripe_subscription_id),key);
   const invoiceSub=typeof provider.subscription==='string'?provider.subscription:
    provider.parent?.subscription_details?.subscription;
