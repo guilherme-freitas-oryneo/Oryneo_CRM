@@ -163,6 +163,12 @@ Deno.serve(async(req:Request)=>{
  const testKey=secretKey&&/^(?:sk|rk)_test_/.test(secretKey)?secretKey:null;
  try{
   if(QA_CHECKOUT_EVENTS.has(event.type)){
+   const sessionId=event.data?.object?.id;
+   if(typeof sessionId!=='string'||!sessionId.startsWith('cs_test_'))
+    return response({received:true,ignored:true});
+   const linkedOrder=await lookup('pix',sessionId);
+   if(!linkedOrder&&event.data?.object?.metadata?.oryneo_qa_isolated!=='true')
+    return response({received:true,ignored:true});
    if(!testKey)return response({error:'QA_TEST_STRIPE_KEY_REQUIRED'},503);
    return await handlePix(event,testKey);
   }
