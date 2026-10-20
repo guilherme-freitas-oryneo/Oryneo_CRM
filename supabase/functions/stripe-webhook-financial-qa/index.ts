@@ -157,7 +157,9 @@ Deno.serve(async(req:Request)=>{
  if(!QA_CHECKOUT_EVENTS.has(event.type)&&!QA_INVOICE_EVENTS.has(event.type))
   return response({received:true,ignored:true});
  if(!event.data?.object?.id)return response({error:'Missing Stripe source'},400);
- const secretKey=Deno.env.get('STRIPE_TEST_SECRET_KEY')||Deno.env.get('STRIPE_SECRET_KEY');
+ // Never use the legacy STRIPE_SECRET_KEY: it can belong to a different
+ // Stripe testmode account. This QA endpoint targets an isolated TEST account.
+ const secretKey=Deno.env.get('STRIPE_TEST_SECRET_KEY');
  const testKey=secretKey&&/^(?:sk|rk)_test_/.test(secretKey)?secretKey:null;
  try{
   if(QA_CHECKOUT_EVENTS.has(event.type)){
