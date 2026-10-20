@@ -52,10 +52,13 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/billing-create-order/index.ts
           deno check --node-modules-dir=auto supabase/functions/billing-public/index.ts
           deno check --node-modules-dir=auto supabase/functions/checkout-intake/index.ts
+          deno check --node-modules-dir=auto supabase/functions/checkout-intake-noncard-test/index.ts
+          deno check --node-modules-dir=auto supabase/functions/_shared/billing/stripe-noncard-service.ts
           deno check --node-modules-dir=auto supabase/functions/_shared/billing/fulfillment.ts
           deno test --node-modules-dir=auto supabase/functions/tests/billing_renewal_welcome_test.ts
           deno test supabase/functions/tests/stripe_orphan_checkout_policy_test.ts
           deno test supabase/functions/tests/webhook_environment_test.ts
           deno test supabase/functions/tests/billing_public_status_test.ts
           deno test --node-modules-dir=auto supabase/functions/tests/direct_checkout_contract_test.ts
+          deno test --node-modules-dir=auto supabase/functions/tests/payment_policy_test.ts supabase/functions/tests/checkout_payment_configuration_test.ts supabase/functions/tests/invoice_event_policy_test.ts supabase/functions/tests/stripe_payment_forms_test.ts supabase/functions/tests/stripe_noncard_service_test.ts supabase/functions/tests/stripe_method_availability_test.ts supabase/functions/tests/invoice_public_status_test.ts supabase/functions/tests/stripe_boleto_finalization_test.ts
           deno test supabase/functions/tests/lead_intake_contract_test.ts supabase/functions/tests/mail_protocol_test.ts supabase/functions/tests/mail_mime_test.ts supabase/functions/tests/mail_sync_test.ts supabase/functions/tests/mail_actions_test.ts supabase/functions/tests/first_contact_template_test.ts supabase/functions/tests/first_contact_action_test.ts supabase/functions/tests/intake_confirmation_test.ts
