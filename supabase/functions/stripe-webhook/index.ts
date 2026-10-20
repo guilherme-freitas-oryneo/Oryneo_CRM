@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
-import {ensureTrafficSubscription,getPaidOrder,sendWelcomeTestSafe} from '../_shared/billing/fulfillment.ts';
+import {ensureTrafficSubscription,getPaidOrder,getPaidOrderById,sendWelcomeTestSafe} from '../_shared/billing/fulfillment.ts';
 import {classifyCheckoutLookup} from '../_shared/billing/checkout-webhook-policy.ts';
 import {runPaidOrderPostpayment} from '../_shared/billing/postpayment.ts';
 import {billingEnvironmentMatchesLivemode,getBillingEnvironmentConfig,parseBillingEnvironment} from '../_shared/billing/environment.ts';
@@ -163,6 +163,64 @@ Deno.serve(async (req: Request) => {
     const invoiceSubscription=typeof source.subscription==='string'?source.subscription
       :typeof parent==='string'?parent
       :typeof parent?.id==='string'?parent.id:null;
+    // A paid event must carry a paid invoice snapshot, not merely a trusted event name.
+    if(event.type==='invoice.paid'&&(source.status!=='paid'||source.paid!==true)){
+      console.error('Stripe paid invoice snapshot inconsistent',{event_id:event.id,invoice_id:source.id});
+      return json({error:'Invoice payment status mismatch'},422);
+    }
+    if(invoiceSubscription&&event.type==='invoice.paid'&&source.billing_reason==='subscription_create'){
+      const {data:linked,error:linkError}=await db.from('crm_billing_orders')
+        .select('id,billing_environment,selection,stripe_checkout_session_id')
+        .eq('stripe_subscription_id',invoiceSubscription).maybeSingle();
+      if(linkError)return json({error:'Invoice order lookup unavailable'},503);
+      let boletoOrder=linked?.selection?.payment_method==='boleto'&&!linked.stripe_checkout_session_id;
+      if(!linked){
+        // A subscription may invoice before our database link is committed.
+        // Inspect Stripe metadata instead of acknowledging and permanently losing the event.
+        try{
+          const config=getBillingEnvironmentConfig(environment,name=>Deno.env.get(name));
+          const check=await fetch('https://api.stripe.com/v1/subscriptions/'+encodeURIComponent(invoiceSubscription),{
+            headers:{Authorization:'Bearer '+config.secretKey,'Stripe-Version':'2026-08-26.dahlia'},
+          });
+          if(!check.ok)return json({error:'Invoice subscription reconciliation pending'},503);
+          const subscription=await check.json();
+          if(subscription.livemode!==livemode)return json({error:'Invoice subscription environment mismatch'},422);
+          if(subscription.metadata?.oryneo_payment_method==='boleto'&&subscription.metadata?.oryneo_order_id)
+            return json({error:'Boleto order link pending reconciliation'},503);
+        }catch{return json({error:'Invoice subscription lookup unavailable'},503)}
+      }
+      if(boletoOrder){
+        if((linked.billing_environment==='live')!==livemode||source.currency!=='brl')
+          return json({error:'Boleto invoice environment/currency mismatch'},422);
+        const customerId=typeof source.customer==='string'?source.customer:null;
+        const {data:receipt,error:receiptError}=await db.rpc('crm_record_stripe_boleto_initial_invoice',{
+          p_event_id:event.id,p_invoice_id:source.id,p_subscription_id:invoiceSubscription,
+          p_customer_id:customerId||'',p_amount_cents:Number(source.amount_paid||0),
+          p_currency:source.currency,p_livemode:livemode,
+        });
+        if(receiptError||!receipt?.ok){
+          console.error('Boleto initial settlement pending review',{code:receiptError?.code,reason:receipt?.reason});
+          return json({error:'Boleto invoice reconciliation pending'},503);
+        }
+        if(!receipt.duplicate){
+          try{
+            const paidOrder=await getPaidOrderById(db,linked.id);
+            if(!paidOrder)return json({error:'Boleto paid order not synchronized'},503);
+            const config=getBillingEnvironmentConfig(environment,name=>Deno.env.get(name));
+            await runPaidOrderPostpayment({
+              sendWelcome:()=>sendWelcomeTestSafe(db,paidOrder),
+              ensureTrafficSubscription:()=>ensureTrafficSubscription(db,paidOrder,config.secretKey),
+              waitUntil:typeof EdgeRuntime!=='undefined'?(job)=>EdgeRuntime.waitUntil(job):undefined,
+              onWelcomeError:err=>console.error('Boleto welcome pending review',{code:err instanceof Error?err.message:'unknown'}),
+            });
+          }catch(err){
+            console.error('Boleto postpayment incomplete',{code:err instanceof Error?err.message:'unknown'});
+            return json({error:'Boleto fulfillment pending'},503);
+          }
+        }
+        return json({received:true,duplicate:!!receipt.duplicate,initial_boleto:true});
+      }
+    }
     const {data:result,error}=await db.rpc('crm_record_stripe_invoice_event',{
       p_event_id:event.id,p_event_type:event.type,p_invoice_id:source.id,
       p_subscription_id:invoiceSubscription||'',
