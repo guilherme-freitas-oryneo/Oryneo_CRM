@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import {ensureTrafficSubscription,getPaidOrder,getPaidOrderById,sendWelcomeTestSafe} from '../_shared/billing/fulfillment.ts';
 import {classifyCheckoutLookup} from '../_shared/billing/checkout-webhook-policy.ts';
+import {checkoutEventIsSettled} from '../_shared/billing/checkout-settlement-policy.ts';
 import {classifyInvoiceEvent} from '../_shared/billing/invoice-event-policy.ts';
 import {runPaidOrderPostpayment} from '../_shared/billing/postpayment.ts';
 import {billingEnvironmentMatchesLivemode,getBillingEnvironmentConfig,parseBillingEnvironment} from '../_shared/billing/environment.ts';
@@ -133,8 +134,7 @@ Deno.serve(async (req: Request) => {
       return json({error:'Reconciliation unavailable'},503);
     }
 
-    if(source.payment_status==='paid'&&
-       (event.type==='checkout.session.completed'||event.type==='checkout.session.async_payment_succeeded')){
+    if(checkoutEventIsSettled(event.type,source.payment_status)){
       try{
         const paidOrder=await getPaidOrder(db,source.id);
         if(!paidOrder)return json({error:'Paid order not synchronized'},503);
