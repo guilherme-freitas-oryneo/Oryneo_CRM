@@ -73,9 +73,11 @@ async function handleInvoice(event:EventShape,key:string){
  const state=verifiedQaInvoice(invoice,sub,order);
  if(event.type==='invoice.paid'&&!state.paid)
   return response({error:'QA_BANK_COMPENSATION_NOT_CONFIRMED'},503);
+ const recordedStatus=event.type==='invoice.payment_failed'&&!state.paid&&state.status==='open'
+  ?'payment_failed':state.status;
  const {data,error}=await db.rpc('oryneo_qa_boleto_invoice_event',{
   p_order_id:order.id,p_invoice_id:state.invoiceId,p_event_id:event.id,
-  p_status:state.status,p_amount_cents:state.amount,
+  p_status:recordedStatus,p_amount_cents:state.amount,
   p_billing_reason:state.billingReason,p_paid:state.paid,
  });
  if(error||!data?.ok)throw Error('QA_BOLETO_RECONCILIATION_FAILED');
