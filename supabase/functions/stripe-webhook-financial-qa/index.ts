@@ -7,7 +7,7 @@ import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 import {getBillingEnvironmentConfig} from '../_shared/billing/environment.ts';
 import {
  QA_CHECKOUT_EVENTS,QA_INVOICE_EVENTS,stripeInvoiceSubscription,
- verifiedQaInvoice,verifiedQaPixSession,verifyQaStripeSignature,
+ permitsBoletoCompensation,verifiedQaInvoice,verifiedQaPixSession,verifyQaStripeSignature,
 } from '../_shared/billing/financial-qa-webhook-policy.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
@@ -71,7 +71,11 @@ async function handleInvoice(event:EventShape,key:string){
  }
  const sub=await getStripeObject('subscriptions/'+encodeURIComponent(subscriptionId),key);
  const state=verifiedQaInvoice(invoice,sub,order);
- if(event.type==='invoice.paid'&&!state.paid)
+ // invoice.paid also fires for manual paid-out-of-band transactions.
+ // Do not interpret it, or an older invoice event, as bank compensation.
+ if(state.status==='paid'&&!permitsBoletoCompensation(event.type,invoice))
+  return response({received:true,awaiting_compensation_proof:true});
+ if(event.type==='invoice.payment_succeeded'&&!permitsBoletoCompensation(event.type,invoice))
   return response({error:'QA_BANK_COMPENSATION_NOT_CONFIRMED'},503);
  const recordedStatus=event.type==='invoice.payment_failed'&&!state.paid&&state.status==='open'
   ?'payment_failed':state.status;
