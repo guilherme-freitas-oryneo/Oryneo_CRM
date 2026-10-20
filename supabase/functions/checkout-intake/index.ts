@@ -23,6 +23,8 @@ Deno.serve(async req => {
     if (Number(req.headers.get('content-length') || 0) > 8_000) return respond({error:'Solicitação muito longa.'},413);
     const environment = 'live' as const;
     const input = parseDirectCheckoutInput(await req.json());
+    // LIVE non-card methods remain gated until Stripe TEST and database migrations are homologated.
+    if(input.payment_method!=='card')return respond({error:'Esta forma de pagamento ainda não está disponível neste checkout.'},409);
     const config = getBillingEnvironmentConfig(environment, name => Deno.env.get(name));
     const prices = await resolveStripeBillingPrices(config);
     const selection = buildBillingSelection({plan:input.plan,cycle:input.cycle,addons:input.addons},prices);
