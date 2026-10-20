@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import {ensureTrafficSubscription,getPaidOrder,getPaidOrderById,sendWelcomeTestSafe} from '../_shared/billing/fulfillment.ts';
 import {classifyCheckoutLookup} from '../_shared/billing/checkout-webhook-policy.ts';
+import {classifyInvoiceEvent} from '../_shared/billing/invoice-event-policy.ts';
 import {runPaidOrderPostpayment} from '../_shared/billing/postpayment.ts';
 import {billingEnvironmentMatchesLivemode,getBillingEnvironmentConfig,parseBillingEnvironment} from '../_shared/billing/environment.ts';
 import { verifiedWebhookEnvironment } from '../_shared/billing/webhook-environment.ts';
@@ -164,7 +165,7 @@ Deno.serve(async (req: Request) => {
       :typeof parent==='string'?parent
       :typeof parent?.id==='string'?parent.id:null;
     // A paid event must carry a paid invoice snapshot, not merely a trusted event name.
-    if(event.type==='invoice.paid'&&(source.status!=='paid'||source.paid!==true)){
+    if(event.type==='invoice.paid'&&classifyInvoiceEvent(event.type,source.status,source.paid)!=='settle'){
       console.error('Stripe paid invoice snapshot inconsistent',{event_id:event.id,invoice_id:source.id});
       return json({error:'Invoice payment status mismatch'},422);
     }
