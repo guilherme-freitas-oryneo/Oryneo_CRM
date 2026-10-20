@@ -41,6 +41,7 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
   if(path.includes('/rest/v1/crm_records'))return respond(rows);
   if(path.includes('/rest/v1/crm_companies'))return respond([]);
   if(path.includes('/rest/v1/crm_events'))return respond([]);
+  if(path.includes('/rest/v1/crm_automation_jobs'))return respond([{id:'11111111-1111-4111-8111-111111111111',job_type:'lead_received_email',state:'scheduled',due_at:new Date(Date.now()+5*60000).toISOString(),attempts:0,completed_at:null,created_at:new Date().toISOString()}]);
   if(path.endsWith('/functions/v1/mail-api')){
    const input=JSON.parse(req.postData()||'{}');
    if(input.action==='list-drafts')return respond({ok:true,data:[...drafts.values()].filter(d=>d.state==='active').map(({id,subject,revision,mailbox_id})=>({id,subject,revision,mailbox_id,updated_at:now}))});
@@ -103,6 +104,9 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
  if(await page.locator('.activity-entry').count()!==1)throw Error(name+' filtro sem prazo incorreto');
  await page.getByRole('tab',{name:/Todas/}).click();
  await page.locator('.activity-entry-title').first().click();
+ await page.getByRole('region',{name:'Automações da oportunidade'}).waitFor({timeout:10000});
+ await page.getByText('Confirmação de solicitação',{exact:true}).waitFor({timeout:10000});
+ await page.getByText(/Envio automático em 0[4-5]:/).waitFor({timeout:10000});
  await page.getByText('Diagnóstico inicial',{exact:true}).waitFor({timeout:10000});
  await page.getByText('Mais de 20 pessoas',{exact:true}).waitFor();
  await page.getByText('Organizar contatos e negociações no CRM',{exact:true}).waitFor();
