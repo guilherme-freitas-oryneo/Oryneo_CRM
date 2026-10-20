@@ -47,7 +47,7 @@ Deno.test('Pix creates one-time TEST Checkout and validates amount',async()=>{
  const mock=async(_input:RequestInfo|URL,init?:RequestInit)=>{
   const body=new URLSearchParams(String(init?.body||''));
   assertEquals(body.get('mode'),'payment');
-  assertEquals(body.get('payment_method_types[0]'),'pix');
+  assertEquals(body.get('allowed_payment_method_types[0]'),'pix');
   return ok({id:'cs_test_pix1',livemode:false,client_secret:'cs_test_secret_abc',amount_total:173980});
  };
  const result=await createStripePixCheckout(selection,context,config,mock as typeof fetch);
