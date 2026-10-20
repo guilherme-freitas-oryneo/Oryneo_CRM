@@ -20,7 +20,8 @@ Deno.serve(async req=>{
  const {data:member,error:memberError}=await db.from('crm_members').select('user_id').eq('user_id',user.id).maybeSingle();
  if(memberError){console.error('billing-create-order membership lookup failed',{code:memberError.code,message:memberError.message});return respond({error:'Não foi possível validar seu acesso agora.'},503)}
  if(!member)return respond({error:'Acesso não autorizado.'},403);
- let body:{deal_id?:string};try{body=await req.json()}catch{return respond({error:'Solicitação inválida.'},400)}
+ let body:{deal_id?:string;payment_method?:string};try{body=await req.json()}catch{return respond({error:'Solicitação inválida.'},400)}
+ if(body.payment_method&&body.payment_method!=='card')return respond({error:'Esta forma de pagamento ainda não foi homologada para propostas comerciais.'},409);
  const {data:deal}=await db.from('crm_records').select('id,data').eq('id',body.deal_id||'').eq('kind','deal').eq('deleted',false).maybeSingle();
  if(!deal)return respond({error:'Oportunidade não encontrada.'},404);
  const data=deal.data as Record<string,any>,quote=data.quote;
