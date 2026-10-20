@@ -190,7 +190,7 @@ Deno.serve(async (req: Request) => {
             return json({error:'Boleto order link pending reconciliation'},503);
         }catch{return json({error:'Invoice subscription lookup unavailable'},503)}
       }
-      if(boletoOrder){
+      if(boletoOrder&&linked){
         if((linked.billing_environment==='live')!==livemode||source.currency!=='brl')
           return json({error:'Boleto invoice environment/currency mismatch'},422);
         const customerId=typeof source.customer==='string'?source.customer:null;
