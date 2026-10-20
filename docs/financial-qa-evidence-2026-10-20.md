@@ -8,7 +8,7 @@
 - RPCs `oryneo_qa_billing_create`, `link`, `read`, `reconcile`: anon/authenticated `EXECUTE=false`; service_role `EXECUTE=true`.
 - Testes transacionais reais SQL: criação Pix e boleto, replay de request, vínculo com IDs Stripe TEST, eventos pendentes, falha, pagamento simulado, valor incompatível rejeitado, evento duplicado rejeitado, falha posterior não rebaixa pago. Cada transação terminou com `ROLLBACK`.
 - Após os testes: **0 QA orders, 0 QA events, 2 pedidos CRM existentes e 13 jobs de automação**, sem novas tarefas comerciais.
-- Edge Function exclusivamente QA `checkout-intake-noncard-test` implantada na versão 2 com `verify_jwt=true`; checkout original, billing-public, billing-create-order e stripe-webhook LIVE não foram substituídos.
+- Edge Function exclusivamente QA `checkout-intake-noncard-test` implantada na versão 3 com `verify_jwt=true`; checkout original, billing-public, billing-create-order e stripe-webhook LIVE não foram substituídos.
 
 ## Evidências de Stripe TEST
 - Configuração de pagamento confirma cartão, Pix e boleto `available=true`, `on`.
@@ -30,3 +30,11 @@
 - Sem branch adicional (custo horário recusado pelo usuário).
 - Nenhum dado TEST vinculado às tabelas comerciais; nenhum e-mail ou onboarding comercial disparado.
 - Não mesclar a PR #46 nem implantar alterações de webhook/billing em LIVE até os gates acima serem cumpridos.
+
+## Fechamento da rodada adicional
+- Corrigida a migration QA malformada no GitHub e aplicada no Supabase a reparação `oryneo_financial_qa_identity_guard`. Banco confirma RLS, permissões de service_role e ausência de triggers na estrutura QA.
+- Stripe TEST confirmou Checkout Pix em `ui_mode=elements` com filtro `allowed_payment_method_types=[pix]`; builder e testes foram atualizados para esse parâmetro comprovado.
+- Supabase Edge `checkout-intake-noncard-test` versão **3** ativa, `verify_jwt=true`; nenhum deploy dos endpoints LIVE.
+- CI da PR no commit `07ba1fc4`: verificação TypeScript/Deno/frontend e QA navegador concluídos com **sucesso**.
+- Boleto: fatura inicial TEST foi finalizada, aberta e obteve link hospedado; a assinatura TEST foi cancelada em seguida. Fatura permanece sem liquidação; sem cobrança LIVE.
+- Contadores mantidos depois da homologação: 0 pedidos/eventos QA permanentes, 2 pedidos CRM e 13 jobs comerciais.
