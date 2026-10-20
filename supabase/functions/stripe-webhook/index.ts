@@ -202,7 +202,8 @@ Deno.serve(async (req: Request) => {
           console.error('Boleto initial settlement pending review',{code:receiptError?.code,reason:receipt?.reason});
           return json({error:'Boleto invoice reconciliation pending'},503);
         }
-        if(!receipt.duplicate){
+        // Retry postpayment even for a duplicate event; email and addon claims are idempotent.
+        {
           try{
             const paidOrder=await getPaidOrderById(db,linked.id);
             if(!paidOrder)return json({error:'Boleto paid order not synchronized'},503);
