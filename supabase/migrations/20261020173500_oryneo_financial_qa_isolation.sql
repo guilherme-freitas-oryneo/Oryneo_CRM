@@ -97,7 +97,94 @@ BEGIN
  IF v.state NOT IN ('awaiting_payment','failed') THEN
   RAISE EXCEPTION 'QA_ORDER_NOT_LINKABLE'; END IF;
  IF (v.method='pix' AND (
-      p_checkout_session_id !~ '^cs_test_[A-Za-z0-9_]+$'
+      (p_checkout_session_id IS NULL OR p_checkout_session_id !~ '^cs_test_[A-Za-z0-9_]+
+      OR p_customer_id IS NOT NULL OR p_subscription_id IS NOT NULL OR p_invoice_id IS NOT NULL))
+  OR (v.method='boleto' AND (
+      p_checkout_session_id IS NOT NULL OR
+      (p_customer_id IS NULL OR p_customer_id !~ '^cus_[A-Za-z0-9_]+$') OR
+      (p_subscription_id IS NULL OR p_subscription_id !~ '^sub_[A-Za-z0-9_]+$') OR
+      (p_invoice_id IS NULL OR p_invoice_id !~ '^in_[A-Za-z0-9_]+$')))
+ THEN RAISE EXCEPTION 'QA_PROVIDER_IDENTITY_INVALID' USING ERRCODE='22023'; END IF;
+ IF (v.stripe_checkout_session_id IS NOT NULL AND v.stripe_checkout_session_id IS DISTINCT FROM p_checkout_session_id)
+  OR (v.stripe_customer_id IS NOT NULL AND v.stripe_customer_id IS DISTINCT FROM p_customer_id)
+  OR (v.stripe_subscription_id IS NOT NULL AND v.stripe_subscription_id IS DISTINCT FROM p_subscription_id)
+  OR (v.stripe_invoice_id IS NOT NULL AND v.stripe_invoice_id IS DISTINCT FROM p_invoice_id)
+ THEN RAISE EXCEPTION 'QA_PROVIDER_LINK_CONFLICT' USING ERRCODE='23505'; END IF;
+ UPDATE oryneo_financial_qa.orders SET
+  stripe_checkout_session_id=COALESCE(stripe_checkout_session_id,p_checkout_session_id),
+  stripe_customer_id=COALESCE(stripe_customer_id,p_customer_id),
+  stripe_subscription_id=COALESCE(stripe_subscription_id,p_subscription_id),
+  stripe_invoice_id=COALESCE(stripe_invoice_id,p_invoice_id),
+  updated_at=now()
+ WHERE id=v.id;
+ RETURN pg_catalog.jsonb_build_object('ok',true,'order_id',v.id);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.oryneo_qa_billing_read(
+ p_order_id uuid,p_owner_id uuid
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $$
+DECLARE v oryneo_financial_qa.orders%ROWTYPE;
+BEGIN
+ SELECT * INTO v FROM oryneo_financial_qa.orders WHERE id=p_order_id AND owner_id=p_owner_id;
+ IF NOT FOUND THEN RETURN NULL; END IF;
+ RETURN pg_catalog.jsonb_build_object(
+  'id',v.id,'environment',v.environment,'method',v.method,'state',v.state,
+  'amount_cents',v.amount_cents,'currency',v.currency,
+  'stripe_checkout_session_id',v.stripe_checkout_session_id,
+  'stripe_customer_id',v.stripe_customer_id,
+  'stripe_subscription_id',v.stripe_subscription_id,'stripe_invoice_id',v.stripe_invoice_id);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.oryneo_qa_billing_reconcile(
+ p_order_id uuid,p_owner_id uuid,p_provider_object_id text,
+ p_provider_status text,p_confirmed_paid boolean,p_paid_amount integer,
+ p_event_key text
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $$
+DECLARE v oryneo_financial_qa.orders%ROWTYPE; v_inserted integer;
+BEGIN
+ SELECT * INTO STRICT v FROM oryneo_financial_qa.orders WHERE id=p_order_id AND owner_id=p_owner_id FOR UPDATE;
+ IF p_event_key !~ '^qa_[a-zA-Z0-9_-]+$' OR
+  p_provider_object_id IS DISTINCT FROM
+   (CASE WHEN v.method='pix' THEN v.stripe_checkout_session_id ELSE v.stripe_invoice_id END)
+  OR p_provider_status IS NULL OR length(p_provider_status)>64
+  OR p_confirmed_paid IS NULL OR p_paid_amount IS NULL OR p_paid_amount<0
+  OR (p_confirmed_paid AND (p_provider_status<>'paid' OR p_paid_amount IS DISTINCT FROM v.amount_cents))
+ THEN RAISE EXCEPTION 'QA_SETTLEMENT_CONTRACT_MISMATCH' USING ERRCODE='22023'; END IF;
+ INSERT INTO oryneo_financial_qa.events(order_id,event_key,event_type,provider_status)
+ VALUES(v.id,p_event_key,CASE WHEN p_confirmed_paid THEN 'paid' ELSE 'checked' END,p_provider_status)
+ ON CONFLICT(event_key) DO NOTHING;
+ GET DIAGNOSTICS v_inserted=ROW_COUNT;
+ IF v_inserted=0 THEN
+  RETURN pg_catalog.jsonb_build_object('ok',true,'duplicate',true,'state',v.state); END IF;
+ UPDATE oryneo_financial_qa.orders
+ SET state=CASE WHEN p_confirmed_paid THEN 'paid'
+          WHEN state='paid' THEN 'paid'
+          WHEN p_provider_status IN ('expired','void','uncollectible') THEN 'expired'
+          WHEN p_provider_status IN ('failed','payment_failed') THEN 'failed'
+          ELSE state END,
+  provider_status=p_provider_status,
+  paid_at=CASE WHEN p_confirmed_paid THEN COALESCE(paid_at,now()) ELSE paid_at END,
+  last_checked_at=now(),updated_at=now()
+ WHERE id=v.id;
+ RETURN pg_catalog.jsonb_build_object('ok',true,'duplicate',false,
+  'state',(SELECT state FROM oryneo_financial_qa.orders WHERE id=v.id));
+END;
+$$;
+REVOKE ALL ON FUNCTION public.oryneo_qa_billing_create(uuid,uuid,text,text,text,text,jsonb,integer) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.oryneo_qa_billing_link(uuid,uuid,text,text,text,text) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.oryneo_qa_billing_read(uuid,uuid) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.oryneo_qa_billing_reconcile(uuid,uuid,text,text,boolean,integer,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.oryneo_qa_billing_create(uuid,uuid,text,text,text,text,jsonb,integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.oryneo_qa_billing_link(uuid,uuid,text,text,text,text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.oryneo_qa_billing_read(uuid,uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.oryneo_qa_billing_reconcile(uuid,uuid,text,text,boolean,integer,text) TO service_role;
+)
       OR p_customer_id IS NOT NULL OR p_subscription_id IS NOT NULL OR p_invoice_id IS NOT NULL))
   OR (v.method='boleto' AND (
       p_checkout_session_id IS NOT NULL OR
