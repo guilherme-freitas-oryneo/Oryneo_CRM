@@ -118,7 +118,11 @@ Deno.serve(async(req:Request)=>{
  try{
   const raw=await req.json();
   const action=raw?.action||'create';
-  const config=getBillingEnvironmentConfig('test',name=>Deno.env.get(name));
+  // Reject the legacy fallback: TEST-only QA must use the sandbox's own
+  // sk_test and pk_test pair, never credentials for a different account.
+  const config=getBillingEnvironmentConfig('test',name=>
+   name==='STRIPE_SECRET_KEY'||name==='STRIPE_PUBLISHABLE_KEY'?undefined:Deno.env.get(name));
+
   if(action==='read'||action==='reconcile'){
    const order=await loadOrder(raw?.order_id,user.id);
    if(action==='read')return respond({ok:true,environment:'test',order});
