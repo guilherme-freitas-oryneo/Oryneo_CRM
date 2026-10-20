@@ -45,6 +45,12 @@ export async function getPaidOrder(db:Db,sessionId:string):Promise<Order|null>{
  return data?.status==='paid'?data as Order:null;
 }
 
+export async function getPaidOrderById(db:Db,orderId:string):Promise<Order|null>{
+ const {data,error}=await db.from('crm_billing_orders').select('*').eq('id',orderId).maybeSingle();
+ if(error)throw Error('ORDER_LOOKUP');
+ return data?.status==='paid'?data as Order:null;
+}
+
 export async function ensureTrafficSubscription(db:Db,order:Order,stripeSecret:string):Promise<void>{
  if(!(order.selection.addons||[]).includes('traffic')||order.stripe_traffic_subscription_id)return;
  if(!order.stripe_traffic_renewal_price_id?.startsWith('price_'))throw Error('TRAFFIC_PRICE_UNAVAILABLE');
