@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { buildBillingSelection, resolveStripeBillingPrices } from '../_shared/billing/catalog.ts';
-import { getBillingEnvironmentConfig, parseBillingEnvironment } from '../_shared/billing/environment.ts';
+import { getBillingEnvironmentConfig } from '../_shared/billing/environment.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
 const origin='https://guilherme-freitas-oryneo.github.io';
@@ -28,7 +28,7 @@ Deno.serve(async req=>{
  let config:ReturnType<typeof getBillingEnvironmentConfig>;
  let prices:Awaited<ReturnType<typeof resolveStripeBillingPrices>>;
  try{
-  const environment=parseBillingEnvironment(Deno.env.get('BILLING_DEFAULT_ENVIRONMENT')||'test');
+  const environment='live' as const;
   config=getBillingEnvironmentConfig(environment,name=>Deno.env.get(name));
   prices=await resolveStripeBillingPrices(config);
  }catch(error){
@@ -65,7 +65,7 @@ Deno.serve(async req=>{
  const form=new URLSearchParams();
  form.set('mode','subscription');form.set('ui_mode','elements');form.set('customer_email',String(data.email));
  form.set('integration_identifier',integrationIdentifier());
- form.set('locale','pt-BR');
+ form.set('locale','pt-BR');form.set('billing_address_collection','required');
  form.set('return_url',`${origin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`);
  form.set('metadata[oryneo_order_id]',orderId);form.set('metadata[oryneo_deal_id]',deal.id);
  form.set('metadata[oryneo_billing_environment]',config.environment);
