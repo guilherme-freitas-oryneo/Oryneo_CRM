@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { buildBillingSelection, resolveStripeBillingPrices } from '../_shared/billing/catalog.ts';
 import { parseDirectCheckoutInput } from '../_shared/billing/direct-checkout.ts';
-import { getBillingEnvironmentConfig, parseBillingEnvironment } from '../_shared/billing/environment.ts';
+import { getBillingEnvironmentConfig } from '../_shared/billing/environment.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false, autoRefreshToken: false } });
 const origins = new Set(['https://oryneo-lp-preview.guilherme-frei160023.chatgpt.site','https://oryneo.com.br','https://www.oryneo.com.br','https://guilherme-freitas-oryneo.github.io']);
@@ -21,7 +21,7 @@ Deno.serve(async req => {
   if (req.method !== 'POST') return respond({error:'Método não permitido.'},405);
   try {
     if (Number(req.headers.get('content-length') || 0) > 8_000) return respond({error:'Solicitação muito longa.'},413);
-    const environment = parseBillingEnvironment(Deno.env.get('BILLING_DEFAULT_ENVIRONMENT') || 'test');
+    const environment = 'live' as const;
     const input = parseDirectCheckoutInput(await req.json());
     const config = getBillingEnvironmentConfig(environment, name => Deno.env.get(name));
     const prices = await resolveStripeBillingPrices(config);
@@ -42,7 +42,7 @@ Deno.serve(async req => {
     let sessionId = created.stripe_checkout_session_id as string | null;
     if (!sessionId) {
       const form = new URLSearchParams();
-      form.set('mode','subscription');form.set('ui_mode','elements');form.set('customer_email',input.customer_email);form.set('integration_identifier',identifier());form.set('locale','pt-BR');
+      form.set('mode','subscription');form.set('ui_mode','elements');form.set('customer_email',input.customer_email);form.set('integration_identifier',identifier());form.set('locale','pt-BR');form.set('billing_address_collection','required');
       form.set('return_url',`${origin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(input.payment_token)}&retorno=1`);
       form.set('metadata[oryneo_order_id]',created.order_id);form.set('metadata[oryneo_billing_environment]',environment);
       form.set('subscription_data[metadata][oryneo_order_id]',created.order_id);form.set('subscription_data[billing_mode][type]','flexible');
