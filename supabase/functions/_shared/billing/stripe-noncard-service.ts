@@ -40,7 +40,19 @@ export async function createStripeBoletoSubscription(
  customerForm.set('preferred_locales[0]','pt-BR');
  customerForm.set('metadata[oryneo_order_id]',context.orderId);
  customerForm.set('metadata[oryneo_billing_environment]','test');
- const customer=await stripeCall('/customers',config,fetchImpl,customerForm,'oryneo-boleto-customer-'+context.orderId);
+ // Recover a customer after the Stripe idempotency retention window expires.
+ const searchQuery=`metadata['oryneo_order_id']:'${context.orderId}'`;
+ const search=await fetchImpl('https://api.stripe.com/v1/customers/search?'+new URLSearchParams({query:searchQuery,limit:'10'}),{
+  headers:{Authorization:'Bearer '+config.secretKey,'Stripe-Version':STRIPE_VERSION},
+ });
+ if(!search.ok)throw Error('STRIPE_CUSTOMER_RECONCILIATION_UNAVAILABLE');
+ const found=await search.json() as {data?:StripeObject[];has_more?:boolean};
+ if(found.has_more||!Array.isArray(found.data)||found.data.length>1)throw Error('STRIPE_CUSTOMER_RECONCILIATION_AMBIGUOUS');
+ let customer=found.data[0];
+ if(customer){
+  if(customer.livemode!==false||customer.metadata?.oryneo_order_id!==context.orderId)
+   throw Error('STRIPE_EXISTING_CUSTOMER_MISMATCH');
+ }else customer=await stripeCall('/customers',config,fetchImpl,customerForm,'oryneo-boleto-customer-'+context.orderId);
  if(!customer.id?.startsWith('cus_'))throw Error('INVALID_CUSTOMER_RESPONSE');
  const history=await fetchImpl('https://api.stripe.com/v1/subscriptions?'+new URLSearchParams({
   customer:customer.id,status:'all',limit:'100',
