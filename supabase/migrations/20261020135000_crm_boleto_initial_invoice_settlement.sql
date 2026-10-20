@@ -15,6 +15,7 @@ AS $$
 DECLARE
  v_order public.crm_billing_orders%ROWTYPE;
  v_inserted integer;
+ v_invoice_written integer;
 BEGIN
  IF p_event_id !~ '^evt_[A-Za-z0-9_]+$'
    OR p_invoice_id !~ '^in_[A-Za-z0-9_]+$'
@@ -62,6 +63,8 @@ BEGIN
    status='paid',paid_at=coalesce(public.crm_billing_invoices.paid_at,excluded.paid_at),
    last_event_id=excluded.last_event_id,updated_at=now()
  WHERE public.crm_billing_invoices.order_id=excluded.order_id;
+ GET DIAGNOSTICS v_invoice_written=ROW_COUNT;
+ IF v_invoice_written<>1 THEN RAISE EXCEPTION 'INVOICE_ORDER_CONFLICT'; END IF;
 
  UPDATE public.crm_billing_orders SET
    status='paid',paid_at=coalesce(paid_at,now()),
