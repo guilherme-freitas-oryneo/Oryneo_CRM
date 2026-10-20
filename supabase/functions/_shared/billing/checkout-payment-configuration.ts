@@ -1,15 +1,29 @@
 import {resolvePaymentPolicy,type PaymentMethod,type PaymentCycle} from './payment-policy.ts';
-export type CheckoutPaymentConfiguration=Readonly<{mode:'subscription'|'payment';paymentMethodTypes:readonly ['card']|readonly ['boleto']|readonly ['pix'];collectionMethod:'charge_automatically'|'send_invoice'|null;description:string}>;
+
 /**
- * Integration contract only. Checkout must validate account/currency/cycle support
- * and invoice settings with Stripe before enabling any non-card option.
- * Never pass these parameters to LIVE until webhook and E2E gates are complete.
+ * Business intent, NOT Stripe API parameters. In particular, Stripe Checkout
+ * subscription mode must not be assumed to support boleto merely because
+ * boleto is enabled on the account. Invoice issuance and Checkout payment
+ * methods are distinct provider workflows.
  */
-export function checkoutPaymentConfiguration(method:PaymentMethod,cycle:PaymentCycle):CheckoutPaymentConfiguration{
+export type PaymentIntegrationPlan=Readonly<{
+ method:PaymentMethod;
+ cycle:PaymentCycle;
+ workflow:'checkout_subscription'|'subscription_invoicing'|'one_time_checkout';
+ stripeMode:'subscription'|'payment'|null;
+ customerPaysEachInvoice:boolean;
+ readyForLive:boolean;
+}>;
+export function checkoutPaymentConfiguration(method:PaymentMethod,cycle:PaymentCycle):PaymentIntegrationPlan{
  const policy=resolvePaymentPolicy(method,cycle);
  switch(policy.method){
- case 'card':return {mode:'subscription',paymentMethodTypes:['card'],collectionMethod:'charge_automatically',description:'Assinatura por cartão'};
- case 'boleto':return {mode:'subscription',paymentMethodTypes:['boleto'],collectionMethod:'send_invoice',description:'Assinatura faturada por boleto; cada fatura exige pagamento'};
- case 'pix':return {mode:'payment',paymentMethodTypes:['pix'],collectionMethod:null,description:'Pagamento avulso por Pix, sem renovação automática'};
+  case 'card':return {method,cycle,workflow:'checkout_subscription',stripeMode:'subscription',customerPaysEachInvoice:false,readyForLive:true};
+  case 'boleto':return {method,cycle,workflow:'subscription_invoicing',stripeMode:null,customerPaysEachInvoice:true,readyForLive:false};
+  case 'pix':return {method,cycle,workflow:'one_time_checkout',stripeMode:'payment',customerPaysEachInvoice:false,readyForLive:false};
  }
+}
+/** Never enable a payment method based only on account-level availability. */
+export function assertPaymentMethodEnabled(method:PaymentMethod,cycle:PaymentCycle):void{
+ const plan=checkoutPaymentConfiguration(method,cycle);
+ if(!plan.readyForLive)throw new Error('PAYMENT_METHOD_NOT_HOMOLOGATED');
 }
