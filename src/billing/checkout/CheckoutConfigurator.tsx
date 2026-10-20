@@ -39,8 +39,7 @@ export function parseCheckoutPrefill(search: string): Pick<DirectCheckoutSelecti
 
 export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: Props) {
   const [initialSelection] = useState(() => parseCheckoutPrefill(window.location.search));
-  const [plan, setPlan] = useState<DirectCheckoutSelection['plan']>(initialSelection.plan);
-  const [cycle, setCycle] = useState<DirectCheckoutSelection['cycle']>(initialSelection.cycle);
+  const { plan, cycle } = initialSelection;
   const [addons, setAddons] = useState<DirectCheckoutSelection['addons']>(initialSelection.addons);
   const [customerName, setCustomerName] = useState('');
   const [email, setEmail] = useState('');
@@ -62,18 +61,17 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
 
   return <div className="checkout-configurator">
     <div className="checkout-config-head">
-      <small>CONDIÇÕES COMERCIAIS</small><h1>Configure sua contratação.</h1>
-      <p>Escolha o plano e os serviços. O pagamento só será criado após a confirmação destes dados.</p>
+      <small>CONDIÇÕES COMERCIAIS</small><h1>Revise sua contratação.</h1>
+      <p>O plano e a periodicidade já foram definidos na sua escolha anterior. Você pode adicionar serviços opcionais antes de continuar.</p>
     </div>
-    <fieldset className="checkout-choice"><legend>Plano</legend><div className="checkout-plan-grid">
-      {(Object.keys(plans) as DirectCheckoutSelection['plan'][]).map(item => <label key={item} className={plan === item ? 'selected' : ''}>
-        <input type="radio" name="plan" checked={plan === item} onChange={() => setPlan(item)}/><strong>Plano {item}</strong><span>{money(plans[item][cycle])} {cycle === 'annual' ? 'por ano' : 'por mês'}</span>
-      </label>)}
-    </div></fieldset>
-    <fieldset className="checkout-choice"><legend>Ciclo</legend><div className="checkout-cycle-grid">
-      <label className={cycle === 'monthly' ? 'selected' : ''}><input type="radio" name="cycle" checked={cycle === 'monthly'} onChange={() => setCycle('monthly')}/><strong>Mensal</strong><span>Cobrança a cada mês</span></label>
-      <label className={cycle === 'annual' ? 'selected' : ''}><input type="radio" name="cycle" checked={cycle === 'annual'} onChange={() => setCycle('annual')}/><strong>Anual</strong><span>Pagamento anual antecipado</span></label>
-    </div></fieldset>
+    <section className="checkout-choice checkout-locked-selection" aria-label="Plano e periodicidade selecionados">
+      <div className="checkout-locked-heading"><span>SELEÇÃO CONFIRMADA</span><LockKeyhole size={15} aria-hidden="true"/></div>
+      <div className="checkout-locked-grid">
+        <div><small>PLANO</small><strong>ORYNEO {plan}</strong><span>{money(plans[plan][cycle])} {cycle === 'annual' ? 'por ano' : 'por mês'}</span></div>
+        <div><small>PERIODICIDADE</small><strong>{cycle === 'annual' ? 'Anual' : 'Mensal'}</strong><span>{cycle === 'annual' ? 'Pagamento anual antecipado' : 'Cobrança a cada mês'}</span></div>
+      </div>
+      <p>Para escolher outro plano ou período, volte à <a href="https://oryneo.com.br/">página de planos</a>. Isso não altera os serviços adicionais abaixo.</p>
+    </section>
     <fieldset className="checkout-choice"><legend>Serviços adicionais</legend><div className="checkout-addons">
       {(Object.keys(additions) as DirectCheckoutSelection['addons'][number][]).map(key => <label key={key} className={addons.includes(key) ? 'selected' : ''}>
         <input type="checkbox" checked={addons.includes(key)} onChange={() => toggle(key)}/><span><strong>{additions[key].label}</strong><small>{additions[key].detail}</small></span><b><Plus size={14}/>{money(additions[key].price)}</b>

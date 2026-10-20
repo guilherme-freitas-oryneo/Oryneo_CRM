@@ -21,12 +21,14 @@ for (const [name, engine, viewport] of [
       checkoutRequest = JSON.parse(route.request().postData() || '{}');
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: `${root}#checkout-qa-controlado` }) });
     });
-    const response = await page.goto(root, { waitUntil: 'domcontentloaded' });
+    const response = await page.goto(root + '?plan=Scale&cycle=annual', { waitUntil: 'domcontentloaded' });
     assert.equal(response.status(), 200);
-    await page.getByRole('heading', { name: 'Configure sua contratação.' }).waitFor();
+    await page.getByRole('heading', { name: 'Revise sua contratação.' }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Continuar para o pagamento' }).isDisabled(), true);
-    await page.getByRole('radio', { name: /Plano Scale/i }).check();
-    await page.getByRole('radio', { name: /Anual/i }).check();
+    const selection=page.getByRole('region', { name: 'Plano e periodicidade selecionados' });
+    assert.match(await selection.innerText(), /ORYNEO Scale/);
+    assert.match(await selection.innerText(), /Anual/);
+    assert.equal(await page.getByRole('radio').count(), 0, 'O checkout não deve permitir alterar plano ou ciclo');
     await page.getByRole('checkbox', { name: /Landing page de conversão/i }).check();
     await page.getByRole('checkbox', { name: /Gestão de tráfego pago/i }).check();
     await page.getByLabel('Nome completo').fill('Cliente de Homologação');
@@ -50,7 +52,7 @@ for (const [name, engine, viewport] of [
     const metrics = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth }));
     assert.ok(metrics.width <= metrics.viewport + 1, `overflow horizontal: ${JSON.stringify(metrics)}`);
     await page.screenshot({ path: `qa-results/${name}.png`, fullPage: false });
-    console.log(`${name} OK: configuração, totais, payload seguro e responsividade`);
+    console.log(`${name} OK: seleção imutável, adicionais, payload seguro e responsividade`);
   } finally {
     await browser.close();
   }
