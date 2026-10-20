@@ -6,9 +6,11 @@ import {
   type IntakeConfirmationJob,
 } from '../_shared/mail/intake-confirmation.ts';
 import { renderRequestReceivedEmail } from '../_shared/mail/request-received-template.ts';
+import { renderImplementationStartedEmail } from '../_shared/mail/implementation-started-template.ts';
 import { createIntakeMailWorkerHandler } from '../intake-mail-worker/handler.ts';
 
 const job: IntakeConfirmationJob = {
+  jobType: 'lead_received_email',
   requestId: '11111111-1111-4111-8111-111111111111',
   dealId: '22222222-2222-4222-8222-222222222222',
   data: {
@@ -115,4 +117,25 @@ Deno.test('worker exige token cron e não revela detalhes internos', async () =>
   }));
   assert.equal(accepted.status, 200);
   assert.deepEqual(await accepted.json(), { ok: true, claimed: 1, sent: 1, failed: 0 });
+});
+
+Deno.test('início de implantação: template oficial não afirma pagamento nem acesso liberado', () => {
+  const input = {firstName:'Marina',company:'Aurora & Cia'};
+  const rendered = renderImplementationStartedEmail(input);
+  assert.equal(rendered.subject, 'Implantação iniciada · ORYNEO');
+  assert.match(rendered.text,/Aurora & Cia/);
+  assert.match(rendered.html,/Aurora &amp; Cia/);
+  assert.doesNotMatch(rendered.text + rendered.html,/pagamento confirmado|acesso liberado|senha temporária/i);
+});
+Deno.test('worker distingue automações na mesma fila sem alterar destinatário',async()=>{
+ const captured: Array<{subject:string;to:unknown}>=[];
+ const deps: IntakeConfirmationDependencies = {
+   claimDue:()=>Promise.resolve([{...job,jobType:'implementation_started_email'}]),
+   send:(input)=>{captured.push({subject:input.subject,to:input.to});return Promise.resolve({internetMessageId:'<impl@oryneo.com.br>',alreadyAccepted:false})},
+   markSent:()=>Promise.resolve(),
+   markFailed:()=>Promise.reject(new Error('should not fail')),
+ };
+ assert.deepEqual(await processIntakeConfirmationJobs(deps),{claimed:1,sent:1,failed:0});
+ assert.equal(captured[0].subject,'Implantação iniciada · ORYNEO');
+ assert.deepEqual(captured[0].to,[{name:'Marina Souza',address:'marina@example.com'}]);
 });
