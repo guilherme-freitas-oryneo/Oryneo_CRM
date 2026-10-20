@@ -77,3 +77,14 @@ Deno.test('e-mail não exibe complementos ausentes',()=>{
  assert(!email.text.includes('Landing page incluída'));
  assertMatch(email.text,/por ano/);
 });
+
+Deno.test('comunicação Pix avulso não promete renovação automática',()=>{
+ const email=welcomeMarkup({...sample,selection:{plan:'Start',cycle:'monthly',addons:[],payment_method:'pix'},items:sample.items.slice(0,2)});
+ assertMatch(email.text,/não há renovação automática/i);
+ assertMatch(email.html,/nova cobrança/);
+});
+Deno.test('comunicação boleto esclarece pagamento individual de cada fatura',()=>{
+ const email=welcomeMarkup({...sample,selection:{plan:'Start',cycle:'monthly',addons:[],payment_method:'boleto'},items:sample.items.slice(0,2)});
+ assertMatch(email.text,/cada fatura exige pagamento individual/i);
+ assertMatch(email.html,/confirmação bancária/);
+});
