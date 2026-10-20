@@ -52,6 +52,9 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/billing-create-order/index.ts
           deno check --node-modules-dir=auto supabase/functions/billing-public/index.ts
           deno check --node-modules-dir=auto supabase/functions/checkout-intake/index.ts
+          # QA endpoint must never create production commercial records or bill LIVE.
+          grep -q "oryneo_qa_billing_create" supabase/functions/checkout-intake-noncard-test/index.ts
+          ! grep -E "crm_create_direct_checkout|crm_billing_orders|crm_intake_requests|crm_events|crm_records|STRIPE_LIVE_SECRET_KEY" supabase/functions/checkout-intake-noncard-test/index.ts
           deno check --node-modules-dir=auto supabase/functions/checkout-intake-noncard-test/index.ts
           deno check --node-modules-dir=auto supabase/functions/_shared/billing/stripe-noncard-service.ts
           deno check --node-modules-dir=auto supabase/functions/_shared/billing/fulfillment.ts
