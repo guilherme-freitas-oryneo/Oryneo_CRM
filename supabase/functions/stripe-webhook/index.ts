@@ -168,7 +168,7 @@ Deno.serve(async (req: Request) => {
       console.error('Stripe paid invoice snapshot inconsistent',{event_id:event.id,invoice_id:source.id});
       return json({error:'Invoice payment status mismatch'},422);
     }
-    if(invoiceSubscription&&event.type==='invoice.paid'&&source.billing_reason==='subscription_create'){
+    if(invoiceSubscription&&source.billing_reason==='subscription_create'){
       const {data:linked,error:linkError}=await db.from('crm_billing_orders')
         .select('id,billing_environment,selection,stripe_checkout_session_id')
         .eq('stripe_subscription_id',invoiceSubscription).maybeSingle();
@@ -193,15 +193,21 @@ Deno.serve(async (req: Request) => {
         if((linked.billing_environment==='live')!==livemode||source.currency!=='brl')
           return json({error:'Boleto invoice environment/currency mismatch'},422);
         const customerId=typeof source.customer==='string'?source.customer:null;
-        const {data:receipt,error:receiptError}=await db.rpc('crm_record_stripe_boleto_initial_invoice',{
+        const rpcName=event.type==='invoice.paid'
+          ? 'crm_record_stripe_boleto_initial_invoice'
+          : 'crm_record_stripe_boleto_initial_failure';
+        const {data:receipt,error:receiptError}=await db.rpc(rpcName,{
           p_event_id:event.id,p_invoice_id:source.id,p_subscription_id:invoiceSubscription,
-          p_customer_id:customerId||'',p_amount_cents:Number(source.amount_paid||0),
+          p_customer_id:customerId||'',
+          p_amount_cents:Number(event.type==='invoice.paid'?source.amount_paid:source.amount_due),
           p_currency:source.currency,p_livemode:livemode,
         });
         if(receiptError||!receipt?.ok){
           console.error('Boleto initial settlement pending review',{code:receiptError?.code,reason:receipt?.reason});
           return json({error:'Boleto invoice reconciliation pending'},503);
         }
+        if(event.type==='invoice.payment_failed')
+          return json({received:true,duplicate:!!receipt.duplicate,initial_boleto:true,failed:true});
         // Retry postpayment even for a duplicate event; email and addon claims are idempotent.
         {
           try{
