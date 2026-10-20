@@ -4,14 +4,14 @@ export const QA_CHECKOUT_EVENTS=new Set([
  'checkout.session.async_payment_failed','checkout.session.expired',
 ]);
 export const QA_INVOICE_EVENTS=new Set([
- 'invoice.created','invoice.finalized','invoice.sent','invoice.paid',
+ 'invoice.created','invoice.finalized','invoice.sent','invoice.paid','invoice.payment_succeeded',
  'invoice.payment_failed','invoice.voided','invoice.marked_uncollectible',
 ]);
 export function stripeInvoiceSubscription(invoice:Record<string,any>):string|null{
  const raw=invoice.subscription??invoice.parent?.subscription_details?.subscription;
  return typeof raw==='string'?raw:typeof raw?.id==='string'?raw.id:null;
 }
-export function verifiedQaInvoice(
+/** invoice.paid also fires after a manual paid-out-of-band mark. Only invoice.payment_succeeded\n * is the Stripe webhook proof for a real successful collection. */\nexport function permitsBoletoCompensation(eventType:string,invoice:Record<string,any>):boolean{\n return eventType==='invoice.payment_succeeded'&&invoice.status==='paid'&&\n   invoice.paid===true&&invoice.paid_out_of_band!==true&&\n   Number.isSafeInteger(invoice.total)&&invoice.total>0&&\n   invoice.amount_paid===invoice.total;\n}\nexport function verifiedQaInvoice(
  invoice:Record<string,any>,subscription:Record<string,any>,
  order:Record<string,any>,
 ):Readonly<{status:string;paid:boolean;amount:number;invoiceId:string;billingReason:string|null}>{
