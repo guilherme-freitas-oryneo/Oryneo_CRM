@@ -26,7 +26,7 @@ Deno.test('boleto subscription includes recurring plan and setup exactly once',(
 Deno.test('Pix checkout charges exact initial total and never creates subscription',()=>{
  const f=buildPixCheckoutForm(selection,context);
  assertEquals(f.get('mode'),'payment');
- assertEquals(f.get('payment_method_types[0]'),'pix');
+ assertEquals(f.get('allowed_payment_method_types[0]'),'pix');
  assertEquals(f.get('line_items[0][price_data][unit_amount]'),'248980');
  assertEquals(f.get('subscription_data[metadata][oryneo_order_id]'),null);
  assertEquals(f.get('customer_creation'),'always');
