@@ -1,5 +1,8 @@
 -- ORYNEO staged migration: do not apply to LIVE until sandbox boleto end-to-end passes.
 -- Initial Boleto subscription invoices do not have a Checkout Session.
+CREATE UNIQUE INDEX IF NOT EXISTS crm_billing_orders_subscription_unique
+ ON public.crm_billing_orders(stripe_subscription_id)
+ WHERE stripe_subscription_id IS NOT NULL;
 -- This RPC is called only by a signature-verified Stripe webhook using service_role.
 CREATE OR REPLACE FUNCTION public.crm_record_stripe_boleto_initial_invoice(
  p_event_id text,
