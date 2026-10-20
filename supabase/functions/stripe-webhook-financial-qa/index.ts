@@ -7,7 +7,7 @@ import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 import {getBillingEnvironmentConfig} from '../_shared/billing/environment.ts';
 import {
  QA_CHECKOUT_EVENTS,QA_INVOICE_EVENTS,stripeInvoiceSubscription,
- permitsBoletoCompensation,verifiedQaInvoice,verifiedQaPixSession,verifyQaStripeSignature,
+ verifiedStripeInvoicePaymentProof,verifiedQaInvoice,verifiedQaPixSession,verifyQaStripeSignature,
 } from '../_shared/billing/financial-qa-webhook-policy.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
@@ -71,12 +71,24 @@ async function handleInvoice(event:EventShape,key:string){
  }
  const sub=await getStripeObject('subscriptions/'+encodeURIComponent(subscriptionId),key);
  const state=verifiedQaInvoice(invoice,sub,order);
- // invoice.paid also fires for manual paid-out-of-band transactions.
- // Do not interpret it, or an older invoice event, as bank compensation.
- if(state.status==='paid'&&!permitsBoletoCompensation(event.type,invoice))
-  return response({received:true,awaiting_compensation_proof:true});
- if(event.type==='invoice.payment_succeeded'&&!permitsBoletoCompensation(event.type,invoice))
-  return response({error:'QA_BANK_COMPENSATION_NOT_CONFIRMED'},503);
+ if(state.paid){
+  // Stripe 2026 invoice.paid can represent an administrative paid-out-of-band
+  // action. Confirm a real, succeeded Stripe PaymentIntent via InvoicePayment.
+  if(Number(invoice.amount_paid_out_of_band||0)>0)
+   return response({received:true,ignored:true,reason:'out_of_band_not_compensated'});
+  const listResponse=await fetch('https://api.stripe.com/v1/invoice_payments?'+
+   new URLSearchParams({invoice:invoice.id,status:'paid',limit:'100'}),{
+   headers:{Authorization:'Bearer '+key,'Stripe-Version':'2026-08-26.dahlia'},
+  });
+  if(!listResponse.ok)throw Error('QA_INVOICE_PAYMENT_LOOKUP_UNAVAILABLE');
+  const payments=await listResponse.json();
+  const intentId=payments?.data?.[0]?.payment?.payment_intent;
+  if(typeof intentId!=='string'||!/^pi_[a-zA-Z0-9_]+$/.test(intentId))
+   return response({error:'QA_BANK_PAYMENT_PROOF_PENDING'},503);
+  const intent=await getStripeObject('payment_intents/'+encodeURIComponent(intentId),key);
+  if(!verifiedStripeInvoicePaymentProof(invoice,payments,intent))
+   return response({error:'QA_BANK_PAYMENT_PROOF_UNVERIFIED'},503);
+ }
  const recordedStatus=event.type==='invoice.payment_failed'&&!state.paid&&state.status==='open'
   ?'payment_failed':state.status;
  const {data,error}=await db.rpc('oryneo_qa_boleto_invoice_event',{
