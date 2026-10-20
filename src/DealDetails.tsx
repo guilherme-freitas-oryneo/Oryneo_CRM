@@ -3,6 +3,7 @@ import {X,Building2,UserRound,Mail,Phone,MapPin,Users,Clock3,History,FileText,Ch
 import {supabase,mutate,money,errorText,type DealRow,type StageRow,type CompanyProfile,type Quote,type NextAction,type CrmEvent} from './data';
 import './details.css';
 import {ProposalAction} from './billing/ProposalAction';
+import {AutomationStatus} from './automation/AutomationStatus';
 import {DeliveryManager} from './delivery/DeliveryManager';
 import {LandingReviewManager} from './landingReview/LandingReviewManager';
 import {OffboardingManager} from './offboarding/OffboardingManager';
@@ -125,6 +126,7 @@ export function DealDetails({row,stages,onClose,onEdit,onResend,onChanged}:{row:
       <section><h3 className="cd-section-title"><Phone size={17}/>Canais de contato</h3><div className="cd-contact-grid"><ContactLine label="E-mail" value={data.email} highlight/><ContactLine label="E-mail cadastral" value={normalizeContact(data.email)!==normalizeContact(company?.email||'')?company?.email:undefined}/><ContactLine label="Celular / WhatsApp" value={data.phone} highlight/><ContactLine label="Telefone cadastral" value={normalizeContact(data.phone)!==normalizeContact(company?.phone||'')?company?.phone:undefined}/></div></section>
       {fullAddress&&<section><h3 className="cd-section-title"><MapPin size={17}/>Endereço da empresa</h3><div className="cd-address"><MapPin size={18}/><p>{fullAddress}</p><button onClick={()=>void navigator.clipboard.writeText(fullAddress).then(()=>setNotice('Endereço copiado.')).catch(()=>setError('Não foi possível copiar o endereço.'))}>Copiar</button></div></section>}
       {!!qsa.length&&<section><h3 className="cd-section-title"><Users size={17}/>Quadro societário <span>{qsa.length}</span></h3><div className="cd-partners">{qsa.map((s,i)=><div className="cd-partner" key={i}><div className="cd-person-avatar">{initials(s.name)}</div><div><strong>{s.name}</strong><span>{s.qualification||'Integrante do quadro societário'}</span></div></div>)}</div></section>}
+      <AutomationStatus dealId={row.id}/>
       {data.first_contact&&<section><h3 className="cd-section-title"><Mail size={17}/>Primeiro contato</h3><div className="cd-action-summary cd-first-contact"><strong>E-mail enviado</strong><span>{date(data.first_contact.sent_at)}</span><button type="button" onClick={onResend}>Revisar e reenviar</button></div></section>}
       <section><h3 className="cd-section-title"><CalendarClock size={17}/>Próxima ação comercial</h3><div className="cd-action-summary"><strong>{next.title}</strong><span>{next.done?'Concluída':'Pendente'}{next.due_at?' · '+date(next.due_at):' · Prazo a definir'}</span><button onClick={()=>setTab('history')}>Gerenciar ação</button></div></section>
       
