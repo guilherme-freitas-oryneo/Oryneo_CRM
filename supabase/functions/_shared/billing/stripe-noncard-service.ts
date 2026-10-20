@@ -1,3 +1,4 @@
+import {boletoInvoiceView} from './invoice-public-status.ts';
 import {buildBoletoSubscriptionForm,buildPixCheckoutForm,type PaymentOrderContext,type ServerBillingSelection} from './stripe-payment-forms.ts';
 import type {BillingEnvironmentConfig} from './environment.ts';
 
@@ -72,4 +73,36 @@ export async function createStripePixCheckout(
  if(!session.id?.startsWith('cs_test_')||!session.client_secret||session.amount_total!==selection.amountTotal)
   throw Error('PIX_SESSION_CONTRACT_MISMATCH');
  return {sessionId:session.id,clientSecret:session.client_secret};
+}
+
+/** Finalize only after the order/subscription/customer links are persisted.
+ * Never finalize an invoice with a mismatched amount or identity.
+ */
+export async function finalizeStripeBoletoInvoice(
+ invoiceId:string,customerId:string,subscriptionId:string,
+ selection:ServerBillingSelection,context:PaymentOrderContext,
+ config:BillingEnvironmentConfig,fetchImpl:Fetch=fetch,
+):Promise<string|null>{
+ sandboxOnly(config,context);
+ if(!/^in_[a-zA-Z0-9_]+$/.test(invoiceId)||!/^cus_[a-zA-Z0-9_]+$/.test(customerId)||
+    !/^sub_[a-zA-Z0-9_]+$/.test(subscriptionId))throw Error('INVALID_STRIPE_INVOICE_CONTEXT');
+ let invoice=await stripeCall('/invoices/'+encodeURIComponent(invoiceId),config,fetchImpl);
+ const validate=(item:StripeObject)=>{
+  const parent=item as StripeObject&{subscription?:string;parent?:{subscription_details?:{subscription?:string}};status?:string;currency?:string;total?:number};
+  if(item.id!==invoiceId||item.customer!==customerId||
+    (parent.subscription!==subscriptionId&&parent.parent?.subscription_details?.subscription!==subscriptionId)||
+    parent.currency!=='brl'||parent.total!==selection.amountTotal)
+   throw Error('BOLETO_INVOICE_CONTRACT_MISMATCH');
+ };
+ validate(invoice);
+ if((invoice as StripeObject&{status?:string}).status==='draft'){
+  invoice=await stripeCall('/invoices/'+encodeURIComponent(invoiceId)+'/finalize',config,fetchImpl,new URLSearchParams(),
+   'oryneo-boleto-finalize-'+context.orderId);
+  validate(invoice);
+ }
+ const view=boletoInvoiceView({
+  amount_total:selection.amountTotal,stripe_customer_id:customerId,stripe_subscription_id:subscriptionId,
+  billing_environment:'test',
+ },invoice as Record<string,unknown>);
+ return view.invoiceUrl;
 }
