@@ -34,6 +34,7 @@ Deno.test('existing subscription recovered instead of charged twice',async()=>{
  let creates=0;
  const mock=async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input);
+  if(url.includes('/customers/search?'))return ok({data:[{id:'cus_test1',livemode:false,metadata:{oryneo_order_id:context.orderId}}],has_more:false});
   if(url.endsWith('/customers'))return ok({id:'cus_test1',livemode:false});
   if(url.includes('/subscriptions?'))return ok({data:[{id:'sub_existing',customer:'cus_test1',livemode:false,metadata:{oryneo_order_id:context.orderId,oryneo_payment_method:'boleto'},latest_invoice:'in_existing'}],has_more:false});
   if(init?.method==='POST')creates++;
@@ -62,6 +63,7 @@ Deno.test('noncard LIVE is blocked before any network call',async()=>{
 Deno.test('mismatched boleto invoice total fails closed',async()=>{
  const mock=async(input:RequestInfo|URL)=>{
   const url=String(input);
+  if(url.includes('/customers/search?'))return ok({data:[],has_more:false});
   if(url.endsWith('/customers'))return ok({id:'cus_test1',livemode:false});
   if(url.includes('/subscriptions?'))return ok({data:[],has_more:false});
   return ok({id:'sub_test1',customer:'cus_test1',livemode:false,latest_invoice:{id:'in_test1',currency:'brl',total:1}});
