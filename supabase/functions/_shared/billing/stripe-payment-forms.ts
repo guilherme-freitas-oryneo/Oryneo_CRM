@@ -59,7 +59,7 @@ export function buildPixCheckoutForm(selection:ServerBillingSelection,context:Pa
  const form=new URLSearchParams();
  form.set('mode','payment');
  form.set('ui_mode','elements');
- form.set('payment_method_types[0]','pix');
+ form.set('allowed_payment_method_types[0]','pix');
  form.set('customer_email',context.customerEmail);
  form.set('customer_creation','always');
  form.set('locale','pt-BR');
