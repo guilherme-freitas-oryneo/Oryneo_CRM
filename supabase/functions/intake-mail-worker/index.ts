@@ -106,6 +106,7 @@ const confirmationDependencies: IntakeConfirmationDependencies = {
     if (result.error) throw new Error('INTAKE_CONFIRMATION_DB');
     return (result.data ?? []).map((row: { request_id: string; deal_id: string; data: Record<string, unknown> }) => ({
       requestId: row.request_id, dealId: row.deal_id, data: row.data,
+      jobType: row.data._automation_job_type === 'implementation_started_email' ? 'implementation_started_email' : 'lead_received_email',
     }));
   },
   async send(input) {

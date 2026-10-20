@@ -1,10 +1,11 @@
 import type { MailboxAddress } from './mime.ts';
-import { renderRequestReceivedEmail } from './request-received-template.ts';
+import { renderAutomationEmail, type AutomationEmailType } from './automation-email.ts';
 
 export type IntakeConfirmationJob = {
   requestId: string;
   dealId: string;
   data: Record<string, unknown>;
+  jobType: AutomationEmailType;
 };
 
 export type IntakeConfirmationSendInput = {
@@ -57,7 +58,7 @@ export async function processIntakeConfirmationJobs(
       if (!UUID.test(job.requestId) || !UUID.test(job.dealId) || !contact || !company || !EMAIL.test(email) || /[\r\n\0]/.test(email)) {
         throw new Error('INTAKE_CONFIRMATION_INVALID');
       }
-      const rendered = renderRequestReceivedEmail({ firstName: contact.split(/\s+/)[0], company });
+      const rendered = renderAutomationEmail(job.jobType, { firstName: contact.split(/\s+/)[0], company });
       const result = await dependencies.send({
         idempotencyKey: job.requestId,
         to: [{ name: contact, address: email }],
