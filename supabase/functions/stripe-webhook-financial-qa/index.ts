@@ -4,7 +4,6 @@
  * This endpoint NEVER sends e-mail, provisions a CRM account or touches LIVE.
  */
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
-import {getBillingEnvironmentConfig} from '../_shared/billing/environment.ts';
 import {
  QA_CHECKOUT_EVENTS,QA_INVOICE_EVENTS,stripeInvoiceSubscription,
  verifiedStripeInvoicePaymentProof,verifiedQaInvoice,verifiedQaPixSession,verifyQaStripeSignature,
@@ -54,7 +53,45 @@ async function handlePix(event:EventShape,key:string){
  if(error||!data?.ok)throw Error('QA_PIX_RECONCILIATION_FAILED');
  return response({received:true,method:'pix',state:data.state,duplicate:data.duplicate===true});
 }
-async function handleInvoice(event:EventShape,key:string){
+async function handlePendingSignedInvoice(event:EventShape){
+ // Stripe's verified HMAC authenticates the original invoice event. This
+ // fallback can record PENDING only, never a paid state without provider GET.
+ const inv=event.data?.object;
+ if(!inv||inv.livemode!==false||typeof inv.id!=='string'||!inv.id.startsWith('in_'))
+  return response({error:'QA_SIGNED_INVOICE_INVALID'},422);
+ const subId=stripeInvoiceSubscription(inv);
+ if(!subId)return response({received:true,ignored:true});
+ const order=await lookup('boleto',subId);
+ const metadata=inv.parent?.subscription_details?.metadata;
+ if(!order){
+  if(metadata?.oryneo_qa_isolated==='true'&&metadata?.oryneo_billing_environment==='test')
+   return response({error:'QA_LINK_PENDING'},503);
+  return response({received:true,ignored:true});
+ }
+ if(metadata?.oryneo_qa_isolated!=='true'||metadata?.oryneo_order_id!==order.id||
+  metadata?.oryneo_billing_environment!=='test'||inv.customer!==order.stripe_customer_id||
+  inv.currency!=='brl'||!Number.isSafeInteger(inv.total)||inv.total<0||
+  (inv.id===order.stripe_invoice_id&&inv.total!==order.amount_cents))
+  return response({error:'QA_SIGNED_INVOICE_MISMATCH'},422);
+ // Paid events or snapshots must be independently verified through Stripe.
+ if(inv.status==='paid'||event.type==='invoice.paid'||event.type==='invoice.payment_succeeded')
+  return response({error:'QA_COMPENSATION_API_SECRET_REQUIRED'},503);
+ const status=event.type==='invoice.payment_failed'&&inv.status==='open'?'payment_failed':inv.status;
+ if(!['draft','open','void','uncollectible','payment_failed'].includes(status))
+  return response({error:'QA_INVOICE_STATUS_INVALID'},422);
+ const {data,error}=await db.rpc('oryneo_qa_boleto_invoice_event',{
+  p_order_id:order.id,p_invoice_id:inv.id,p_event_id:event.id,
+  p_status:status,p_amount_cents:inv.total,
+  p_billing_reason:typeof inv.billing_reason==='string'?inv.billing_reason:null,
+  p_paid:false,
+ });
+ if(error||!data?.ok)throw Error('QA_PENDING_INVOICE_RECONCILIATION_FAILED');
+ return response({received:true,method:'boleto',compensated:false,
+  invoice_state:data.invoice_state,order_state:data.order_state,duplicate:data.duplicate===true});
+}
+
+async function handleInvoice(event:EventShape,key:string|null){
+ if(!key)return await handlePendingSignedInvoice(event);
  const incomingId=event.data?.object?.id;
  if(typeof incomingId!=='string'||!/^in_[A-Za-z0-9_]+$/.test(incomingId))
   return response({error:'QA_INVOICE_ID_INVALID'},422);
@@ -120,10 +157,14 @@ Deno.serve(async(req:Request)=>{
  if(!QA_CHECKOUT_EVENTS.has(event.type)&&!QA_INVOICE_EVENTS.has(event.type))
   return response({received:true,ignored:true});
  if(!event.data?.object?.id)return response({error:'Missing Stripe source'},400);
- const config=getBillingEnvironmentConfig('test',name=>Deno.env.get(name));
+ const secretKey=Deno.env.get('STRIPE_TEST_SECRET_KEY')||Deno.env.get('STRIPE_SECRET_KEY');
+ const testKey=secretKey&&/^(?:sk|rk)_test_/.test(secretKey)?secretKey:null;
  try{
-  if(QA_CHECKOUT_EVENTS.has(event.type))return await handlePix(event,config.secretKey);
-  return await handleInvoice(event,config.secretKey);
+  if(QA_CHECKOUT_EVENTS.has(event.type)){
+   if(!testKey)return response({error:'QA_TEST_STRIPE_KEY_REQUIRED'},503);
+   return await handlePix(event,testKey);
+  }
+  return await handleInvoice(event,testKey);
  }catch(cause){
   console.error('QA signed webhook pending retry',{code:cause instanceof Error?cause.message:'unknown'});
   return response({error:'QA_RECONCILIATION_RETRY'},503);
