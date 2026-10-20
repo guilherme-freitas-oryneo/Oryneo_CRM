@@ -14,6 +14,7 @@ Deno.test('sandbox boleto: customer and subscription idempotency, setup first in
  const mock=async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input),body=String(init?.body||'');
   calls.push({url,method:init?.method||'GET',body,key:new Headers(init?.headers).get('Idempotency-Key')});
+  if(url.includes('/customers/search?'))return ok({data:[],has_more:false});
   if(url.endsWith('/customers'))return ok({id:'cus_test1',livemode:false});
   if(url.includes('/subscriptions?'))return ok({data:[],has_more:false});
   if(url.endsWith('/subscriptions'))return ok({id:'sub_test1',customer:'cus_test1',livemode:false,latest_invoice:{id:'in_test1',currency:'brl',total:173980,hosted_invoice_url:'https://invoice.stripe.com/test'}});
@@ -22,9 +23,9 @@ Deno.test('sandbox boleto: customer and subscription idempotency, setup first in
  const result=await createStripeBoletoSubscription(selection,context,config,mock as typeof fetch);
  assertEquals(result.subscriptionId,'sub_test1');
  assertEquals(result.invoiceId,'in_test1');
- assertEquals(calls[0].key,'oryneo-boleto-customer-'+context.orderId);
- assertEquals(calls[2].key,'oryneo-boleto-subscription-'+context.orderId);
- const subForm=new URLSearchParams(calls[2].body);
+ assertEquals(calls[1].key,'oryneo-boleto-customer-'+context.orderId);
+ assertEquals(calls[3].key,'oryneo-boleto-subscription-'+context.orderId);
+ const subForm=new URLSearchParams(calls[3].body);
  assertEquals(subForm.get('items[0][price]'),'price_month');
  assertEquals(subForm.get('add_invoice_items[0][price]'),'price_setup');
  assertEquals(subForm.get('collection_method'),'send_invoice');
