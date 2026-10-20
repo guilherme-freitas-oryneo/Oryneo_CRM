@@ -12,6 +12,7 @@ Deno.test('boleto conserva ciclo de faturas mas aguarda liquidação',()=>{
  assertEquals(p.stripeMode,'subscription');
  assertEquals(p.automaticallyRenews,true);
  assertEquals(p.asynchronousSettlement,true);
+ assertEquals(p.requiresCustomerActionForEachInvoice,true);
  assertEquals(p.accessRequiresSettlement,true);
  assertEquals(shouldDisplayAwaitingPayment('boleto','awaiting_payment'),true);
 });
@@ -20,6 +21,7 @@ Deno.test('Pix avulso nunca representa Pix Automático',()=>{
  assertEquals(p.stripeMode,'payment');
  assertEquals(p.automaticallyRenews,false);
  assertEquals(p.asynchronousSettlement,true);
+ assertEquals(p.requiresCustomerActionForEachInvoice,true);
 });
 Deno.test('nenhum estado pendente, falho ou cancelado provisiona acesso',()=>{
  for(const state of ['created','awaiting_payment','failed','expired','cancelled'] as const){
