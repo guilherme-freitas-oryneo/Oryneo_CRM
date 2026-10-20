@@ -29,6 +29,7 @@ export type PublicBillingOrder = {
   } | null;
   expires_at: string;
   test_mode: boolean;
+  payment_method?: 'card' | 'boleto' | 'pix';
 };
 
 const money = (cents: number) => new Intl.NumberFormat('pt-BR', {
@@ -55,7 +56,7 @@ const shortDate = (value?: string | null) => value
   ? new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
   : '';
 
-export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = false, portalUrl = '', accountUrl = '' }: {
+export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = false, portalUrl = '', accountUrl = '', payLabel = 'Confirmar pagamento' }: {
   order: PublicBillingOrder;
   paymentSlot: ReactNode;
   onPay: () => void;
@@ -63,6 +64,7 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
   busy?: boolean;
   portalUrl?: string;
   accountUrl?: string;
+  payLabel?: string;
 }) {
   const [accepted, setAccepted] = useState(false);
   const ready = order.status === 'awaiting_payment';
@@ -90,11 +92,11 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
           {ready && <>
             <label className="pay-consent">
               <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)}/>
-              <span><Check size={15}/> Li e aceito as condições comerciais e a recorrência descritas neste pedido.</span>
+              <span><Check size={15}/> {order.payment_method==='pix'?'Li e aceito as condições comerciais. Entendo que o Pix é avulso e não renova automaticamente.':order.payment_method==='boleto'?'Li e aceito as condições comerciais e o faturamento recorrente por boleto, com pagamento individual de cada fatura.':'Li e aceito as condições comerciais e a recorrência descritas neste pedido.'}</span>
             </label>
             <div className="pay-terms-access"><TermsDialog /></div>
             <button className="pay-submit" disabled={!accepted || busy} onClick={onPay}>
-              <LockKeyhole size={17}/>{busy ? 'Processando…' : 'Confirmar pagamento'}
+              <LockKeyhole size={17}/>{busy ? 'Processando…' : payLabel}
             </button>
             {order.test_mode && <p className="pay-test-note">Ambiente de homologação · nenhum pagamento real será processado.</p>}
           </>}
@@ -153,6 +155,7 @@ function PaymentSkeleton() {
 export function PaymentPage() {
   const [order, setOrder] = useState<PublicBillingOrder | null>(null);
   const [checkout, setCheckout] = useState<{clientSecret:string;publishableKey:string}|null>(null);
+  const [invoiceUrl, setInvoiceUrl] = useState<string|null>(null);
   const [error, setError] = useState('');
   const [retryable, setRetryable] = useState(false);
   const token = new URLSearchParams(window.location.search).get('token') || '';
@@ -168,7 +171,7 @@ export function PaymentPage() {
           setError('Não foi possível verificar o status do pagamento agora. Nenhum pagamento foi confirmado. Tente novamente.');
           setRetryable(true);
         } else if (!data?.order) setError('Não foi possível abrir este pedido. Confira o link ou fale com a ORYNEO.');
-        else { setOrder(data.order as PublicBillingOrder); if(data.client_secret&&data.publishable_key)setCheckout({clientSecret:data.client_secret,publishableKey:data.publishable_key}); }
+        else { setOrder(data.order as PublicBillingOrder); if(data.client_secret&&data.publishable_key)setCheckout({clientSecret:data.client_secret,publishableKey:data.publishable_key}); if(typeof data.invoice_url==='string')setInvoiceUrl(data.invoice_url); }
       } catch {
         if (!active) return;
         setError('Não foi possível verificar o status do pagamento agora. Nenhum pagamento foi confirmado. Tente novamente.');
@@ -179,11 +182,45 @@ export function PaymentPage() {
   }, [token]);
   if (error) return <main className="pay-page pay-center"><div className="pay-error"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><h1>{retryable?'Não foi possível verificar agora.':'Não conseguimos abrir o pedido.'}</h1><p>{error}</p>{retryable&&<button className="pay-submit" onClick={()=>window.location.reload()}>Tentar novamente</button>}</div></main>;
   if (!order) return <main className="pay-page pay-center"><div className="pay-loading" aria-label="Carregando pedido"><span/>Preparando seu ambiente seguro…</div></main>;
+  if(order.status==='awaiting_payment'&&order.payment_method==='boleto'&&invoiceUrl)
+    return <BoletoPayment order={order} invoiceUrl={invoiceUrl}/>;
+  if(order.status==='awaiting_payment'&&order.payment_method==='boleto'&&!invoiceUrl)
+    return <PaymentPageView order={{...order,status:'processing'}} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()}/>;
   if(order.status==='awaiting_payment'&&!checkout)return <PaymentPageView order={{...order,status:'payment_failed'}} paymentSlot={null} onPay={()=>undefined}/>;
   if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={order.status==='paid'?deliveryLink():''} accountUrl={order.status==='paid'?offboardingLink():''}/>;
   return <CheckoutElementsProvider stripe={stripePromise} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#5269ff',colorText:'#242931',colorBackground:'#ffffff',borderRadius:'9px',fontFamily:'DM Sans, sans-serif'}}}}}>
     <StripePayment order={order}/>
   </CheckoutElementsProvider>;
+}
+
+/** The bank settles the invoice asynchronously. Opening the Stripe link is not payment confirmation. */
+export function BoletoPayment({order,invoiceUrl}:{order:PublicBillingOrder;invoiceUrl:string}){
+ const [busy,setBusy]=useState(false);
+ const [error,setError]=useState('');
+ const pay=async()=>{
+  if(busy)return;
+  setBusy(true);setError('');
+  try{
+   const url=new URL(invoiceUrl);
+   if(url.protocol!=='https:'||!['invoice.stripe.com','pay.stripe.com'].includes(url.hostname))
+    throw Error('Link de boleto inválido.');
+   const token=new URLSearchParams(window.location.search).get('token');
+   if(!token)throw Error('Link de pagamento inválido.');
+   const {data, error:invokeError}=await supabase.functions.invoke('billing-public',{body:{action:'record_consent',token}});
+   if(invokeError||!data?.ok)throw Error('Não foi possível registrar o aceite. Tente novamente.');
+   window.location.assign(url.toString());
+  }catch(cause){
+   setError(cause instanceof Error?cause.message:'Não foi possível abrir o boleto.');
+   setBusy(false);
+  }
+ };
+ const slot=<div className="pay-element">
+  <div className="pay-element-head"><LockKeyhole size={16}/><span>Boleto bancário</span><small>Emitido pela Stripe</small></div>
+  <p>Abra a fatura segura para obter o boleto. O pagamento de cada período é realizado individualmente e a confirmação bancária pode levar até um dia útil.</p>
+  <p>O acesso e a implantação serão liberados somente após a confirmação financeira.</p>
+  {error&&<p className="pay-inline-error" role="alert">{error}</p>}
+ </div>;
+ return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} busy={busy} payLabel="Abrir boleto seguro"/>;
 }
 
 export function StripePayment({order}:{order:PublicBillingOrder}){
