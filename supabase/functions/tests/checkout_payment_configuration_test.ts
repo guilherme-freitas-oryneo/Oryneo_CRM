@@ -1,16 +1,26 @@
-import {assertEquals} from 'jsr:@std/assert';
-import {checkoutPaymentConfiguration} from '../_shared/billing/checkout-payment-configuration.ts';
-Deno.test('cartão conserva cobrança automática',()=>{
- const v=checkoutPaymentConfiguration('card','monthly');
- assertEquals(v.mode,'subscription');assertEquals(v.collectionMethod,'charge_automatically');assertEquals(v.paymentMethodTypes,['card']);
+import {assertEquals,assertThrows} from 'jsr:@std/assert';
+import {checkoutPaymentConfiguration,assertPaymentMethodEnabled} from '../_shared/billing/checkout-payment-configuration.ts';
+Deno.test('card preserves current live subscription Checkout',()=>{
+ const p=checkoutPaymentConfiguration('card','monthly');
+ assertEquals(p.workflow,'checkout_subscription');
+ assertEquals(p.stripeMode,'subscription');
+ assertEquals(p.readyForLive,true);
+ assertPaymentMethodEnabled('card','monthly');
 });
-Deno.test('boleto recorrente gera faturas, não débito automático',()=>{
+Deno.test('boleto requires separate invoice workflow and is not released to LIVE',()=>{
  for(const cycle of ['monthly','annual'] as const){
-  const v=checkoutPaymentConfiguration('boleto',cycle);
-  assertEquals(v.mode,'subscription');assertEquals(v.collectionMethod,'send_invoice');assertEquals(v.paymentMethodTypes,['boleto']);
+  const p=checkoutPaymentConfiguration('boleto',cycle);
+  assertEquals(p.workflow,'subscription_invoicing');
+  assertEquals(p.stripeMode,null);
+  assertEquals(p.customerPaysEachInvoice,true);
+  assertEquals(p.readyForLive,false);
+  assertThrows(()=>assertPaymentMethodEnabled('boleto',cycle),Error,'PAYMENT_METHOD_NOT_HOMOLOGATED');
  }
 });
-Deno.test('Pix avulso usa payment e não cria subscription',()=>{
- const v=checkoutPaymentConfiguration('pix','annual');
- assertEquals(v.mode,'payment');assertEquals(v.collectionMethod,null);assertEquals(v.paymentMethodTypes,['pix']);
+Deno.test('Pix is one-time, never subscription, and is gated',()=>{
+ const p=checkoutPaymentConfiguration('pix','annual');
+ assertEquals(p.workflow,'one_time_checkout');
+ assertEquals(p.stripeMode,'payment');
+ assertEquals(p.readyForLive,false);
+ assertThrows(()=>assertPaymentMethodEnabled('pix','annual'),Error,'PAYMENT_METHOD_NOT_HOMOLOGATED');
 });
