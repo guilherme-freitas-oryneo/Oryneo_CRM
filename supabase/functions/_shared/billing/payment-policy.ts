@@ -8,15 +8,17 @@ export type PaymentPolicy = Readonly<{
   stripeMode: 'subscription' | 'payment';
   automaticallyRenews: boolean;
   asynchronousSettlement: boolean;
+  /** Invoice collection is recurring, not automatic debit of a stored bank payment method. */
+  requiresCustomerActionForEachInvoice: boolean;
   accessRequiresSettlement: true;
   label: string;
 }>;
 export function resolvePaymentPolicy(method: PaymentMethod, cycle: PaymentCycle): PaymentPolicy {
   if (cycle !== 'monthly' && cycle !== 'annual') throw new Error('INVALID_BILLING_CYCLE');
   switch (method) {
-    case 'card': return {method,cycle,stripeMode:'subscription',automaticallyRenews:true,asynchronousSettlement:false,accessRequiresSettlement:true,label:'Cartão'};
-    case 'boleto': return {method,cycle,stripeMode:'subscription',automaticallyRenews:true,asynchronousSettlement:true,accessRequiresSettlement:true,label:'Boleto bancário — pagamento de cada fatura'};
-    case 'pix': return {method,cycle,stripeMode:'payment',automaticallyRenews:false,asynchronousSettlement:true,accessRequiresSettlement:true,label:'Pix avulso — sem débito automático'};
+    case 'card': return {method,cycle,stripeMode:'subscription',automaticallyRenews:true,asynchronousSettlement:false,requiresCustomerActionForEachInvoice:false,accessRequiresSettlement:true,label:'Cartão'};
+    case 'boleto': return {method,cycle,stripeMode:'subscription',automaticallyRenews:true,asynchronousSettlement:true,requiresCustomerActionForEachInvoice:true,accessRequiresSettlement:true,label:'Boleto bancário — pagamento de cada fatura'};
+    case 'pix': return {method,cycle,stripeMode:'payment',automaticallyRenews:false,asynchronousSettlement:true,requiresCustomerActionForEachInvoice:true,accessRequiresSettlement:true,label:'Pix avulso — sem débito automático'};
     default: throw new Error('UNSUPPORTED_PAYMENT_METHOD');
   }
 }
