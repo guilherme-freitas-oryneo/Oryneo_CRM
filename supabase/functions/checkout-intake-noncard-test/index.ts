@@ -8,7 +8,7 @@ import {parseDirectCheckoutInput} from '../_shared/billing/direct-checkout.ts';
 import {buildBillingSelection,resolveStripeBillingPrices} from '../_shared/billing/catalog.ts';
 import {getBillingEnvironmentConfig} from '../_shared/billing/environment.ts';
 import {checkStripeMethodAvailability} from '../_shared/billing/stripe-method-availability.ts';
-import {createStripeBoletoSubscription,createStripePixCheckout} from '../_shared/billing/stripe-noncard-service.ts';
+import {createStripeBoletoSubscription,createStripePixCheckout,finalizeStripeBoletoInvoice} from '../_shared/billing/stripe-noncard-service.ts';
 import type {PaymentOrderContext,ServerBillingSelection} from '../_shared/billing/stripe-payment-forms.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -75,8 +75,10 @@ Deno.serve(async(req)=>{
    }
    return respond({ok:true,environment:'test',payment_method:'pix',reference:created.reference,url});
   }
+  let boletoIds={customerId:existing.stripe_customer_id as string|null,subscriptionId:existing.stripe_subscription_id as string|null,invoiceId:existing.stripe_invoice_id as string|null};
   if(!existing.stripe_subscription_id){
    const boleto=await createStripeBoletoSubscription(serverSelection,context,config);
+   boletoIds={customerId:boleto.customerId,subscriptionId:boleto.subscriptionId,invoiceId:boleto.invoiceId};
    if(!boleto.invoiceId)return respond({error:'Assinatura TEST criada, mas a primeira fatura exige conciliação.'},503);
    const {data:linked,error:linkError}=await db.from('crm_billing_orders').update({
     stripe_customer_id:boleto.customerId,stripe_subscription_id:boleto.subscriptionId,stripe_invoice_id:boleto.invoiceId,
@@ -84,7 +86,13 @@ Deno.serve(async(req)=>{
    }).eq('id',created.order_id).eq('billing_environment','test').is('stripe_subscription_id',null).select('id').maybeSingle();
    if(linkError||!linked)return respond({error:'Boleto TEST criado, mas o vínculo exige conciliação.'},503);
   }
-  return respond({ok:true,environment:'test',payment_method:'boleto',reference:created.reference,url});
+  if(!boletoIds.customerId||!boletoIds.subscriptionId||!boletoIds.invoiceId)
+   return respond({error:'A fatura TEST ainda não está vinculada.'},503);
+  const hostedInvoiceUrl=await finalizeStripeBoletoInvoice(
+   boletoIds.invoiceId,boletoIds.customerId,boletoIds.subscriptionId,
+   serverSelection,context,config,
+  );
+  return respond({ok:true,environment:'test',payment_method:'boleto',reference:created.reference,url,invoice_ready:!!hostedInvoiceUrl});
  }catch(err){
   console.error('noncard sandbox checkout error',{code:err instanceof Error?err.message:'unknown'});
   return respond({error:'A homologação financeira não pôde concluir este pedido. Nenhuma cobrança LIVE foi realizada.'},503);
