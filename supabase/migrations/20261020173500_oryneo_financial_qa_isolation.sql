@@ -103,7 +103,7 @@ BEGIN
       p_checkout_session_id IS NOT NULL OR
       (p_customer_id IS NULL OR p_customer_id !~ '^cus_[A-Za-z0-9_]+$') OR
       (p_subscription_id IS NULL OR p_subscription_id !~ '^sub_[A-Za-z0-9_]+$') OR
-      (p_invoice_id IS NULL OR p_invoice_id !~ '^in_[A-Za-z0-9_]+$'))
+      (p_invoice_id IS NULL OR p_invoice_id !~ '^in_[A-Za-z0-9_]+$')))
  THEN RAISE EXCEPTION 'QA_PROVIDER_IDENTITY_INVALID' USING ERRCODE='22023'; END IF;
  IF (v.stripe_checkout_session_id IS NOT NULL AND v.stripe_checkout_session_id IS DISTINCT FROM p_checkout_session_id)
   OR (v.stripe_customer_id IS NOT NULL AND v.stripe_customer_id IS DISTINCT FROM p_customer_id)
