@@ -37,6 +37,7 @@ export function buildBoletoSubscriptionForm(selection:ServerBillingSelection,con
  form.set('metadata[oryneo_order_id]',context.orderId);
  form.set('metadata[oryneo_billing_environment]',context.environment);
  form.set('metadata[oryneo_payment_method]','boleto');
+ form.set('metadata[oryneo_qa_isolated]','true');
  form.set('metadata[oryneo_role]','primary');
  let recurring=0,once=0;
  for(const item of selection.items){
@@ -71,6 +72,7 @@ export function buildPixCheckoutForm(selection:ServerBillingSelection,context:Pa
  form.set('metadata[oryneo_order_id]',context.orderId);
  form.set('metadata[oryneo_billing_environment]',context.environment);
  form.set('metadata[oryneo_payment_method]','pix');
+ form.set('metadata[oryneo_qa_isolated]','true');
  form.set('payment_intent_data[metadata][oryneo_order_id]',context.orderId);
  return form;
 }
