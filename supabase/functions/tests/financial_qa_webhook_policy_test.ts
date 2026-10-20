@@ -1,5 +1,5 @@
 import {assertEquals,assertRejects,assertThrows} from 'jsr:@std/assert';
-import {verifyQaStripeSignature,stripeInvoiceSubscription,verifiedQaInvoice,verifiedQaPixSession}
+import {verifyQaStripeSignature,stripeInvoiceSubscription,verifiedQaInvoice,verifiedQaPixSession,verifiedStripeInvoicePaymentProof}
  from '../_shared/billing/financial-qa-webhook-policy.ts';
 const order={id:'00000000-0000-4000-8000-000000000001',environment:'test',method:'boleto',
  stripe_customer_id:'cus_qa',stripe_subscription_id:'sub_qa',
@@ -7,7 +7,7 @@ const order={id:'00000000-0000-4000-8000-000000000001',environment:'test',method
 const subscription={id:'sub_qa',customer:'cus_qa',livemode:false,
  metadata:{oryneo_qa_isolated:'true',oryneo_order_id:order.id,oryneo_billing_environment:'test'}};
 const invoice={id:'in_initial',livemode:false,currency:'brl',customer:'cus_qa',
- parent:{subscription_details:{subscription:'sub_qa'}},total:173980,amount_paid:0,
+ parent:{subscription_details:{subscription:'sub_qa'}},total:173980,amount_paid:0,amount_remaining:173980,
  status:'open',paid:false,billing_reason:'subscription_create'};
 Deno.test('issued boleto is pending; not access granting until bank compensation',()=>{
  const x=verifiedQaInvoice(invoice,subscription,order);
@@ -16,9 +16,9 @@ Deno.test('issued boleto is pending; not access granting until bank compensation
  assertEquals(x.amount,173980);
 });
 Deno.test('invoice.paid requires Stripe paid flag and exact amount_paid',()=>{
- assertThrows(()=>verifiedQaInvoice({...invoice,status:'paid',paid:false},subscription,order),Error,'QA_INVOICE_COMPENSATION_UNCONFIRMED');
- assertThrows(()=>verifiedQaInvoice({...invoice,status:'paid',paid:true,amount_paid:1},subscription,order),Error,'QA_INVOICE_COMPENSATION_UNCONFIRMED');
- assertEquals(verifiedQaInvoice({...invoice,status:'paid',paid:true,amount_paid:173980},subscription,order).paid,true);
+ assertThrows(()=>verifiedQaInvoice({...invoice,status:'paid',amount_remaining:173980},subscription,order),Error,'QA_INVOICE_COMPENSATION_UNCONFIRMED');
+ assertThrows(()=>verifiedQaInvoice({...invoice,status:'paid',amount_paid:1,amount_remaining:0},subscription,order),Error,'QA_INVOICE_COMPENSATION_UNCONFIRMED');
+ assertEquals(verifiedQaInvoice({...invoice,status:'paid',amount_paid:173980,amount_remaining:0},subscription,order).paid,true);
 });
 Deno.test('rejects amount, wrong subscription, wrong environment, wrong metadata',()=>{
  assertThrows(()=>verifiedQaInvoice({...invoice,total:1},subscription,order),Error,'QA_INITIAL_INVOICE_AMOUNT_MISMATCH');
@@ -26,6 +26,21 @@ Deno.test('rejects amount, wrong subscription, wrong environment, wrong metadata
  assertThrows(()=>verifiedQaInvoice({...invoice,customer:'cus_other'},subscription,order),Error,'QA_INVOICE_PROVIDER_MISMATCH');
  assertThrows(()=>verifiedQaInvoice(invoice,{...subscription,metadata:{}},order),Error,'QA_INVOICE_PROVIDER_MISMATCH');
  assertEquals(stripeInvoiceSubscription(invoice),'sub_qa');
+});
+Deno.test('bank compensation requires real Stripe InvoicePayment and succeeded PaymentIntent',()=>{
+ const settled={...invoice,status:'paid',amount_paid:173980,amount_remaining:0};
+ const payments={has_more:false,data:[{id:'inpay_qa',invoice:'in_initial',livemode:false,
+  status:'paid',amount_paid:173980,payment:{type:'payment_intent',payment_intent:'pi_qa'}}]};
+ const intent={id:'pi_qa',livemode:false,status:'succeeded',currency:'brl',
+  customer:'cus_qa',amount_received:173980};
+ assertEquals(verifiedStripeInvoicePaymentProof(settled,payments,intent),true);
+ assertEquals(verifiedStripeInvoicePaymentProof(settled,{has_more:false,data:[]},intent),false);
+ assertEquals(verifiedStripeInvoicePaymentProof(settled,payments,{...intent,status:'processing'}),false);
+ assertEquals(verifiedStripeInvoicePaymentProof(settled,payments,{...intent,amount_received:1}),false);
+ assertEquals(verifiedStripeInvoicePaymentProof({...settled,amount_paid:1},payments,intent),false);
+ assertEquals(verifiedStripeInvoicePaymentProof(settled,{
+  has_more:false,data:[{...payments.data[0],payment:{type:'payment_record',payment_intent:null}}],
+ },intent),false);
 });
 Deno.test('renewal invoice may differ in total but remains distinct',()=>{
  const renewal={...invoice,id:'in_renewal',total:74990,billing_reason:'subscription_cycle'};
