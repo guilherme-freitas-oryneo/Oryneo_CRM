@@ -69,7 +69,15 @@ async function reconcile(order:QaOrder,userId:string,key:string){
     (invoiceSub&&invoiceSub!==sub.id))
     throw Error('QA_BOLETO_SUBSCRIPTION_MISMATCH');
   providerStatus=provider.status||'unknown';
-  paid=providerStatus==='paid'&&provider.paid===true;
+  // A paid invoice snapshot cannot distinguish bank collection from
+  // paid-out-of-band marking. The signed invoice.payment_succeeded webhook
+  // alone records a compensated boleto. Never grant by polling.
+  if(providerStatus==='paid'){
+   return {ok:true,environment:'test',method:'boleto',
+    state:order.state,confirmed_paid:order.state==='paid',
+    reason:'bank_compensation_webhook_pending'};
+  }
+  paid=false;
   paidAmount=Number(provider.amount_paid||0);
  }
  // Only trusted Stripe TEST GET results reach the service-role reconciliation RPC.
