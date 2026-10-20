@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { publicCheckoutSnapshot } from '../_shared/billing/public-status.ts';
+import { boletoInvoiceView } from '../_shared/billing/invoice-public-status.ts';
 import { billingEnvironmentMatchesLivemode, getBillingEnvironmentConfig, parseBillingEnvironment } from '../_shared/billing/environment.ts';
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
 const origins=new Set(['https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br','http://localhost:4175']);
@@ -28,23 +29,47 @@ Deno.serve(async req=>{
   console.error('billing-public environment unavailable',{code:error instanceof Error?error.message:'unknown'});
   return respond({error:'Este ambiente de pagamento não está disponível agora.'},503);
  }
+ const paymentMethod=order.selection?.payment_method==='boleto'?'boleto':order.selection?.payment_method==='pix'?'pix':'card';
+ let invoiceUrl:string|null=null;
  let snapshot:{status:string;clientSecret:string|null};
- try {
-  snapshot=await publicCheckoutSnapshot(order,async sessionId=>{
-   const stripe=await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`,{headers:{Authorization:`Bearer ${config.secretKey}`,'Stripe-Version':'2026-08-26.dahlia'}});
-   if(!stripe.ok)return null;
-   const session=await stripe.json();
-   if(typeof session.livemode!=='boolean'||!billingEnvironmentMatchesLivemode(environment,session.livemode))return null;
-   return {payment_status:typeof session.payment_status==='string'?session.payment_status:undefined,client_secret:typeof session.client_secret==='string'?session.client_secret:null};
-  });
- } catch (error) {
-  if(error instanceof Error&&error.message==='BILLING_SESSION_UNAVAILABLE'){
-   return respond({error:'Não foi possível verificar o status do pagamento agora. Tente novamente.'},503);
+ if(paymentMethod==='boleto'){
+  if(order.status==='awaiting_payment'){
+   if(!order.stripe_invoice_id)return respond({error:'A fatura está sendo preparada. Tente novamente em instantes.'},503);
+   try{
+    const stripe=await fetch('https://api.stripe.com/v1/invoices/'+encodeURIComponent(order.stripe_invoice_id),{
+     headers:{Authorization:'Bearer '+config.secretKey,'Stripe-Version':'2026-08-26.dahlia'},
+    });
+    if(!stripe.ok)return respond({error:'Não foi possível consultar o boleto agora.'},503);
+    const invoice=await stripe.json();
+    if(invoice.id!==order.stripe_invoice_id)return respond({error:'Referência de fatura divergente.'},503);
+    const view=boletoInvoiceView(order,invoice);
+    invoiceUrl=view.invoiceUrl;
+    snapshot={status:view.status,clientSecret:null};
+   }catch(error){
+    console.error('billing-public boleto invoice validation failed',{code:error instanceof Error?error.message:'unknown'});
+    return respond({error:'Não foi possível validar a fatura agora.'},503);
+   }
+  }else snapshot={status:order.status,clientSecret:null};
+ }else{
+  let snapshot:{status:string;clientSecret:string|null};
+  try {
+   snapshot=await publicCheckoutSnapshot(order,async sessionId=>{
+    const stripe=await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`,{headers:{Authorization:`Bearer ${config.secretKey}`,'Stripe-Version':'2026-08-26.dahlia'}});
+    if(!stripe.ok)return null;
+    const session=await stripe.json();
+    if(typeof session.livemode!=='boolean'||!billingEnvironmentMatchesLivemode(environment,session.livemode))return null;
+    return {payment_status:typeof session.payment_status==='string'?session.payment_status:undefined,client_secret:typeof session.client_secret==='string'?session.client_secret:null};
+   });
+  } catch (error) {
+   if(error instanceof Error&&error.message==='BILLING_SESSION_UNAVAILABLE'){
+    return respond({error:'Não foi possível verificar o status do pagamento agora. Tente novamente.'},503);
+   }
+   console.error('billing-public checkout snapshot failed');
+   return respond({error:'Não foi possível consultar este pedido agora. Tente novamente.'},503);
   }
-  console.error('billing-public checkout snapshot failed');
-  return respond({error:'Não foi possível consultar este pedido agora. Tente novamente.'},503);
+
  }
  const {status,clientSecret}=snapshot;
  const selection=order.selection as {plan:string;cycle:string};
- return respond({order:{reference:order.reference,company:order.company,customer_name:order.customer_name,status,currency:'brl',amount_total:order.amount_total,items:order.items,recurring:{label:`Plano ${selection.plan}`,amount_cents:(order.items as any[])[0]?.amount_cents||0,interval_label:selection.cycle==='annual'?'por ano':'por mês',next_charge_at:null},expires_at:order.expires_at,test_mode:environment==='test'},client_secret:clientSecret,publishable_key:config.publishableKey});
+ return respond({order:{reference:order.reference,company:order.company,customer_name:order.customer_name,status,payment_method:paymentMethod,currency:'brl',amount_total:order.amount_total,items:order.items,recurring:{label:`Plano ${selection.plan}`,amount_cents:(order.items as any[])[0]?.amount_cents||0,interval_label:selection.cycle==='annual'?'por ano':'por mês',next_charge_at:null},expires_at:order.expires_at,test_mode:environment==='test'},client_secret:clientSecret,publishable_key:config.publishableKey,invoice_url:invoiceUrl});
 });
