@@ -10,6 +10,7 @@
 - Banco: apenas dois pedidos TEST expirados no momento da auditoria; zero assinaturas ou faturas vinculadas. Nenhuma compra LIVE comprovada.
 - PR #46 contém código de sandbox, builders de boleto/Pix, validação de links de fatura, migration inicial e testes.
 - A migration **não foi aplicada**. As Edge Functions alteradas **não foram implantadas**.
+- GitHub PR head `27307cec`: CI de código e QA navegador aprovados; `main` permanece `173b4425`.
 
 ## Matriz das 20 microtarefas
 | # | Microtarefa | Situação nesta rodada |
@@ -29,9 +30,9 @@
 | 13 | Estados no CRM | Pedido/fatura persistentes; falta validar interface e eventos reais |
 | 14 | E-mails e avisos | Templates e textos preparados; disparo real de aviso de boleto ainda não integrado |
 | 15 | Checkout visual | Tela de boleto por fatura Stripe preparada; seleção pública não liberada |
-| 16 | Testes automatizados | Novos testes e checks no CI; conferir conclusão do último commit |
+| 16 | Testes automatizados | CI ampliado; TypeScript, Deno e frontend aprovados no commit 27307cec |
 | 17 | Stripe TEST integrado | Bloqueado pelos métodos TEST desligados e migration não homologada |
-| 18 | Regressão e CI | Em execução, acompanhar workflow do commit final |
+| 18 | Regressão e CI | CI e QA navegador aprovados no commit 27307cec; houve falha intermitente anterior no WebKit mobile, com reexecução verde |
 | 19 | Publicação seletiva | **Não realizada**: pré-requisitos ainda não cumpridos |
 | 20 | Jornada E2E | **Não homologada** |
 
