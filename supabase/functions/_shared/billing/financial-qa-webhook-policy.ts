@@ -11,7 +11,29 @@ export function stripeInvoiceSubscription(invoice:Record<string,any>):string|nul
  const raw=invoice.subscription??invoice.parent?.subscription_details?.subscription;
  return typeof raw==='string'?raw:typeof raw?.id==='string'?raw.id:null;
 }
-/** invoice.paid also fires after a manual paid-out-of-band mark. Only invoice.payment_succeeded\n * is the Stripe webhook proof for a real successful collection. */\nexport function permitsBoletoCompensation(eventType:string,invoice:Record<string,any>):boolean{\n return eventType==='invoice.payment_succeeded'&&invoice.status==='paid'&&\n   invoice.paid===true&&invoice.paid_out_of_band!==true&&\n   Number.isSafeInteger(invoice.total)&&invoice.total>0&&\n   invoice.amount_paid===invoice.total;\n}\nexport function verifiedQaInvoice(
+/** invoice.paid is not sufficient: Stripe also emits it after manual paid-out-of-band.
+ * Require a paid InvoicePayment backed by a succeeded PaymentIntent.
+ */
+export function verifiedStripeInvoicePaymentProof(
+ invoice:Record<string,any>,
+ invoicePayments:Record<string,any>,
+ intent:Record<string,any>,
+):boolean{
+ if(invoice.status!=='paid'||!Number.isSafeInteger(invoice.total)||invoice.total<=0||
+   invoice.amount_paid!==invoice.total||invoice.amount_remaining!==0 ||
+   invoicePayments.has_more!==false||!Array.isArray(invoicePayments.data)||
+   invoicePayments.data.length!==1)return false;
+ const payment=invoicePayments.data[0];
+ const piId=payment.payment?.payment_intent;
+ if(payment.livemode!==false||payment.status!=='paid'||payment.invoice!==invoice.id||
+    !Number.isSafeInteger(payment.amount_paid)||payment.amount_paid!==invoice.total||
+    payment.payment?.type!=='payment_intent'||typeof piId!=='string'||!piId.startsWith('pi_'))
+  return false;
+ return intent.livemode===false&&intent.id===piId&&intent.status==='succeeded'&&
+  intent.currency===invoice.currency&&intent.customer===invoice.customer&&
+  intent.amount_received===invoice.total;
+}
+export function verifiedQaInvoice(
  invoice:Record<string,any>,subscription:Record<string,any>,
  order:Record<string,any>,
 ):Readonly<{status:string;paid:boolean;amount:number;invoiceId:string;billingReason:string|null}>{
@@ -26,8 +48,9 @@ export function stripeInvoiceSubscription(invoice:Record<string,any>):string|nul
   order.environment!=='test'||order.method!=='boleto'||invoice.currency!=='brl'||
   !Number.isSafeInteger(invoice.total)||invoice.total<0)
   throw Error('QA_INVOICE_PROVIDER_MISMATCH');
- const paid=invoice.status==='paid'&&invoice.paid===true&&
-  invoice.amount_paid===invoice.total;
+ const paid=invoice.status==='paid'&&
+  invoice.amount_paid===invoice.total&&invoice.amount_remaining===0&&
+  invoice.total>0;
  if(invoice.status==='paid'&&!paid)throw Error('QA_INVOICE_COMPENSATION_UNCONFIRMED');
  if(invoice.id===order.stripe_invoice_id&&invoice.total!==order.amount_cents)
   throw Error('QA_INITIAL_INVOICE_AMOUNT_MISMATCH');
