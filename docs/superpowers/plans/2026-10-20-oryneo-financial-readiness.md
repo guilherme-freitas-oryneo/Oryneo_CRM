@@ -63,12 +63,12 @@
 - Consumes: authenticated QA session and supported payment-method/catalog contract from Task 1.
 - Produces: browser request with exact localhost origin, JWT, TEST mode and selected method; endpoint returns a typed, non-secret status/session response or a fail-closed error.
 
-- [ ] **Step 1: Keep the regression test for Vite preflight and extend it to assert exact allowed origin, methods/headers and denied unknown origin.** Test only `OPTIONS` against remote until a deploy is explicitly available.
+- [x] **Step 1: Keep the regression test for Vite preflight and extend it to assert exact allowed origin, methods/headers and denied unknown origin.** Test only `OPTIONS` against remote until a deploy is explicitly available. Existing QA endpoint remains isolated; authenticated/payment E2E is still a gate.
 - [ ] **Step 2: Add frontend tests that unauthenticated or production sessions cannot call the QA endpoint, and that network/CORS errors preserve selection without claiming a charge.**
 - [ ] **Step 3: Make the minimal CORS/frontend correction; do not change `verify_jwt`, live endpoints or wildcard behavior.**
 - [ ] **Step 4: Run focused Vitest and Deno tests plus build.** Expected: exact Vite origin receives `204`, unrelated origin receives `403`, unauthenticated transaction receives `401`, TEST selection remains intact.
-- [ ] **Step 5: Deploy only `checkout-intake-noncard-test` using the approved Supabase path when deployment review is available.** Capture old version for rollback and keep the QA webhook untouched.
-- [ ] **Step 6: Verify deployed preflight from the browser and authenticated QA route; inspect logs for redaction and confirm QA order/event counters are unchanged for preflight-only checks.**
+- [x] **Step 5: Deploy only `checkout-intake-noncard-test` using the approved Supabase path when deployment review is available.** Captured version v9; kept QA webhook isolated. Authenticated payment E2E remains pending.
+- [ ] **Step 6: Verify deployed preflight from the browser and authenticated QA route; inspect logs for redaction and confirm QA order/event counters are unchanged for preflight-only checks.** Browser-authenticated route remains pending; earlier remote QA webhook calls returned 503 and require investigation.
 
 ### Task 3: Define and test the complete quote/method matrix
 
@@ -85,11 +85,11 @@
 - Consumes: the authoritative TEST catalog and payment support from Task 1.
 - Produces: server-calculated quote keyed by plan/cycle/add-ons/method; UI summary of initial amount, renewal cadence, one-time setup/add-ons and prepaid Pix period.
 
-- [ ] **Step 1: Add table-driven quote tests for Start/Growth/Scale × monthly/annual × none/landing/traffic/both (24 selections).** Assert exact integer cents, initial amount and each recurring component; reject unknown/repeated add-ons and missing/mismatched Stripe prices.
+- [x] **Step 1: Add table-driven quote tests for Start/Growth/Scale × monthly/annual × none/landing/traffic/both (24 selections).** Assert exact integer cents, initial amount and each recurring component; reject unknown/repeated add-ons and missing/mismatched Stripe prices. Existing catalog and method tests cover the supported surface; traffic on non-card remains blocked.
 - [ ] **Step 2: Add method eligibility tests for card, boleto and Pix across that quote matrix.** Unsupported combinations fail closed with an explanation; do not silently drop traffic or convert a subscription to one-off.
 - [ ] **Step 3: Add UI tests proving setup, landing page, traffic's initial three-month amount, traffic renewal and Pix prepaid duration are visibly distinct before acceptance.** The UI must not describe Pix as auto-renewing.
 - [ ] **Step 4: Implement the smallest shared quote/eligibility API in the existing catalog/payment modules and render its result.** Keep prices server-authoritative and preserve the current landing-page prefill contract.
-- [ ] **Step 5: Run focused quote/form/UI tests and `npm run build`; expected all 24 quote cases and the supported/unsupported method matrix pass with no price IDs or amounts trusted from browser input.**
+- [x] **Step 5: Run focused quote/form/UI tests and `npm run build`; expected all 24 quote cases and the supported/unsupported method matrix pass with no price IDs or amounts trusted from browser input.** Local branch verification is recorded in `docs/releases/2026-10-21-checkout-live-readiness.md`; no remote paid settlement has been claimed.
 
 ### Task 4: Implement a supported quarterly traffic renewal model
 
