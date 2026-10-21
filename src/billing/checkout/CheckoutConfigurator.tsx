@@ -85,6 +85,6 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
     <aside className="checkout-quote" aria-live="polite"><div><span>Plano {plan} · {cycle === 'annual' ? 'Anual' : 'Mensal'}</span><strong>{money(quote.planAmount)}</strong></div><div><span>Implantação</span><strong>{money(quote.setup)}</strong></div>{quote.selectedAddons.map(item => <div key={item.key}><span>{item.label}<small>{item.detail}</small></span><strong>{money(item.price)}</strong></div>)}<div className="checkout-total"><span>Total de hoje</span><strong>{money(quote.total)}</strong></div>{addons.includes('traffic') && <p>Gestão de tráfego: {money(additions.traffic.price)} a cada 3 meses após o período inicial. Verba de mídia não está incluída.</p>}</aside>
     {error && <p className="checkout-error" role="alert">{error}</p>}
     <button className="pay-submit" type="button" disabled={!valid || busy} onClick={submit}><LockKeyhole size={17}/>{busy ? 'Preparando pagamento…' : 'Continuar para o pagamento'}</button>
-    <p className="checkout-secure"><Check size={14}/> Seus dados servem apenas para preparar este pedido. O cartão é processado em campos seguros.</p>
+    <p className="checkout-secure"><Check size={14}/> Seus dados servem apenas para preparar este pedido. Os meios de pagamento disponíveis serão apresentados com as condições e o período coberto antes da confirmação.</p>
   </div>;
 }

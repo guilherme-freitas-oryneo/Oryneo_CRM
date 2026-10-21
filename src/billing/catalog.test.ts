@@ -55,7 +55,19 @@ describe('buildBillingSelection', () => {
       const result = buildBillingSelection(input, resolvedPrices(true));
       expect(result.stripePriceIds.every(id => id.startsWith('price_live_'))).toBe(true);
       expect(result.amountTotal).toBe(result.items.reduce((sum, item) => sum + item.amountCents, 0));
+      expect(result.items.filter(item => item.recurring)).toHaveLength(1);
+      expect(result.recurring?.intervalLabel).toBe(input.cycle === 'annual' ? 'por ano' : 'por mês');
+      expect(result.items.some(item => item.key === 'traffic')).toBe(input.addons.includes('traffic'));
+      expect(result.items.some(item => item.key === 'landing-page')).toBe(input.addons.includes('landing-page'));
+      expect(result.trafficRenewalPriceId !== null).toBe(input.addons.includes('traffic'));
     }
+  });
+
+  it('fixa a renovação de tráfego em período de três meses no catálogo', () => {
+    expect(BILLING_PRICE_SPECS.find(spec => spec.lookupKey === 'oryneo_traffic_quarterly')).toMatchObject({
+      amountCents: 296_970,
+      recurring: { interval: 'month', interval_count: 3 },
+    });
   });
 });
 

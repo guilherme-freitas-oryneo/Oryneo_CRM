@@ -46,4 +46,24 @@ describe('homologação financeira', () => {
       }),
     );
   });
+
+  it('não chama o endpoint QA sem uma sessão autenticada', async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({ data: { session: null }, error: null } as never);
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: 'Entrar no CRM' })).toBeInTheDocument();
+    expect(supabase.functions.invoke).not.toHaveBeenCalled();
+  });
+
+  it('mantém QA isolado em TEST e mostra falha sem sugerir cobrança criada', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: null, error: new Error('Failed to fetch') } as never);
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'QA financeiro' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Criar fatura QA Boleto' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Não foi possível criar a fatura de homologação.');
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('checkout-intake-noncard-test', expect.any(Object));
+    expect(supabase.functions.invoke).not.toHaveBeenCalledWith('checkout-intake', expect.anything());
+  });
+
 });

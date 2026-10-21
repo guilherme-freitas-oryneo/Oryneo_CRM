@@ -36,6 +36,18 @@ describe('CheckoutConfigurator', () => {
     expect(screen.getByText(/Verba de mídia não está incluída/)).toBeInTheDocument();
     expect(screen.getByText(/a cada 3 meses após o período inicial/)).toBeInTheDocument();
   });
+
+  it('separa implantação, valor inicial de tráfego e renovação trimestral no resumo', async () => {
+    const user = userEvent.setup();
+    render(<CheckoutConfigurator onContinue={vi.fn()}/>);
+    await user.click(screen.getByRole('checkbox', { name: /Gestão de tráfego pago/i }));
+
+    const quote = screen.getByRole('complementary');
+    expect(quote).toHaveTextContent('Implantação');
+    expect(quote).toHaveTextContent('Primeiros 3 meses antecipados');
+    expect(quote).toHaveTextContent('a cada 3 meses após o período inicial');
+    expect(quote).toHaveTextContent('Verba de mídia não está incluída');
+  });
 });
 
 afterEach(() => {

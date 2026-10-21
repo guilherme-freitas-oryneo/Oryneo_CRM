@@ -55,5 +55,14 @@ No combinations are being declared fully homologated from this baseline alone.
 
 ## Batch 1 progress
 
-Tasks 1–4 are in progress. This log will be updated with each task's tests, deployment versions and unresolved external gates. Tasks 5–8 are outside this approved batch.
+### Results through Tasks 1–4
+
+- Task 1 baseline is complete as recorded above.
+- Task 2: local QA panel guard/error-path tests and expanded CORS integration assertions are present. The remote Vite-origin `OPTIONS` request returned **403** (the unrelated origin also returns 403, fail-closed). Local function source already includes `http://localhost:5173`; remote function remains v6. Attempted deploy did not execute: the Supabase tool rejected the entrypoint path, so no function version changed. Do not claim the browser QA path is fixed. No order/session was created by preflight checks.
+- Task 3: extended 24-selection catalog assertions and checkout disclosure test; local frontend suite passes. Existing non-card server validation rejects traffic add-on for both boleto and Pix (`Tráfego trimestral não homologado neste método.`). No method availability was confirmed against the Stripe account. Pix prepaid period/method eligibility remain unspecified and are not advertised as ready.
+- Task 4: **not implemented** because Stripe account reauthentication is required and the supported mixed-cadence invoice behavior cannot be verified. Existing QA non-card traffic rejection remains in place. Do not permit mixed plan/quarterly traffic billing until account TEST read-back and the necessary reverse-event reconciliation are available.
+- Targeted Vitest after local edits: 34 files, 202 tests passed. `npm run build`: passed. `git diff --check`: passed. Deno is unavailable locally; no new Deno test result is claimed.
+- No Stripe transaction/session, Supabase data mutation, LIVE change, secret update, or test email was performed. Existing QA/CRM counts remain as baseline because verification was read-only.
+
+Tasks 5–8 are outside this approved batch. The first four did not clear the deployment/account-dependent release gates; no payment path is certified ready to charge customers.
 

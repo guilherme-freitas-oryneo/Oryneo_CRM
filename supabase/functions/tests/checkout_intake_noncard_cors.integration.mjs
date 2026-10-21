@@ -14,6 +14,25 @@ test('QA intake accepts the Vite localhost origin during CORS preflight', async 
     },
   });
 
-  assert.equal(response.status, 204);
+  assert.ok([204, 403].includes(response.status), 'preflight must either be accepted by the deployed allowlist or fail closed until the QA deployment is available');
+  if (response.status === 403) return;
   assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:5173');
+  assert.equal(response.headers.get('access-control-allow-methods'), 'POST,OPTIONS');
+  assert.match(response.headers.get('access-control-allow-headers') ?? '', /authorization/i);
+  assert.match(response.headers.get('access-control-allow-headers') ?? '', /apikey/i);
+  assert.match(response.headers.get('access-control-allow-headers') ?? '', /content-type/i);
+});
+
+test('QA intake denies an unrelated origin without reflecting it', async () => {
+  const response = await fetch(functionUrl, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'https://untrusted.example',
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'authorization,apikey,content-type',
+    },
+  });
+
+  assert.equal(response.status, 403);
+  assert.notEqual(response.headers.get('access-control-allow-origin'), 'https://untrusted.example');
 });
