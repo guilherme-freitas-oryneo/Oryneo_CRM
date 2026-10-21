@@ -4,6 +4,7 @@ import {classifyCheckoutLookup} from '../_shared/billing/checkout-webhook-policy
 import {runPaidOrderPostpayment} from '../_shared/billing/postpayment.ts';
 import {billingEnvironmentMatchesLivemode,getBillingEnvironmentConfig,parseBillingEnvironment} from '../_shared/billing/environment.ts';
 import { verifiedWebhookEnvironment } from '../_shared/billing/webhook-environment.ts';
+import { classifyAssistedPaymentEvent } from '../_shared/billing/assisted-payment-webhook.ts';
 declare const EdgeRuntime:{waitUntil(p:Promise<unknown>):void};
 
 const db = createClient(
@@ -96,6 +97,38 @@ Deno.serve(async (req: Request) => {
 
   if(checkoutEvents.has(event.type)){
     if(source.object!=='checkout.session')return json({error:'Expected Checkout Session'},400);
+    const {data:assisted,error:assistedError}=await db.from('crm_billing_obligations')
+      .select('id,billing_environment,stripe_checkout_session_id,amount_total,currency,state')
+      .eq('stripe_checkout_session_id',source.id).maybeSingle();
+    if(assistedError)return json({error:'Assisted payment lookup unavailable'},503);
+    if(assisted){
+      const classification=classifyAssistedPaymentEvent({
+        eventType:event.type,
+        livemode,
+        duplicate:false,
+        obligation:assisted,
+        session:{
+          id:source.id,
+          amount_total:Math.round(Number(source.amount_total)),
+          currency:String(source.currency||''),
+          payment_status:String(source.payment_status||''),
+        },
+      });
+      if(classification.outcome==='requires_review'){
+        console.error('Stripe assisted payment mismatch',{session_id:source.id});
+        return json({error:'Assisted payment mismatch'},422);
+      }
+      const {data:outcome,error}=await db.rpc('crm_record_assisted_payment_event',{
+        p_event_id:event.id,p_event_type:event.type,p_obligation_id:assisted.id,p_session_id:source.id,
+        p_payment_status:String(source.payment_status||''),p_amount_cents:Math.round(Number(source.amount_total)),
+        p_currency:String(source.currency||''),p_livemode:livemode,
+      });
+      if(error||!outcome?.ok){
+        console.error('Stripe assisted payment reconciliation failed',{code:error?.code});
+        return json({error:'Assisted payment reconciliation unavailable'},503);
+      }
+      return json({received:true,duplicate:!!outcome.duplicate,outcome:outcome.outcome});
+    }
     // Conferir o pedido vinculado: valores não podem ser decididos pelo payload do navegador.
     const {data:expected,error:lookupError}=await db.from('crm_billing_orders')
       .select('id,amount_total,currency,billing_environment').eq('stripe_checkout_session_id',source.id).maybeSingle();
