@@ -9,14 +9,14 @@ const rule = (selector: string) => {
 };
 
 describe('contraste do resumo de cobrança', () => {
-  it('define cores claras explicitamente nos nomes e valores dos itens', () => {
-    expect(rule('.pay-items>div>span')).toMatch(/color:\s*#e7eaf0/i);
-    expect(rule('.pay-items>div>strong')).toMatch(/color:\s*#f7f8fa/i);
+  it('define contraste editorial nos nomes e valores dos itens', () => {
+    expect(rule('.pay-items>div>span')).toMatch(/color:\s*#0f1115/i);
+    expect(rule('.pay-items>div>strong')).toMatch(/color:\s*#0f1115/i);
   });
 
-  it('mantém textos auxiliares legíveis sobre o card escuro', () => {
-    expect(rule('.pay-items span small')).toMatch(/color:\s*#aeb5c0/i);
-    expect(rule('.pay-total span')).toMatch(/color:\s*#b5bbc5/i);
-    expect(rule('.pay-help')).toMatch(/color:\s*#a6adb8/i);
+  it('mantém textos auxiliares legíveis sobre o fundo claro', () => {
+    expect(rule('.pay-items span small')).toMatch(/color:\s*#667085/i);
+    expect(rule('.pay-total span')).toMatch(/color:\s*#475467/i);
+    expect(rule('.pay-help')).toMatch(/color:\s*#667085/i);
   });
 });

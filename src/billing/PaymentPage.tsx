@@ -27,6 +27,7 @@ export type PublicBillingOrder = {
     interval_label: string;
     next_charge_at?: string | null;
   } | null;
+  payment_profile?: 'card_auto' | 'pix_assisted' | 'boleto_assisted' | null;
   expires_at: string;
   test_mode: boolean;
 };
@@ -34,6 +35,32 @@ export type PublicBillingOrder = {
 const money = (cents: number) => new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL',
 }).format(cents / 100);
+
+export function paymentProfileDisclosure(order: PublicBillingOrder) {
+  switch (order.payment_profile) {
+    case 'pix_assisted':
+      return {
+        title: 'Pix — você confirma cada vencimento no banco',
+        detail: 'Enviaremos uma nova cobrança Pix a cada ciclo; não há débito automático.',
+      };
+    case 'boleto_assisted':
+      return {
+        title: 'Boleto — a compensação pode levar alguns dias',
+        detail: 'Enviaremos uma nova cobrança a cada ciclo e confirmaremos a compensação antes de liberar a próxima etapa.',
+      };
+    default:
+      return {
+        title: 'Cartão — renovação automática',
+        detail: 'Os próximos pagamentos seguem a recorrência descrita no pedido.',
+      };
+  }
+}
+
+const checkoutActionLabel = (order: PublicBillingOrder) => {
+  if (order.payment_profile === 'pix_assisted') return `Gerar Pix de ${money(order.amount_total)}`;
+  if (order.payment_profile === 'boleto_assisted') return `Gerar boleto de ${money(order.amount_total)}`;
+  return `Pagar ${money(order.amount_total)} com cartão`;
+};
 
 const offboardingLink = () => {
   const token = new URLSearchParams(window.location.search).get('token');
@@ -66,6 +93,7 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
 }) {
   const [accepted, setAccepted] = useState(false);
   const ready = order.status === 'awaiting_payment';
+  const profile = paymentProfileDisclosure(order);
   return <main className="pay-page">
     <header className="pay-header">
       <div className="pay-shell pay-header-inner">
@@ -74,7 +102,6 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
         <div><ShieldCheck size={17}/> Conexão protegida</div>
       </div>
     </header>
-    <div className="pay-glow" aria-hidden="true"/>
     <div className="pay-shell pay-layout">
       <section className="pay-card pay-form-card">
         <div className="pay-intro">
@@ -88,19 +115,23 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
             Acompanhar implantação e próximos passos</a></p>}
           {order.status==='paid'&&accountUrl&&<p className="pay-help"><a href={accountUrl} rel="noreferrer">Gerenciar assinatura e privacidade</a></p>} 
           {ready && <>
+            <div className="pay-profile" aria-live="polite">
+              <strong>{profile.title}</strong>
+              <p>{profile.detail}</p>
+            </div>
             <label className="pay-consent">
               <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)}/>
               <span><Check size={15}/> Li e aceito as condições comerciais e a recorrência descritas neste pedido.</span>
             </label>
             <div className="pay-terms-access"><TermsDialog /></div>
             <button className="pay-submit" disabled={!accepted || busy} onClick={onPay}>
-              <LockKeyhole size={17}/>{busy ? 'Processando…' : 'Confirmar pagamento'}
+              <LockKeyhole size={17}/>{busy ? 'Processando…' : checkoutActionLabel(order)}
             </button>
             {order.test_mode && <p className="pay-test-note">Ambiente de homologação · nenhum pagamento real será processado.</p>}
           </>}
         </div>
       </section>
-      <aside className="pay-summary">
+      <aside className="pay-summary" aria-label="Resumo do pedido">
         <div className="pay-summary-head">
           <div><small>PEDIDO {order.reference}</small><h2>{order.company}</h2></div>
           <span>{order.status === 'paid' ? 'Pago' : order.status === 'processing' ? 'Em confirmação' : order.status === 'expired' ? 'Expirado' : 'Aguardando pagamento'}</span>
@@ -181,7 +212,7 @@ export function PaymentPage() {
   if (!order) return <main className="pay-page pay-center"><div className="pay-loading" aria-label="Carregando pedido"><span/>Preparando seu ambiente seguro…</div></main>;
   if(order.status==='awaiting_payment'&&!checkout)return <PaymentPageView order={{...order,status:'payment_failed'}} paymentSlot={null} onPay={()=>undefined}/>;
   if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={order.status==='paid'?deliveryLink():''} accountUrl={order.status==='paid'?offboardingLink():''}/>;
-  return <CheckoutElementsProvider stripe={stripePromise} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#5269ff',colorText:'#242931',colorBackground:'#ffffff',borderRadius:'9px',fontFamily:'DM Sans, sans-serif'}}}}}>
+  return <CheckoutElementsProvider stripe={stripePromise} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#4357e8',colorText:'#0f1115',colorBackground:'#ffffff',borderRadius:'8px',fontFamily:'Inter, ui-sans-serif, system-ui, sans-serif'}}}}}>
     <StripePayment order={order}/>
   </CheckoutElementsProvider>;
 }
