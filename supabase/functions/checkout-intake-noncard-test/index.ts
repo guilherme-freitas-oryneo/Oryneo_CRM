@@ -9,6 +9,7 @@ import {buildBillingSelection,resolveStripeBillingPrices} from '../_shared/billi
 import {getBillingEnvironmentConfig} from '../_shared/billing/environment.ts';
 import {checkStripeMethodAvailability} from '../_shared/billing/stripe-method-availability.ts';
 import {createStripeBoletoSubscription,createStripePixCheckout,finalizeStripeBoletoInvoice} from '../_shared/billing/stripe-noncard-service.ts';
+import {pixReconciliationDecision} from '../_shared/billing/financial-qa-webhook-policy.ts';
 import type {PaymentOrderContext,ServerBillingSelection} from '../_shared/billing/stripe-payment-forms.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
@@ -55,6 +56,9 @@ async function reconcile(order:QaOrder,userId:string,key:string){
    provider.status==='expired'?'expired':provider.payment_status||'unpaid';
   paid=provider.payment_status==='paid';
   paidAmount=provider.amount_total;
+  const decision=pixReconciliationDecision(paid,order.state);
+  if(decision.confirmedPaid)return {ok:true,environment:'test',method:'pix',state:order.state,confirmed_paid:true};
+  if(decision.webhookPending)return {ok:true,environment:'test',method:'pix',state:order.state,confirmed_paid:false,reason:'signed_webhook_pending'};
  }else{
   provider=await stripeRead('invoices/'+encodeURIComponent(linked),key);
   if(provider.id!==linked||provider.currency!=='brl'||provider.total!==order.amount_cents

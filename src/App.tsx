@@ -9,6 +9,7 @@ import {Activities} from './Activities';
 import {Mailbox} from './mail/Mailbox';
 import {LeadQuickActions} from './firstContact/LeadQuickActions';
 import {FirstContactDialog} from './firstContact/FirstContactDialog';
+import {FinancialQaPanel} from './billing/FinancialQaPanel';
 import './nav-v21.css';
 type Editor={kind:'stage';row?:StageRow}|{kind:'deal';row?:DealRow;stageId:string;duplicate?:boolean};
 export default function App(){
@@ -20,7 +21,7 @@ export default function App(){
 function Board({session}:{session:Session}){
  const [rows,setRows]=useState<RecordRow[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[loadError,setLoadError]=useState('');
  const [query,setQuery]=useState(''),[stageQueries,setStageQueries]=useState<Record<string,string>>({}),[outcome,setOutcome]=useState('all'),[actionFilter,setActionFilter]=useState('all');
- const [view,setView]=useState<'pipeline'|'activities'|'mail'|'qa'>('pipeline'),[mailMounted,setMailMounted]=useState(false);
+ const [view,setView]=useState<'pipeline'|'activities'|'mail'|'qa'>(()=>new URLSearchParams(window.location.search).has('qa_return')?'qa':'pipeline'),[mailMounted,setMailMounted]=useState(false);
  const [editor,setEditor]=useState<Editor|null>(null),[deleting,setDeleting]=useState<RecordRow|null>(null),[moveDeal,setMoveDeal]=useState<DealRow|null>(null),[detailId,setDetailId]=useState<string|null>(null),[firstContact,setFirstContact]=useState<{deal:DealRow;resend?:boolean}|null>(null);
  const [toast,setToast]=useState<{message:string;error?:boolean}|null>(null),[operation,setOperation]=useState<string|null>(null),[synced,setSynced]=useState<Date|null>(null),[dragged,setDragged]=useState<string|null>(null);
  const queryRef=useRef<HTMLInputElement>(null),busyRef=useRef(false),fetchRef=useRef(0);
@@ -63,23 +64,4 @@ function Board({session}:{session:Session}){
  {moveDeal&&<Modal title="Mover oportunidade" description={moveDeal.data.title} onClose={()=>!busy&&setMoveDeal(null)}><div className="move-options">{stages.map(s=><button key={s.id} disabled={busy||s.id===moveDeal.data.stage_id} onClick={()=>void perform(()=>mutate({...moveDeal,data:{...moveDeal.data,stage_id:s.id}}),'Oportunidade movida.')}><i style={{background:s.data.color}}/>{s.data.name}{s.id===moveDeal.data.stage_id?<Check size={16}/>:<ArrowRight size={16}/>}</button>)}</div></Modal>}
  {toast&&<div className={`toast ${toast.error?'toast-error':''}`} role={toast.error?'alert':'status'}>{toast.error?<X size={17}/>:<Check size={17}/>}<span>{toast.message}</span><button className="icon" aria-label="Fechar aviso" onClick={()=>setToast(null)}><X size={15}/></button></div>}
  </div>
-}
-
-function FinancialQaPanel(){
- const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
- const createBoleto=async()=>{
-  setBusy(true);setMessage('');
-  const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),value=>value.toString(16).padStart(2,'0')).join('').slice(0,43);
-  const {data,error}=await supabase.functions.invoke('checkout-intake-noncard-test',{body:{
-   action:'create',request_id:crypto.randomUUID(),payment_token:token,
-   customer_name:'ORYNEO Homologação',customer_email:'qa@example.com',company:'ORYNEO QA',
-   plan:'Start',cycle:'monthly',addons:[],payment_method:'boleto',
-  }});
-  setBusy(false);
-  if(error||data?.environment!=='test'||data?.payment_method!=='boleto'){
-   setMessage('Não foi possível criar a fatura de homologação.');return;
-  }
-  setMessage(data.invoice_ready?'Fatura Boleto TEST criada para homologação.':'A fatura TEST ainda não ficou disponível.');
- };
- return <section className="page-heading"><div><span className="eyebrow">AMBIENTE DE TESTE</span><h1>QA financeiro<span className="heading-dot"/></h1><p>Cria apenas uma fatura Boleto Stripe TEST no ambiente isolado. Não altera oportunidades, e-mails ou cobranças LIVE.</p>{message&&<p role="status">{message}</p>}</div><button className="primary" disabled={busy} onClick={()=>void createBoleto()}>{busy?<Spinner/>:<FlaskConical size={17}/>}Criar fatura QA Boleto</button></section>;
 }

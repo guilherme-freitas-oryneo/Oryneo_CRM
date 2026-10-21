@@ -19,4 +19,12 @@ describe('contraste do resumo de cobrança', () => {
     expect(rule('.pay-total span')).toMatch(/color:\s*#b5bbc5/i);
     expect(rule('.pay-help')).toMatch(/color:\s*#a6adb8/i);
   });
+
+  it('usa os tokens oficiais ORYNEO no fundo, CTA e tipografia do checkout', () => {
+    expect(css).toMatch(/--oryneo-graphite:\s*#0f1115/i);
+    expect(css).toMatch(/--oryneo-indigo:\s*#4f6bff/i);
+    expect(css).toMatch(/--oryneo-off-white:\s*#f8f7f4/i);
+    expect(css).toMatch(/--oryneo-cta:\s*#4357e8/i);
+    expect(css).toMatch(/font-family:\s*Inter,\s*Arial,\s*sans-serif/i);
+  });
 });

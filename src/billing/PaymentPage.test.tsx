@@ -56,11 +56,15 @@ describe('PaymentPageView', () => {
   });
 
   it('expõe total, composição e recorrência antes do pagamento', () => {
-    render(<PaymentPageView order={order} paymentSlot={<div>Pagamento seguro</div>} onPay={() => undefined} />);
+    const {container}=render(<PaymentPageView order={order} paymentSlot={<div>Pagamento seguro</div>} onPay={() => undefined} />);
     expect(screen.getByRole('heading', { name: 'Finalize sua contratação.' })).toBeInTheDocument();
     expect(screen.getByText('R$ 3.279,80')).toBeInTheDocument();
     expect(screen.getByText('R$ 1.099,90 por mês')).toBeInTheDocument();
     expect(screen.getByText(/Ambiente de homologação/)).toBeInTheDocument();
+    expect(screen.getByRole('complementary',{name:'Resumo do pedido'})).toBeInTheDocument();
+    expect(container.querySelector('.pay-glow')).toBeNull();
+    expect(screen.getByRole('region',{name:'Forma de pagamento: Cartão'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:/Pagar R\$\s*3\.279,80 agora/})).toBeDisabled();
     expect(screen.getByRole('link', { name: 'Privacidade' })).toHaveAttribute('href', 'https://guilherme-freitas-oryneo.github.io/Oryneo_Landing_Page/privacidade.html');
     expect(screen.getByRole('link', { name: 'Suporte' })).toHaveAttribute('href', 'mailto:contato@oryneo.com.br');
   });
@@ -68,7 +72,7 @@ describe('PaymentPageView', () => {
   it('só libera a confirmação após o aceite explícito', async () => {
     const user = userEvent.setup();
     render(<PaymentPageView order={order} paymentSlot={<div>Pagamento seguro</div>} onPay={() => undefined} />);
-    const button = screen.getByRole('button', { name: 'Confirmar pagamento' });
+    const button = screen.getByRole('button', { name: /Pagar R\$\s*3\.279,80 agora/ });
     expect(button).toBeDisabled();
     await user.click(screen.getByRole('checkbox'));
     expect(button).toBeEnabled();
@@ -89,6 +93,7 @@ describe('PaymentPageView', () => {
     const onPay=vi.fn();
     render(<PaymentPageView order={{...order,payment_method:'boleto'}} paymentSlot={<div>Boleto Stripe</div>} onPay={onPay} payLabel="Abrir boleto seguro"/>);
     expect(screen.getByText(/pagamento individual de cada fatura/i)).toBeInTheDocument();
+    expect(screen.getByRole('region',{name:'Forma de pagamento: Boleto bancário'})).toBeInTheDocument();
     const button=screen.getByRole('button',{name:'Abrir boleto seguro'});
     expect(button).toBeDisabled();
     await user.click(screen.getByRole('checkbox'));
@@ -98,6 +103,8 @@ describe('PaymentPageView', () => {
   it('Pix avulso não promete renovação automática',()=>{
     render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code Pix</div>} onPay={()=>undefined}/>);
     expect(screen.getByText(/não renova automaticamente/i)).toBeInTheDocument();
+    expect(screen.getByRole('region',{name:'Forma de pagamento: Pix'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:/Pagar R\$\s*3\.279,80 com Pix/})).toBeDisabled();
   });
 
 });

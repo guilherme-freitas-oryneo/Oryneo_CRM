@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Check, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { Barcode, Check, CreditCard, LockKeyhole, QrCode, ShieldCheck } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { CheckoutElementsProvider, PaymentElement, useCheckoutElements } from '@stripe/react-stripe-js/checkout';
 import { supabase } from '../data';
@@ -36,6 +36,12 @@ const money = (cents: number) => new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL',
 }).format(cents / 100);
 
+const paymentMethods = {
+  card: { label: 'Cartão', Icon: CreditCard },
+  pix: { label: 'Pix', Icon: QrCode },
+  boleto: { label: 'Boleto bancário', Icon: Barcode },
+} as const;
+
 const offboardingLink = () => {
   const token = new URLSearchParams(window.location.search).get('token');
   if (!token) return '';
@@ -56,7 +62,7 @@ const shortDate = (value?: string | null) => value
   ? new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
   : '';
 
-export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = false, portalUrl = '', accountUrl = '', payLabel = 'Confirmar pagamento' }: {
+export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = false, portalUrl = '', accountUrl = '', payLabel }: {
   order: PublicBillingOrder;
   paymentSlot: ReactNode;
   onPay: () => void;
@@ -68,17 +74,24 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
 }) {
   const [accepted, setAccepted] = useState(false);
   const ready = order.status === 'awaiting_payment';
+  const method = paymentMethods[order.payment_method || 'card'];
+  const defaultPayLabel = order.payment_method === 'pix'
+    ? `Pagar ${money(order.amount_total)} com Pix`
+    : `Pagar ${money(order.amount_total)} agora`;
   return <main className="pay-page">
     <header className="pay-header">
       <div className="pay-shell pay-header-inner">
         <img src="../oryneo-wordmark-mono.png" alt="ORYNEO" />
         <span>Ambiente seguro de pagamento</span>
-        <div><ShieldCheck size={17}/> Conexão protegida</div>
+        <div><ShieldCheck size={17}/> Pagamento processado com segurança</div>
       </div>
     </header>
-    <div className="pay-glow" aria-hidden="true"/>
     <div className="pay-shell pay-layout">
       <section className="pay-card pay-form-card">
+        <div className="pay-method-badge" role="region" aria-label={`Forma de pagamento: ${method.label}`}>
+          <span className="pay-method-mark" aria-hidden="true"><method.Icon size={19}/></span>
+          <span className="pay-method-copy"><small>FORMA DE PAGAMENTO</small><strong>{method.label}</strong></span>
+        </div>
         <div className="pay-intro">
           <small>PAGAMENTO</small>
           <h1>Finalize sua contratação.</h1>
@@ -96,13 +109,14 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
             </label>
             <div className="pay-terms-access"><TermsDialog /></div>
             <button className="pay-submit" disabled={!accepted || busy} onClick={onPay}>
-              <LockKeyhole size={17}/>{busy ? 'Processando…' : payLabel}
+              <LockKeyhole size={17}/>{busy ? 'Processando…' : payLabel || defaultPayLabel}
             </button>
             {order.test_mode && <p className="pay-test-note">Ambiente de homologação · nenhum pagamento real será processado.</p>}
           </>}
         </div>
       </section>
-      <aside className="pay-summary">
+      <aside className="pay-summary" aria-label="Resumo do pedido">
+        <small className="pay-summary-kicker">RESUMO DO PEDIDO</small>
         <div className="pay-summary-head">
           <div><small>PEDIDO {order.reference}</small><h2>{order.company}</h2></div>
           <span>{order.status === 'paid' ? 'Pago' : order.status === 'processing' ? 'Em confirmação' : order.status === 'expired' ? 'Expirado' : 'Aguardando pagamento'}</span>
@@ -214,8 +228,8 @@ export function BoletoPayment({order,invoiceUrl}:{order:PublicBillingOrder;invoi
    setBusy(false);
   }
  };
- const slot=<div className="pay-element">
-  <div className="pay-element-head"><LockKeyhole size={16}/><span>Boleto bancário</span><small>Emitido pela Stripe</small></div>
+  const slot=<div className="pay-element">
+  <div className="pay-element-head"><Barcode size={17}/><span>Boleto bancário</span><small>Emitido pela Stripe</small></div>
   <p>Abra a fatura segura para obter o boleto. O pagamento de cada período é realizado individualmente e a confirmação bancária pode levar até um dia útil.</p>
   <p>O acesso e a implantação serão liberados somente após a confirmação financeira.</p>
   {error&&<p className="pay-inline-error" role="alert">{error}</p>}
@@ -277,7 +291,11 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
 
   if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={completion==='paid'?deliveryLink():''} accountUrl={completion==='paid'?offboardingLink():''}/>;
   const slot=<div className="pay-element">
-    <div className="pay-element-head"><LockKeyhole size={16}/><span>Dados de pagamento</span><small>Processado com segurança</small></div>
+    <div className="pay-element-head">
+      {order.payment_method==='pix'?<QrCode size={17}/>:<CreditCard size={17}/>}
+      <span>{order.payment_method==='pix'?'Pagamento via Pix':'Cartão de crédito'}</span>
+      <small>Campos seguros da Stripe</small>
+    </div>
     {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
     {error&&<p className="pay-inline-error" role="alert">{error}</p>}
   </div>;

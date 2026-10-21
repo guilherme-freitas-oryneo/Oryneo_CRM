@@ -7,6 +7,11 @@ export const QA_INVOICE_EVENTS=new Set([
  'invoice.created','invoice.finalized','invoice.sent','invoice.paid','invoice.payment_succeeded',
  'invoice.payment_failed','invoice.voided','invoice.marked_uncollectible',
 ]);
+/** Polling may observe payment, but only the separately verified webhook persists Pix settlement. */
+export function pixReconciliationDecision(providerPaid:boolean,orderState:string){
+ return {confirmedPaid:providerPaid&&orderState==='paid',
+  webhookPending:providerPaid&&orderState!=='paid'};
+}
 export function stripeInvoiceSubscription(invoice:Record<string,any>):string|null{
  const raw=invoice.subscription??invoice.parent?.subscription_details?.subscription;
  return typeof raw==='string'?raw:typeof raw?.id==='string'?raw.id:null;

@@ -30,7 +30,7 @@ const order: PublicBillingOrder = {
 async function consentAndPay() {
   const user = userEvent.setup();
   await user.click(screen.getByRole('checkbox'));
-  await user.click(screen.getByRole('button', { name: 'Confirmar pagamento' }));
+  await user.click(screen.getByRole('button', { name: /Pagar R\$\s*1\.739,80 agora/ }));
 }
 
 describe('StripePayment', () => {
@@ -56,7 +56,7 @@ describe('StripePayment', () => {
     render(<StripePayment order={order} />);
     await consentAndPay();
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível processar o cartão.');
-    await waitFor(() => expect(screen.getByRole('button', {name:'Confirmar pagamento'})).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', {name:/Pagar R\$\s*1\.739,80 agora/})).toBeEnabled());
     expect(confirm).toHaveBeenCalledTimes(1);
   });
 
@@ -66,7 +66,7 @@ describe('StripePayment', () => {
     render(<StripePayment order={order} />);
     await consentAndPay();
     expect(await screen.findByRole('alert')).toHaveTextContent('Cartão recusado.');
-    await waitFor(() => expect(screen.getByRole('button', {name:'Confirmar pagamento'})).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', {name:/Pagar R\$\s*1\.739,80 agora/})).toBeEnabled());
   });
 
   it('não anuncia pagamento como confirmado apenas pelo resultado do navegador', async () => {

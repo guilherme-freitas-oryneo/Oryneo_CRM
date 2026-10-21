@@ -1,5 +1,5 @@
 import {assertEquals,assertRejects,assertThrows} from 'jsr:@std/assert';
-import {verifyQaStripeSignature,stripeInvoiceSubscription,verifiedQaInvoice,verifiedQaPixSession,verifiedStripeInvoicePaymentProof}
+import {verifyQaStripeSignature,stripeInvoiceSubscription,verifiedQaInvoice,verifiedQaPixSession,verifiedStripeInvoicePaymentProof,pixReconciliationDecision}
  from '../_shared/billing/financial-qa-webhook-policy.ts';
 const order={id:'00000000-0000-4000-8000-000000000001',environment:'test',method:'boleto',
  stripe_customer_id:'cus_qa',stripe_subscription_id:'sub_qa',
@@ -55,6 +55,11 @@ Deno.test('Pix completed without settlement is not paid',()=>{
  assertEquals(verifiedQaPixSession(session,qaPix).paid,false);
  assertEquals(verifiedQaPixSession({...session,payment_status:'paid'},qaPix).paid,true);
  assertThrows(()=>verifiedQaPixSession({...session,amount_total:1},qaPix),Error,'QA_PIX_PROVIDER_MISMATCH');
+});
+Deno.test('Pix polling cannot persist paid before the signed webhook does',()=>{
+ assertEquals(pixReconciliationDecision(true,'awaiting_payment'),{confirmedPaid:false,webhookPending:true});
+ assertEquals(pixReconciliationDecision(true,'paid'),{confirmedPaid:true,webhookPending:false});
+ assertEquals(pixReconciliationDecision(false,'awaiting_payment'),{confirmedPaid:false,webhookPending:false});
 });
 Deno.test('rejects forged, expired or future Stripe signatures',async()=>{
  const raw=JSON.stringify({id:'evt_qa',livemode:false});
