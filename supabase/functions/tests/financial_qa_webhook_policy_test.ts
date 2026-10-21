@@ -34,6 +34,7 @@ Deno.test('bank compensation requires real Stripe InvoicePayment and succeeded P
  const intent={id:'pi_qa',livemode:false,status:'succeeded',currency:'brl',
   customer:'cus_qa',amount_received:173980};
  assertEquals(verifiedStripeInvoicePaymentProof(settled,payments,intent),true);
+ assertEquals(verifiedStripeInvoicePaymentProof({...settled,amount_paid_out_of_band:173980},payments,intent),false);
  assertEquals(verifiedStripeInvoicePaymentProof(settled,{has_more:false,data:[]},intent),false);
  assertEquals(verifiedStripeInvoicePaymentProof(settled,payments,{...intent,status:'processing'}),false);
  assertEquals(verifiedStripeInvoicePaymentProof(settled,payments,{...intent,amount_received:1}),false);

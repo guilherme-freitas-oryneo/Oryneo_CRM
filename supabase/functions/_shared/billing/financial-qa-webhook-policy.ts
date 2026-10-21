@@ -19,7 +19,8 @@ export function verifiedStripeInvoicePaymentProof(
  invoicePayments:Record<string,any>,
  intent:Record<string,any>,
 ):boolean{
- if(invoice.status!=='paid'||!Number.isSafeInteger(invoice.total)||invoice.total<=0||
+ if(invoice.status!=='paid'||Number(invoice.amount_paid_out_of_band||0)>0||
+   !Number.isSafeInteger(invoice.total)||invoice.total<=0||
    invoice.amount_paid!==invoice.total||invoice.amount_remaining!==0 ||
    invoicePayments.has_more!==false||!Array.isArray(invoicePayments.data)||
    invoicePayments.data.length!==1)return false;

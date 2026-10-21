@@ -36,3 +36,16 @@ test('QA intake denies an unrelated origin without reflecting it', async () => {
   assert.equal(response.status, 403);
   assert.notEqual(response.headers.get('access-control-allow-origin'), 'https://untrusted.example');
 });
+
+test('QA intake rejects an unauthenticated transaction before creating an order', async () => {
+  const response = await fetch(functionUrl, {
+    method: 'POST',
+    headers: {
+      Origin: 'http://localhost:5173',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ action: 'create' }),
+  });
+
+  assert.equal(response.status, 401);
+});
