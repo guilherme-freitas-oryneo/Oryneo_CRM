@@ -223,9 +223,9 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
       if(!token)throw new Error('Link de pagamento inválido. Atualize a página e tente novamente.');
       const {data:consent,error:consentError}=await supabase.functions.invoke('billing-public',{body:{action:'record_consent',token}});
       if(consentError||!consent?.ok)throw new Error('Não foi possível registrar seu aceite agora. Nenhum pagamento foi confirmado. Tente novamente.');
-      const returnUrl=new URL(window.location.href);
-      returnUrl.searchParams.set('retorno','1');
-      const confirmation=await result.checkout.confirm({returnUrl:returnUrl.toString()});
+      // The Checkout Session owns its vetted return_url. Supplying a second
+      // browser value makes Stripe reject confirmation for every method.
+      const confirmation=await result.checkout.confirm();
       if(confirmation.type==='error'){
         setError(confirmation.error.message||'Confira os dados de pagamento e tente novamente.');
         return;

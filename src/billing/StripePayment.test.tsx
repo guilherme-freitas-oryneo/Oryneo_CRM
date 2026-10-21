@@ -79,6 +79,17 @@ describe('StripePayment', () => {
     expect(screen.queryByRole('heading', {name:'Pagamento confirmado.'})).not.toBeInTheDocument();
   });
 
+  it('usa a URL de retorno já configurada na Checkout Session', async () => {
+    const confirm = vi.fn().mockResolvedValueOnce({ type: 'success' });
+    mocks.checkout.mockReturnValue({ type:'success', checkout:{canConfirm:true,confirm} });
+    mocks.invoke.mockResolvedValueOnce({data:{ok:true},error:null}).mockResolvedValue({ data:{order:{status:'awaiting_payment'}},error:null });
+    render(<StripePayment order={order}/>);
+
+    await consentAndPay();
+
+    expect(confirm).toHaveBeenCalledWith();
+  });
+
   it('só exibe confirmação depois de validação server-side', async () => {
     const confirm = vi.fn().mockResolvedValueOnce({type:'success'});
     mocks.checkout.mockReturnValue({type:'success', checkout:{canConfirm:true,confirm}});
