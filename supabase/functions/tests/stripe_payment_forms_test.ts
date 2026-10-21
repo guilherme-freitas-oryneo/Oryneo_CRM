@@ -43,4 +43,11 @@ Deno.test('traffic renewal is blocked until separate invoice renewal is implemen
 Deno.test('invalid customer and untrusted return URLs rejected',()=>{
  assertThrows(()=>buildBoletoSubscriptionForm(selection,context,'not_a_customer'),Error,'INVALID_STRIPE_CUSTOMER');
  assertThrows(()=>buildPixCheckoutForm(selection,{...context,returnUrl:'https://attacker.example/'}),Error,'INVALID_RETURN_URL');
+ assertThrows(()=>buildPixCheckoutForm(selection,{...context,returnUrl:'https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/admin/'}),Error,'INVALID_RETURN_URL');
+ assertThrows(()=>buildPixCheckoutForm(selection,{...context,returnUrl:'https://guilherme-freitas-oryneo.github.io:444/Oryneo_CRM/qa/pr-46/'}),Error,'INVALID_RETURN_URL');
+});
+Deno.test('QA preview return URL is allowed and retained on Pix Checkout',()=>{
+ const preview='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/qa/pr-46/?qa_return=1';
+ const f=buildPixCheckoutForm(selection,{...context,returnUrl:preview});
+ assertEquals(f.get('return_url'),preview);
 });

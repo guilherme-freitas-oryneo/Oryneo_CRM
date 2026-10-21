@@ -158,7 +158,7 @@ Deno.serve(async(req:Request)=>{
   if(created.state==='paid')return respond({ok:true,environment:'test',state:'paid',order_id:created.id});
   const context:PaymentOrderContext={
    orderId:created.id,environment:'test',customerEmail:qaEmail,customerName:qaName,
-   returnUrl:'https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/?qa_return=1',
+   returnUrl:'https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/qa/pr-46/?qa_return=1',
   };
   if(input.payment_method==='pix'){
    if(!created.stripe_checkout_session_id){
