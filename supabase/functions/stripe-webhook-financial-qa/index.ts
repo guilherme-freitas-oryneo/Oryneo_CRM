@@ -6,7 +6,7 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 import {
  QA_CHECKOUT_EVENTS,QA_INVOICE_EVENTS,stripeInvoiceSubscription,
- qaOrderLinkPending,verifiedStripeInvoicePaymentProof,verifiedQaInvoice,verifiedQaPixSession,verifyQaStripeSignature,
+ qaOrderLinkPending,qaWebhookLinkDisposition,verifiedStripeInvoicePaymentProof,verifiedQaInvoice,verifiedQaPixSession,verifyQaStripeSignature,
 } from '../_shared/billing/financial-qa-webhook-policy.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
@@ -167,7 +167,8 @@ Deno.serve(async(req:Request)=>{
    if(typeof sessionId!=='string'||!sessionId.startsWith('cs_test_'))
     return response({received:true,ignored:true});
    const linkedOrder=await lookup('pix',sessionId);
-   if(!linkedOrder&&event.data?.object?.metadata?.oryneo_qa_isolated!=='true')
+   const linkDisposition=qaWebhookLinkDisposition(!!linkedOrder,event.data?.object?.metadata);
+   if(linkDisposition==='ignore')
     return response({received:true,ignored:true});
    if(!testKey)return response({error:'QA_TEST_STRIPE_KEY_REQUIRED'},503);
    return await handlePix(event,testKey);

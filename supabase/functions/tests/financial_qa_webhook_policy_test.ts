@@ -1,5 +1,5 @@
 import {assertEquals,assertRejects,assertThrows} from 'jsr:@std/assert';
-import {verifyQaStripeSignature,stripeInvoiceSubscription,verifiedQaInvoice,verifiedQaPixSession,verifiedStripeInvoicePaymentProof,pixReconciliationDecision,qaOrderLinkPending}
+import {verifyQaStripeSignature,stripeInvoiceSubscription,verifiedQaInvoice,verifiedQaPixSession,verifiedStripeInvoicePaymentProof,pixReconciliationDecision,qaOrderLinkPending,qaWebhookLinkDisposition}
  from '../_shared/billing/financial-qa-webhook-policy.ts';
 const order={id:'00000000-0000-4000-8000-000000000001',environment:'test',method:'boleto',
  stripe_customer_id:'cus_qa',stripe_subscription_id:'sub_qa',
@@ -62,6 +62,10 @@ Deno.test('Pix polling cannot persist paid before the signed webhook does',()=>{
  assertEquals(pixReconciliationDecision(false,'awaiting_payment'),{confirmedPaid:false,webhookPending:false});
 });
 Deno.test('only a TEST event carrying a valid order identity is retried while its QA link is pending',()=>{
+ assertEquals(qaWebhookLinkDisposition(false,{oryneo_qa_isolated:'true',oryneo_billing_environment:'test',oryneo_order_id:order.id}),'retry');
+ assertEquals(qaWebhookLinkDisposition(true,undefined),'linked');
+ assertEquals(qaWebhookLinkDisposition(false,{oryneo_qa_isolated:'true'}),'ignore');
+ assertEquals(qaWebhookLinkDisposition(false,{oryneo_qa_isolated:'true',oryneo_billing_environment:'live',oryneo_order_id:order.id}),'ignore');
  assertEquals(qaOrderLinkPending({oryneo_qa_isolated:'true',oryneo_billing_environment:'test',oryneo_order_id:order.id}),true);
  assertEquals(qaOrderLinkPending({oryneo_qa_isolated:'true'}),false);
  assertEquals(qaOrderLinkPending({oryneo_qa_isolated:'true',oryneo_billing_environment:'live',oryneo_order_id:order.id}),false);

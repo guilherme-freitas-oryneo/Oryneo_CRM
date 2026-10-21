@@ -18,6 +18,10 @@ export function qaOrderLinkPending(metadata:Record<string,unknown>|null|undefine
   typeof metadata.oryneo_order_id==='string'&&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(metadata.oryneo_order_id);
 }
+export function qaWebhookLinkDisposition(orderFound:boolean,metadata:Record<string,unknown>|null|undefined):'linked'|'retry'|'ignore'{
+ if(orderFound)return 'linked';
+ return qaOrderLinkPending(metadata)?'retry':'ignore';
+}
 export function stripeInvoiceSubscription(invoice:Record<string,any>):string|null{
  const raw=invoice.subscription??invoice.parent?.subscription_details?.subscription;
  return typeof raw==='string'?raw:typeof raw?.id==='string'?raw.id:null;
