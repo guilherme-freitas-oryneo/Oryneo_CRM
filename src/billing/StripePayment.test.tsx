@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../data', () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
 vi.mock('@stripe/react-stripe-js/checkout', () => ({
   useCheckoutElements: () => mocks.checkout(),
+  BillingAddressElement: () => <div aria-label="Endereço de cobrança Stripe" />,
   PaymentElement: () => <div>Campos Stripe</div>,
   CheckoutElementsProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -48,6 +49,13 @@ describe('StripePayment', () => {
     await consentAndPay();
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível registrar seu aceite');
     expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('coleta o endereço de cobrança exigido pela Checkout Session', () => {
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm:vi.fn()}});
+    render(<StripePayment order={order}/>);
+
+    expect(screen.getByLabelText('Endereço de cobrança Stripe')).toBeInTheDocument();
   });
 
   it('mostra uma exceção retornada pela Stripe e permite tentar novamente', async () => {
