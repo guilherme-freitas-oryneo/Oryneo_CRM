@@ -54,7 +54,7 @@ describe('homologação financeira', () => {
 
     render(<App />);
     await userEvent.click(await screen.findByRole('button', { name: 'QA financeiro' }));
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Plano' }), 'Growth');
+    await userEvent.selectOptions(await screen.findByRole('combobox', { name: 'Plano' }), 'Growth');
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Ciclo' }), 'annual');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Landing page (cobrança única)' }));
     expect(screen.getByText(/14\.158,72/)).toBeInTheDocument();
