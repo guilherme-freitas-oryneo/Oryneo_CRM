@@ -6,7 +6,7 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 import {
  QA_CHECKOUT_EVENTS,QA_INVOICE_EVENTS,stripeInvoiceSubscription,
- verifiedStripeInvoicePaymentProof,verifiedQaInvoice,verifiedQaPixSession,verifyQaStripeSignature,
+ qaOrderLinkPending,verifiedStripeInvoicePaymentProof,verifiedQaInvoice,verifiedQaPixSession,verifyQaStripeSignature,
 } from '../_shared/billing/financial-qa-webhook-policy.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
@@ -39,7 +39,7 @@ async function handlePix(event:EventShape,key:string){
  const order=await lookup('pix',sessionId);
  if(!order){
   // A request may precede linkage. Never acknowledge a marked QA event prematurely.
-  if(event.data?.object?.metadata?.oryneo_qa_isolated==='true')return response({error:'QA_LINK_PENDING'},503);
+  if(qaOrderLinkPending(event.data?.object?.metadata))return response({error:'QA_LINK_PENDING'},503);
   return response({received:true,ignored:true});
  }
  const session=await getStripeObject('checkout/sessions/'+encodeURIComponent(sessionId),key);
@@ -64,7 +64,7 @@ async function handlePendingSignedInvoice(event:EventShape){
  const order=await lookup('boleto',subId);
  const metadata=inv.parent?.subscription_details?.metadata;
  if(!order){
-  if(metadata?.oryneo_qa_isolated==='true'&&metadata?.oryneo_billing_environment==='test')
+  if(qaOrderLinkPending(metadata))
    return response({error:'QA_LINK_PENDING'},503);
   return response({received:true,ignored:true});
  }
@@ -102,7 +102,7 @@ async function handleInvoice(event:EventShape,key:string|null){
  const order=await lookup('boleto',subscriptionId);
  if(!order){
   const sub=await getStripeObject('subscriptions/'+encodeURIComponent(subscriptionId),key);
-  if(sub.metadata?.oryneo_qa_isolated==='true'&&sub.metadata?.oryneo_billing_environment==='test')
+  if(qaOrderLinkPending(sub.metadata))
    return response({error:'QA_SUBSCRIPTION_LINK_PENDING'},503);
   return response({received:true,ignored:true});
  }

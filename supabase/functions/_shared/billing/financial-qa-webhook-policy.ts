@@ -12,6 +12,12 @@ export function pixReconciliationDecision(providerPaid:boolean,orderState:string
  return {confirmedPaid:providerPaid&&orderState==='paid',
   webhookPending:providerPaid&&orderState!=='paid'};
 }
+/** A missing link is retryable only when the provider object names a valid isolated TEST order. */
+export function qaOrderLinkPending(metadata:Record<string,unknown>|null|undefined):boolean{
+ return metadata?.oryneo_qa_isolated==='true'&&metadata?.oryneo_billing_environment==='test'&&
+  typeof metadata.oryneo_order_id==='string'&&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(metadata.oryneo_order_id);
+}
 export function stripeInvoiceSubscription(invoice:Record<string,any>):string|null{
  const raw=invoice.subscription??invoice.parent?.subscription_details?.subscription;
  return typeof raw==='string'?raw:typeof raw?.id==='string'?raw.id:null;
