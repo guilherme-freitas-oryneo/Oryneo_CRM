@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {automationLabel,remainingTime,type AutomationJob} from './AutomationStatus';
+import {automationLabel,automationTitle,remainingTime,type AutomationJob} from './AutomationStatus';
 
 const future='2026-10-20T12:05:00.000Z';
 const now=Date.parse('2026-10-20T12:00:00.000Z');
@@ -22,5 +22,10 @@ describe('cronômetro de comunicação automática',()=>{
  });
  it('trata prazo inválido sem exibir NaN ou contagem regressiva enganosa',()=>{
   expect(remainingTime('invalido',now)).toBe('Prazo indisponível');
+ });
+ it('nomeia as automações financeiras sem confundi-las com envio comercial',()=>{
+  expect(automationTitle('pix_due_email')).toBe('Cobrança Pix disponível');
+  expect(automationTitle('assisted_payment_reminder_email')).toBe('Lembrete de pagamento');
+  expect(automationTitle('financial_review_required')).toBe('Revisão financeira necessária');
  });
 });
