@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { Barcode, Check, CreditCard, LockKeyhole, QrCode, ShieldCheck } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { CheckoutElementsProvider, PaymentElement, useCheckoutElements } from '@stripe/react-stripe-js/checkout';
@@ -284,7 +284,9 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
   const [pixStatus,setPixStatus]=useState<'awaiting_payment'|'processing'|'expired'|'payment_failed'>('awaiting_payment');
   const [pollingError,setPollingError]=useState(false);
   const [pixLookupError,setPixLookupError]=useState(false);
-  const [pixAutoStarted,setPixAutoStarted]=useState(false);
+  const [pixElementReady,setPixElementReady]=useState(false);
+  const autoPixAttempted=useRef(false);
+  const confirming=useRef(false);
 
   useEffect(()=>{
     if(completion!=='processing'&&completion!=='awaiting_pix')return;
@@ -318,7 +320,8 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
   },[completion]);
 
   const pay=async()=>{
-    if(result.type!=='success'||busy||completion!=='idle')return;
+    if(result.type!=='success'||busy||confirming.current||completion!=='idle'||(order.payment_method==='pix'&&!pixElementReady))return;
+    confirming.current=true;
     setBusy(true);
     setError('');
     try{
@@ -330,7 +333,10 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
       // makes Stripe reject Pix confirmation with a duplicate return_url error.
       const confirmation=await result.checkout.confirm();
       if(confirmation.type==='error'){
-        setError(confirmation.error.message||'Confira os dados de pagamento e tente novamente.');
+        // Do not expose an unconfirmed Stripe PaymentElement QR placeholder.
+        // Logging only the error classification avoids exposing client secrets.
+        console.warn('oryneo.checkout.confirm.error',{type:confirmation.error.type,code:confirmation.error.code});
+        setError(confirmation.error.message||(order.payment_method==='pix'?'O Pix ainda não pôde ser gerado. Tente novamente.':'Confira os dados de pagamento e tente novamente.'));
         return;
       }
       // Pix instructions are rendered inside Stripe's PaymentElement after confirm().
@@ -339,17 +345,19 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
     }catch(cause){
       setError(cause instanceof Error&&cause.message?cause.message:'Não foi possível confirmar o pagamento. Tente novamente.');
     }finally{
+      confirming.current=false;
       setBusy(false);
     }
   };
 
-  // Consent was captured on the first screen; the Pix-only Checkout Session
-  // is confirmed once its Stripe elements are ready, without another customer click.
+  // A resolved Checkout context is not proof that the embedded PaymentElement
+  // is ready. Confirm Pix only after Stripe fires PaymentElement.onReady.
+  // This also guards React effect replays against duplicate payment attempts.
   useEffect(()=>{
-    if(order.payment_method!=='pix'||result.type!=='success'||pixAutoStarted||completion!=='idle')return;
-    setPixAutoStarted(true);
+    if(order.payment_method!=='pix'||result.type!=='success'||!pixElementReady||autoPixAttempted.current||completion!=='idle')return;
+    autoPixAttempted.current=true;
     void pay();
-  },[order.payment_method,result.type,pixAutoStarted,completion]);
+  },[order.payment_method,result.type,pixElementReady,completion]);
 
   if(completion!=='idle'&&completion!=='awaiting_pix')return <PaymentPageView order={{...order,status:completion==='paid'?'paid':pixStatus==='expired'||pixStatus==='payment_failed'?pixStatus:'processing'}} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={completion==='paid'?deliveryLink():''} accountUrl={completion==='paid'?offboardingLink():''}/>;
   const slot=<div className={`pay-element${order.payment_method === 'pix' ? ' pay-element-pix' : ''}`}>
@@ -365,9 +373,14 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
     {completion==='awaiting_pix' && <div className="pay-pix-guidance" role="status" aria-live="polite"><strong>{pixStatus==='processing'?'Aguardando confirmação financeira':'Escaneie o QR Code ou copie o Pix abaixo'}</strong>{pollingError&&<p>Não foi possível consultar o status agora. Evite pagar novamente.</p>}</div>}
 
     {pixLookupError&&completion==='awaiting_pix'&&<p className="pay-inline-error" role="status">O servidor ainda não retornou um status verificável. O código Pix continua abaixo; não realize outro pagamento.</p>}
-    {result.type==='loading'?(order.payment_method==='pix'?<div className="pay-qr-preparing" role="status"><span className="pay-spinner" aria-hidden="true"/> Preparando seu QR Code e Pix Copia e Cola…</div>:<PaymentSkeleton/>):result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
+    {result.type==='loading'?(order.payment_method==='pix'?<div className="pay-qr-preparing" role="status"><span className="pay-spinner" aria-hidden="true"/> Preparando seu QR Code e Pix Copia e Cola…</div>:<PaymentSkeleton/>):result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:order.payment_method==='pix'?<>
+      <div className={`pay-pix-stripe-host${completion==='awaiting_pix'?' is-ready':' is-preparing'}`} aria-hidden={completion!=='awaiting_pix'}>
+        <PaymentElement onReady={()=>setPixElementReady(true)} onLoaderror={()=>setError('A área segura do Pix não carregou. Atualize a página e tente novamente.')} />
+      </div>
+      {completion==='idle'&&!error&&<div className="pay-qr-preparing" role="status" aria-live="polite"><span className="pay-spinner" aria-hidden="true"/>{pixElementReady?'Gerando o QR Code e o Pix Copia e Cola…':'Conectando à Stripe para gerar seu Pix…'}</div>}
+    </>:<PaymentElement/>}
     {error&&<p className="pay-inline-error" role="alert">{error}</p>}
-    {order.payment_method==='pix'&&error&&<button type="button" className="pay-retry" disabled={busy} onClick={()=>void pay()}>Tentar gerar Pix novamente</button>}
+    {order.payment_method==='pix'&&error&&<button type="button" className="pay-retry" disabled={busy} onClick={()=>result.type==='success'&&pixElementReady?void pay():window.location.reload()}>Tentar gerar Pix novamente</button>}
   </div>;
   return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} onRefresh={()=>window.location.reload()} busy={busy||result.type!=='success'||completion==='awaiting_pix'} payLabel={completion==='awaiting_pix'?'Aguardando pagamento Pix…':undefined}/>;
 }
