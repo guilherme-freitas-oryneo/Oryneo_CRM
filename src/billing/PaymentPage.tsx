@@ -285,11 +285,12 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
   const [completion,setCompletion]=useState<'idle'|'awaiting_pix'|'processing'|'paid'>('idle');
   const [pixStatus,setPixStatus]=useState<'awaiting_payment'|'processing'|'expired'|'payment_failed'>('awaiting_payment');
   const [pollingError,setPollingError]=useState(false);
+  const [pollingActive,setPollingActive]=useState(true);
 
   useEffect(()=>{
-    if(completion!=='processing'&&completion!=='awaiting_pix')return;
+    if((completion!=='processing'&&completion!=='awaiting_pix')||!pollingActive)return;
     const token=new URLSearchParams(window.location.search).get('token');
-    if(!token)return;
+    if(!token){setPollingError(true);return;}
     let active=true;
     let timer:ReturnType<typeof setTimeout>|undefined;
     let attempts=0;
@@ -313,12 +314,13 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
     };
     void verify();
     return()=>{active=false;if(timer)clearTimeout(timer)};
-  },[completion]);
+  },[completion,pollingActive]);
 
   const pay=async()=>{
     if(result.type!=='success'||busy||completion!=='idle')return;
     setBusy(true);
     setError('');
+    setPollingActive(true);
     try{
       const token=new URLSearchParams(window.location.search).get('token');
       if(!token)throw new Error('Link de pagamento inválido. Atualize a página e tente novamente.');
