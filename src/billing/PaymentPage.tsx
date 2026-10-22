@@ -208,10 +208,8 @@ export function PaymentPage() {
     if(fundingBusy||!token)return;
     setFundingBusy(true);setFundingError('');
     try{
-      if(method==='boleto'||method==='pix'){
-        const consent=await supabase.functions.invoke('billing-public',{body:{action:'record_consent',token}});
-        if(consent.error||!consent.data?.ok)throw new Error('Não foi possível registrar seu aceite. Tente novamente.');
-      }
+      const consent=await supabase.functions.invoke('billing-public',{body:{action:'record_consent',token}});
+      if(consent.error||!consent.data?.ok)throw new Error('Não foi possível registrar seu aceite. Tente novamente.');
       const {data,error:invokeError}=await supabase.functions.invoke('billing-public',{body:{action:'set_checkout_method',token,payment_method:method,card_funding:funding}});
       if(invokeError||!data?.ok)throw new Error(data?.error||'Não foi possível preparar essa forma de pagamento.');
       if(method==='boleto'){
