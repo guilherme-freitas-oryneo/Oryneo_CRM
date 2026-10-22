@@ -1,3 +1,4 @@
+import { TermsDialog } from '../../legal/TermsDialog';
 import { Check, LockKeyhole, Plus, CreditCard, Landmark, QrCode, ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -59,6 +60,7 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
   const [taxId, setTaxId] = useState('');
+  const [termsAccepted,setTermsAccepted]=useState(false);
   const quote = useMemo(() => {
     const selected = plans[plan];
     const selectedAddons = addons.map(key => ({ key, ...additions[key] }));
@@ -70,14 +72,14 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
   const valid = customerName.trim().length >= 2 && company.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && validTaxId(taxId);
   const toggle = (addon: DirectCheckoutSelection['addons'][number]) => setAddons(current => current.includes(addon) ? current.filter(item => item !== addon) : [...current, addon]);
   const submit = () => {
-    if (!valid || busy) return;
+    if (!valid || !termsAccepted || busy) return;
     onContinue({ plan, cycle, addons, payment_method:paymentMethod, card_funding:cardFunding, customer_name: customerName.trim(), customer_email: email.trim().toLowerCase(), company: company.trim(), tax_id: digits(taxId) });
   };
 
   return <div className="checkout-configurator">
     <div className="checkout-config-head">
       <small>CONDIÇÕES COMERCIAIS</small><h1>Revise sua contratação.</h1>
-      <p>Uma contratação clara para colocar sua operação em movimento, com implantação, plano escolhido e suporte contínuo.</p>
+      <p>Confira os dados e aceite as condições comerciais. Depois, siga direto para o pagamento seguro.</p>
     </div>
     <section className="checkout-choice checkout-locked-selection" aria-label="Plano e periodicidade selecionados">
       <div className="checkout-locked-heading"><span>SELEÇÃO CONFIRMADA</span><LockKeyhole size={15} aria-hidden="true"/></div>
@@ -85,7 +87,7 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
         <div><small>PLANO</small><strong>ORYNEO {plan}</strong><span>{money(plans[plan][cycle])} {cycle === 'annual' ? 'por ano' : 'por mês'}</span></div>
         <div><small>PERIODICIDADE</small><strong>{cycle === 'annual' ? 'Anual' : 'Mensal'}</strong><span>{cycle === 'annual' ? 'Pagamento anual antecipado' : 'Cobrança a cada mês'}</span></div>
       </div>
-      <p>Para escolher outro plano ou período, volte à <a href="https://oryneo.com.br/">página de planos</a>. Isso não altera os serviços adicionais abaixo.</p>
+
     </section>
     <fieldset className="checkout-choice"><legend>Serviços adicionais</legend><div className="checkout-addons">
       {(Object.keys(additions) as DirectCheckoutSelection['addons'][number][]).map(key => <label key={key} className={addons.includes(key) ? 'selected' : ''}>
@@ -97,7 +99,7 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
       <label className={paymentMethod==='card'&&cardFunding==='debit'?'selected':''}><input type="radio" name="checkout-payment" checked={paymentMethod==='card'&&cardFunding==='debit'} onChange={()=>{setPaymentMethod('card');setCardFunding('debit')}}/><CreditCard className="checkout-option-icon" size={22} aria-hidden="true"/><span><strong>Cartão de débito</strong><small>O emissor precisa permitir a transação e a recorrência escolhida.</small></span></label>
       <label className={paymentMethod==='boleto'?'selected':''}><input type="radio" name="checkout-payment" checked={paymentMethod==='boleto'} onChange={()=>setPaymentMethod('boleto')}/><Landmark className="checkout-option-icon" size={22} aria-hidden="true"/><span><strong>Boleto bancário recorrente</strong><small>Uma nova fatura chega por e-mail a cada período. Cada boleto precisa ser pago manualmente.</small></span></label>
       <label className={paymentMethod==='pix'?'selected':''}><input type="radio" name="checkout-payment" checked={paymentMethod==='pix'} onChange={()=>setPaymentMethod('pix')}/><QrCode className="checkout-option-icon" size={22} aria-hidden="true"/><span><strong>Pix <em className="checkout-option-tag">À vista</em></strong><small>QR Code ou Pix copia e cola. Renovação tratada pela central ORYNEO.</small></span></label>
-    </div>{paymentMethod==='pix' && <div className="checkout-pix-context" role="status"><div className="checkout-pix-context-heading"><QrCode size={21} aria-hidden="true"/><strong>Seu pagamento via Pix</strong></div><p>Após confirmar seus dados, você seguirá para o ambiente seguro de pagamento, onde poderá gerar o QR Code ou copiar o código Pix.</p><div className="checkout-pix-context-steps"><span><b>01</b> Revise o pedido</span><span><b>02</b> Gere o Pix</span><span><b>03</b> Aguarde a confirmação</span></div><small><ShieldCheck size={15} aria-hidden="true"/> A confirmação depende do processamento do pagamento. Nenhuma cobrança é feita ao selecionar Pix.</small></div>}</fieldset>
+    </div></fieldset>
     <fieldset className="checkout-choice checkout-contact"><legend>Dados para o pedido</legend>
       <label>Nome completo<input aria-label="Nome completo" autoComplete="name" value={customerName} onChange={event => setCustomerName(event.target.value)}/></label>
       <label>E-mail corporativo<input aria-label="E-mail corporativo" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)}/>{email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && <small className="checkout-field-error">Digite um e-mail válido, como nome@empresa.com.br.</small>}</label>
@@ -105,8 +107,9 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
       <label>CPF ou CNPJ<input aria-label="CPF ou CNPJ" inputMode="numeric" autoComplete="off" placeholder="000.000.000-00 ou 00.000.000/0000-00" value={taxId} onChange={event => setTaxId(formatTaxId(event.target.value))} onBlur={() => taxId && !validTaxId(taxId)}/>{taxId && !validTaxId(taxId) && <small className="checkout-field-error">Digite um CPF ou CNPJ válido para continuar.</small>}</label>
     </fieldset>
     <aside className="checkout-quote" aria-live="polite"><div><span>Plano {plan} · {cycle === 'annual' ? 'Anual' : 'Mensal'}</span><strong>{money(quote.planAmount)}</strong></div><div><span>Implantação</span><strong>{money(quote.setup)}</strong></div>{quote.selectedAddons.map(item => <div key={item.key}><span>{item.label}<small>{item.detail}</small></span><strong>{money(item.price)}</strong></div>)}<div className="checkout-total"><span>Total de hoje</span><strong>{money(quote.total)}</strong></div>{addons.includes('traffic') && <p>Gestão de tráfego: {money(additions.traffic.price)} a cada 3 meses após o período inicial. Verba de mídia não está incluída.</p>}</aside>
+    <div className="checkout-consent"><label><input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} /><span>Li e aceito os termos e as condições comerciais deste pedido.</span></label><TermsDialog label="Ler termos completos" /></div>
     {error && <p className="checkout-error" role="alert">{error}</p>}
-    <button className="pay-submit" type="button" disabled={!valid || busy} onClick={submit}><LockKeyhole size={17}/>{busy ? 'Preparando pagamento…' : paymentMethod==='pix'?`Continuar com Pix · ${money(quote.total)}`:`Pagar ${money(quote.total)}`}</button>
+    <button className="pay-submit" type="button" disabled={!valid || !termsAccepted || busy} onClick={submit}><LockKeyhole size={17}/>{busy ? 'Preparando pagamento…' : paymentMethod==='pix'?`Continuar para o Pix · ${money(quote.total)}`:`Continuar para o pagamento · ${money(quote.total)}`}</button>
     <p className="checkout-secure"><Check size={14}/> {paymentMethod==='pix'?'Pix à vista. A renovação é gerada pela equipe ORYNEO no CRM.':paymentMethod==='card'?`Cartão de ${cardFunding==='credit'?'crédito':'débito'} com cobrança conforme a periodicidade do plano.`:'Boleto recorrente enviado por e-mail; cada fatura é paga manualmente.'}</p>
   </div>;
 }
