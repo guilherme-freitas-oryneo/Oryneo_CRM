@@ -191,3 +191,16 @@
 @media(max-width:800px){.pay-layout{grid-template-columns:1fr;gap:11px;padding-top:12px}.pay-summary{order:0;position:static;padding:16px}.pay-method-badge{padding:10px 16px}.pay-intro{padding:16px}.pay-form-body{padding:14px 15px 19px}.pay-element{padding:11px}.pay-intro h1{font-size:23px}.pay-summary-head>span{padding:5px 7px}}
 @media(max-width:390px){.pay-card-brands-compact{align-items:flex-start;flex-direction:column;gap:7px}.pay-method-copy strong{font-size:12px}.pay-element-head{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.pay-spinner{animation:none}}
+
+
+/* Pix must never expose Stripe's pre-confirmation QR placeholder as a finished code.
+ * Keep PaymentElement mounted at full width for Stripe, but visually conceal it
+ * until checkout.confirm() returns the pending Pix instructions. */
+.pay-element-pix{position:relative;min-width:0}
+.pay-pix-stripe-host{width:100%;min-width:0}
+.pay-pix-stripe-host.is-preparing{position:absolute;left:0;right:0;top:0;opacity:0;pointer-events:none;z-index:-1}
+.pay-pix-stripe-host.is-ready{position:relative;opacity:1;pointer-events:auto;z-index:auto}
+.pay-element-pix .pay-qr-preparing{min-height:180px;display:flex;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#475569;font-size:14px}
+.pay-element-pix .pay-inline-error{margin:16px 0 8px}
+.pay-element-pix .pay-retry{min-height:44px;border-radius:9px;border:1px solid #4357e8;background:#fff;color:#4357e8;font-weight:600;padding:10px 16px;cursor:pointer}
+.pay-element-pix .pay-retry:focus-visible{outline:3px solid #4f6bff99;outline-offset:3px}
