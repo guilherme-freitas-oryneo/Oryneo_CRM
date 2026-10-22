@@ -137,7 +137,7 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     const onContinue=vi.fn(),user=userEvent.setup();
     render(<CheckoutConfigurator onContinue={onContinue}/>);
     await user.click(screen.getByRole('radio',{name:/Boleto bancário/}));
-    expect(screen.getByText(/nova fatura chega por e-mail a cada período/i)).toBeInTheDocument();
+    expect(screen.getByText(/Fatura enviada por e-mail a cada período/i)).toBeInTheDocument();
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');
