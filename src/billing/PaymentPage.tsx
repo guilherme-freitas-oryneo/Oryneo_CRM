@@ -90,16 +90,17 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
     </header>
     <div className="pay-shell pay-layout">
       <section className="pay-card pay-form-card">
-        <div className="pay-method-badge" role="region" aria-label={`Forma de pagamento: ${methodLabel}`}>
+        <div className={`pay-method-badge${order.payment_method === 'pix' ? ' pay-method-badge-pix' : ''}`} role="region" aria-label={`Forma de pagamento: ${methodLabel}`}>
           <span className="pay-method-mark" aria-hidden="true"><method.Icon size={19}/></span>
           <span className="pay-method-copy"><small>FORMA DE PAGAMENTO</small><strong>{methodLabel}</strong></span>
         </div>
         <div className="pay-intro">
-          <small>PAGAMENTO</small>
-          <h1>Finalize sua contratação.</h1>
+          <small>{order.payment_method === 'pix' ? 'PAGAMENTO INSTANTÂNEO' : 'PAGAMENTO'}</small>
+          <h1>{order.payment_method === 'pix' ? 'Conclua seu pagamento com Pix.' : 'Finalize sua contratação.'}</h1>
           <p>Olá, {order.customer_name}. Revise os dados acordados e conclua com segurança. O escopo não pode ser alterado nesta etapa.</p>
         </div>
         <div className="pay-form-body">
+          {ready && order.payment_method === 'pix' && <div className="pay-pix-guidance"><strong>Pagamento Pix seguro</strong><p>Após confirmar, o Stripe apresenta as instruções para pagar pelo aplicativo do seu banco. Confira o valor e o destinatário antes de autorizar. A ORYNEO só confirmará a compra quando receber a confirmação financeira.</p></div>}
           {ready ? paymentSlot : <StatusMessage status={order.status} onRefresh={onRefresh}/>}
           {order.status==='paid'&&portalUrl&&<p className="pay-help"><a href={portalUrl} rel="noreferrer">
             Acompanhar implantação e próximos passos</a></p>}
@@ -321,12 +322,13 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
   };
 
   if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={completion==='paid'?deliveryLink():''} accountUrl={completion==='paid'?offboardingLink():''}/>;
-  const slot=<div className="pay-element">
+  const slot=<div className={`pay-element${order.payment_method === 'pix' ? ' pay-element-pix' : ''}`}>
     <div className="pay-element-head">
       {order.payment_method==='boleto'?<Barcode size={17}/>:order.payment_method==='pix'?<QrCode size={17}/>:<CreditCard size={17}/>}
       <span>{order.payment_method==='pix'?'Pagamento via Pix':order.payment_method==='boleto'?'Boleto bancário':`Cartão de ${order.card_funding==='debit'?'débito':'crédito'}`}</span>
       <small>Campos seguros da Stripe</small>
     </div>
+    {order.payment_method==='pix' && <p className="pay-pix-note">O QR Code e o código Pix são gerados e exibidos pelo Stripe. Não compartilhe o código com terceiros e não efetue pagamentos duplicados.</p>}
     {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
     {error&&<p className="pay-inline-error" role="alert">{error}</p>}
   </div>;
