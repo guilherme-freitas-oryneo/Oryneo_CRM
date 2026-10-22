@@ -30,7 +30,7 @@ const formatTaxId = (value: string) => { const id=digits(value).slice(0,14); if(
 const validTaxId = (value: string) => {
   const id = digits(value);
   if (![11, 14].includes(id.length) || /^([0-9])\1+$/.test(id)) return false;
-  const calc = (base: string) => { let sum = 0; let weight = base.length === 9 ? 10 : base.length - 7; for (const char of base) { sum += Number(char) * weight--; if (weight < 2) weight = 9; } const rest = sum % 11; return rest < 2 ? 0 : 11 - rest; };
+  const calc = (base: string) => { let sum = 0; let weight = base.length === 9 ? 10 : base.length === 10 ? 11 : base.length - 7; for (const char of base) { sum += Number(char) * weight--; if (weight < 2) weight = 9; } const rest = sum % 11; return rest < 2 ? 0 : 11 - rest; };
   if (id.length === 11) return calc(id.slice(0, 9)) === Number(id[9]) && calc(id.slice(0, 10)) === Number(id[10]);
   return calc(id.slice(0, 12)) === Number(id[12]) && calc(id.slice(0, 13)) === Number(id[13]);
 };
