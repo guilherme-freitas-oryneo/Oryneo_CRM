@@ -14,6 +14,10 @@ export type PublicBillingItem = {
   amount_cents: number;
 };
 
+export type PublicPixDetails =
+  | {status:'ready';copy_paste:string;qr_code_url:string;expires_at:string}
+  | {status:'expired'|'processing'};
+
 export type PublicBillingOrder = {
   reference: string;
   company: string;
@@ -178,6 +182,7 @@ export function PaymentPage() {
   const [order, setOrder] = useState<PublicBillingOrder | null>(null);
   const [checkout, setCheckout] = useState<{clientSecret:string;publishableKey:string}|null>(null);
   const [invoiceUrl, setInvoiceUrl] = useState<string|null>(null);
+  const [pix,setPix]=useState<PublicPixDetails|null>(null);
   const [error, setError] = useState('');
   const [retryable, setRetryable] = useState(false);
   const [fundingBusy,setFundingBusy]=useState(false);
@@ -195,7 +200,7 @@ export function PaymentPage() {
           setError('Não foi possível verificar o status do pagamento agora. Nenhum pagamento foi confirmado. Tente novamente.');
           setRetryable(true);
         } else if (!data?.order) setError('Não foi possível abrir este pedido. Confira o link ou fale com a ORYNEO.');
-        else { setOrder(data.order as PublicBillingOrder); if(data.client_secret&&data.publishable_key)setCheckout({clientSecret:data.client_secret,publishableKey:data.publishable_key}); if(typeof data.invoice_url==='string')setInvoiceUrl(data.invoice_url); }
+        else { setOrder(data.order as PublicBillingOrder); if(data.client_secret&&data.publishable_key)setCheckout({clientSecret:data.client_secret,publishableKey:data.publishable_key}); if(typeof data.invoice_url==='string')setInvoiceUrl(data.invoice_url); if(data.pix?.status==='ready'||data.pix?.status==='expired'||data.pix?.status==='processing')setPix(data.pix as PublicPixDetails); }
       } catch {
         if (!active) return;
         setError('Não foi possível verificar o status do pagamento agora. Nenhum pagamento foi confirmado. Tente novamente.');
@@ -220,6 +225,12 @@ export function PaymentPage() {
         if(!data.client_secret||!data.publishable_key)throw new Error('Não foi possível preparar o pagamento seguro.');
         setCheckout({clientSecret:data.client_secret,publishableKey:data.publishable_key});
       }
+      if(method==='pix'){
+        // A Checkout Session may already have a Pix PaymentIntent with a QR.
+        // Read it before mounting Stripe Elements or calling confirm again.
+        const {data:existing,error:readError}=await supabase.functions.invoke('billing-public',{body:{action:'read',token}});
+        if(!readError&&existing?.pix?.status)setPix(existing.pix as PublicPixDetails);
+      }else setPix(null);
       setOrder(current=>current?{...current,payment_method:method,card_funding:method==='card'?funding:null}:current);
     }catch(cause){setFundingError(cause instanceof Error?cause.message:'Não foi possível preparar esse tipo de cartão.')}
     finally{setFundingBusy(false)}
@@ -230,6 +241,8 @@ export function PaymentPage() {
     return <CheckoutMethodPicker order={order} onContinue={chooseCheckout} busy={fundingBusy} error={fundingError}/>;
   if(order.status==='awaiting_payment'&&order.payment_method==='boleto'&&invoiceUrl)
     return <BoletoPayment order={order} invoiceUrl={invoiceUrl}/>;
+  if(order.status==='awaiting_payment'&&order.payment_method==='pix'&&pix)
+    return <PixPayment order={order} pix={pix}/>;
   if(order.status==='awaiting_payment'&&!checkout)return <main className="pay-page pay-center"><div className="pay-error"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><h1>Não foi possível carregar o pagamento agora.</h1><p>A sessão segura ainda não está disponível. Isso não significa que seu pagamento foi recusado ou confirmado. Consulte novamente antes de tentar outra cobrança.</p><button className="pay-submit" type="button" onClick={()=>window.location.reload()}>Consultar novamente</button></div></main>;
   if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={order.status==='paid'?deliveryLink():''} accountUrl={order.status==='paid'?offboardingLink():''}/>;
   return <CheckoutElementsProvider stripe={stripePromise} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#4357E8',colorText:'#242931',colorBackground:'#ffffff',borderRadius:'9px',fontFamily:'Inter, Arial, sans-serif'}}}}}>
@@ -241,6 +254,68 @@ function CheckoutMethodPicker({order,onContinue,busy,error}:{order:PublicBilling
  const [choice,setChoice]=useState<'credit'|'debit'|'boleto'|'pix'>(order.payment_method==='boleto'?'boleto':order.payment_method==='pix'?'pix':'credit');
  const [methodAccepted,setMethodAccepted]=useState(false);
  return <main className="pay-page pay-center"><section className="pay-card funding-picker"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><small>FORMA DE PAGAMENTO</small><h1>Como você vai pagar?</h1><p>Pedido {order.reference} · {money(order.amount_total)}. Escolha a forma de pagamento para preparar sua cobrança.</p><fieldset><legend>Escolha uma opção</legend><label><input type="radio" name="checkout-method" checked={choice==='credit'} onChange={()=>setChoice('credit')}/><span><strong>Cartão de crédito</strong><small>Renovação conforme a periodicidade do plano.</small></span></label><label><input type="radio" name="checkout-method" checked={choice==='debit'} onChange={()=>setChoice('debit')}/><span><strong>Cartão de débito</strong><small>O emissor precisa permitir a transação e a recorrência escolhida.</small></span></label><label><input type="radio" name="checkout-method" checked={choice==='boleto'} onChange={()=>setChoice('boleto')}/><span><strong>Boleto recorrente</strong><small>Uma nova fatura chega por e-mail a cada período e exige pagamento manual.</small></span></label><label><input type="radio" name="checkout-method" checked={choice==='pix'} onChange={()=>setChoice('pix')}/><span><strong>Pix</strong><small>Pagamento único por QR Code ou Pix copia e cola. Não há renovação automática.</small></span></label></fieldset><label className="pay-consent"><input type="checkbox" checked={methodAccepted} onChange={e=>setMethodAccepted(e.target.checked)}/><span><Check size={15}/> Li e aceito as condições comerciais e a forma de pagamento selecionada.</span></label><div className="pay-terms-access"><TermsDialog /></div>{error&&<p role="alert" className="pay-inline-error">{error}</p>}<button className="pay-submit" disabled={busy||!methodAccepted} onClick={()=>choice==='boleto'?onContinue('boleto'):choice==='pix'?onContinue('pix'):onContinue('card',choice)}><LockKeyhole size={17}/>{busy?'Preparando checkout…':'Continuar'}</button><p className="pay-test-note">O Pix é avulso e depende da confirmação bancária. No cartão, o Checkout Stripe bloqueia o tipo que você não selecionou. A aprovação depende do emissor.</p></section></main>;
+}
+
+/** Displays Stripe's existing Pix PaymentIntent, without another confirmation or charge. */
+export function PixPayment({order,pix}:{order:PublicBillingOrder;pix:PublicPixDetails}){
+  const [status,setStatus]=useState<PublicBillingOrder['status']>(order.status);
+  const [now,setNow]=useState(Date.now());
+  const [copied,setCopied]=useState(false);
+  const [copyError,setCopyError]=useState('');
+  const [qrImageFailed,setQrImageFailed]=useState(false);
+  const copyInput=useRef<HTMLInputElement>(null);
+  const expires=pix.status==='ready'?new Date(pix.expires_at).getTime():0;
+  const expired=pix.status==='expired'||(pix.status==='ready'&&(!Number.isFinite(expires)||expires<=now));
+  useEffect(()=>{
+    if(pix.status!=='ready')return;
+    const timer=setInterval(()=>setNow(Date.now()),15000);
+    return()=>clearInterval(timer);
+  },[pix.status]);
+  useEffect(()=>{
+    if(pix.status!=='ready'||status!=='awaiting_payment')return;
+    const token=new URLSearchParams(window.location.search).get('token');
+    if(!token)return;
+    let active=true,timer:ReturnType<typeof setTimeout>|undefined;
+    const check=async()=>{
+      try{
+        const {data,error}=await supabase.functions.invoke('billing-public',{body:{action:'read',token}});
+        if(!active)return;
+        if(!error&&['paid','processing','payment_failed','canceled','expired'].includes(data?.order?.status)){
+          setStatus(data.order.status as PublicBillingOrder['status']);return;
+        }
+        if(!error&&data?.pix?.status==='processing'){setStatus('processing');return;}
+      }catch{/* The server/webhook alone authorizes payment completion. */}
+      if(active)timer=setTimeout(()=>void check(),5000);
+    };
+    timer=setTimeout(()=>void check(),5000);
+    return()=>{active=false;if(timer)clearTimeout(timer)};
+  },[pix.status,status]);
+  if(status!=='awaiting_payment'||pix.status==='processing')
+    return <PaymentPageView order={{...order,status:pix.status==='processing'&&status==='awaiting_payment'?'processing':status}} paymentSlot={null}
+      onPay={()=>undefined} onRefresh={()=>window.location.reload()}
+      portalUrl={status==='paid'?deliveryLink():''} accountUrl={status==='paid'?offboardingLink():''}/>;
+  const copy=async()=>{
+    if(pix.status!=='ready'||expired)return;
+    setCopyError('');
+    try{
+      if(!navigator.clipboard?.writeText)throw new Error('clipboard_unavailable');
+      await navigator.clipboard.writeText(pix.copy_paste);setCopied(true);
+    }catch{
+      copyInput.current?.focus();copyInput.current?.select();
+      setCopyError('Selecione e copie o código manualmente.');
+    }
+  };
+  const slot=expired?<div className="pay-pix-expired" role="alert"><QrCode size={30}/><strong>Este Pix expirou.</strong><p>O código anterior não pode mais ser utilizado. Solicite um novo link à equipe ORYNEO.</p></div>:
+    pix.status==='ready'?<section className="pay-pix-generated" aria-label="QR Code e Pix Copia e Cola">
+      <div className="pay-pix-generated-top"><PixBrand/><span>Pix gerado pela Stripe</span></div>
+      {!qrImageFailed?<img className="pay-pix-qr-image" src={pix.qr_code_url} width="248" height="248" alt="QR Code Pix deste pedido, gerado pela Stripe" loading="eager" onError={()=>setQrImageFailed(true)}/>:<p className="pay-pix-image-fallback" role="status">Não foi possível carregar a imagem do QR. Você ainda pode usar o Pix Copia e Cola abaixo.</p>}
+      <p className="pay-pix-expiration">Válido até {new Date(pix.expires_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}.</p>
+      <label className="pay-pix-copy-label" htmlFor="pix-copy-code">Pix Copia e Cola</label>
+      <div className="pay-pix-copy-row"><input ref={copyInput} id="pix-copy-code" readOnly value={pix.copy_paste} aria-label="Código Pix Copia e Cola"/><button type="button" onClick={()=>void copy()}>{copied?'Código copiado':'Copiar código'}</button></div>
+      {copyError&&<p role="status" className="pay-pix-copy-error">{copyError}</p>}
+      <p className="pay-pix-waiting" role="status">Aguardando pagamento pelo seu banco. A confirmação é automática após a conciliação.</p>
+    </section>:null;
+  return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>undefined} onRefresh={()=>window.location.reload()}/>;
 }
 
 /** The bank settles the invoice asynchronously. Opening the Stripe link is not payment confirmation. */
