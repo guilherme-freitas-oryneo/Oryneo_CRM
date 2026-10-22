@@ -6,6 +6,8 @@ import { PaymentPage, StripePayment, type PublicBillingOrder } from './PaymentPa
 const mocks = vi.hoisted(() => ({
   checkout: vi.fn(),
   invoke: vi.fn(),
+  cardDetailsOn: vi.fn(),
+  cardDetailsOff: vi.fn(),
 }));
 
 vi.mock('../data', () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
@@ -13,7 +15,7 @@ vi.mock('@stripe/stripe-js',()=>({loadStripe:vi.fn(()=>Promise.resolve({}))}));
 vi.mock('@stripe/react-stripe-js/checkout', () => ({
   useCheckoutElements: () => mocks.checkout(),
   // The real Stripe Element signals onReady asynchronously, after rendering.
-  PaymentElement: ({onReady}: {onReady?:()=>void}) => <div>Campos Stripe{onReady&&<button type="button" onClick={onReady}>Simular Stripe pronta</button>}</div>,
+  PaymentElement: ({onReady}: {onReady?:(element:unknown)=>void}) => <div>Campos Stripe{onReady&&<button type="button" onClick={()=>onReady({on:mocks.cardDetailsOn,off:mocks.cardDetailsOff})}>Simular Stripe pronta</button>}</div>,
   CheckoutElementsProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -142,6 +144,25 @@ describe('StripePayment', () => {
     await consentAndPay();
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole('alert')).toHaveTextContent('Confira os dados do cartão.');
+  });
+
+  it('identifica Visa pela Stripe e bloqueia bandeira fora de Visa ou Mastercard antes da confirmação', async () => {
+    const confirm = vi.fn();
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
+    render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
+    fireEvent.click(screen.getByRole('button',{name:'Simular Stripe pronta'}));
+    const cardDetailsHandler = mocks.cardDetailsOn.mock.calls.find(([event]) => event === 'carddetailschange')?.[1];
+    expect(cardDetailsHandler).toEqual(expect.any(Function));
+
+    cardDetailsHandler({details:{brands:['visa'],funding:'credit'}});
+    expect(await screen.findByText(/Visa reconhecida/)).toBeInTheDocument();
+
+    cardDetailsHandler({details:{brands:['amex'],funding:'credit'}});
+    expect(await screen.findByRole('alert')).toHaveTextContent('Esta bandeira não é aceita neste checkout. Use Visa ou Mastercard.');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('checkbox'));
+    expect(screen.getByRole('button',{name:/Pagar R\$\s*1\.739,80 agora/})).toBeDisabled();
+    expect(confirm).not.toHaveBeenCalled();
   });
 });
 

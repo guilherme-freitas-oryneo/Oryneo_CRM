@@ -113,6 +113,7 @@
 
 /* Card brand is detected by Stripe's secure Payment Element, not local PAN inspection. */
 .pay-card-brands{margin:0 0 16px;padding:15px 17px;background:#f8faff;border:1px solid #e0e8f4;border-radius:12px}
+.pay-card-check{margin:-2px 0 13px;color:#5d6a7d;font-size:11px;line-height:1.5}.pay-card-check.is-valid{color:#176451}.pay-card-check.is-blocked{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid #f0c8c2;border-radius:8px;background:#fff8f6;color:#9f3329;font-size:11px;line-height:1.5}.pay-card-check.is-blocked button{flex:none;border:0;background:transparent;color:#8d241c;font:700 10px Inter,Arial,sans-serif;text-decoration:underline;cursor:pointer;padding:0}.pay-card-check.is-blocked button:focus-visible{outline:2px solid #8d241c;outline-offset:3px}
 .pay-card-brands-heading{display:flex;align-items:center;gap:8px;color:#263c63;font-size:13px}
 .pay-card-brands p{font-size:12px;line-height:1.65;color:#52627b;margin:8px 0 0}
 @media(max-width:600px){.pay-card-brands{padding:13px 14px}}
