@@ -38,6 +38,7 @@ for (const [name, engine, viewport] of [
     assert.ok(logoDetails.every(img=>img.loaded && img.width>0 && img.srcPrefix==='data:image/png;base64,'),`os símbolos aprovados precisam carregar: ${JSON.stringify(logoDetails)}`);
     const maxCardHeight=await page.locator('.checkout-payment-options>label').evaluateAll(items=>Math.max(...items.map(item=>item.getBoundingClientRect().height)));
     assert.ok(maxCardHeight<=96,`cards altos demais: ${maxCardHeight}px`);
+    console.log(`${name}: 6 imagens locais de pagamento válidas; cartão mais alto ${Math.round(maxCardHeight)}px`);
     assert.equal(await page.getByText('Seu pagamento via Pix').count(),0);
     await page.getByRole('checkbox', { name: /Landing page de conversão/i }).check();
     await page.getByRole('checkbox', { name: /Gestão de tráfego pago/i }).check();
