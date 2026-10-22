@@ -125,3 +125,25 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({payment_method:'boleto'}));
   });
 });
+
+
+describe('jornada Pix guiada', () => {
+  it('exibe orientação contextual sem alterar plano, valores ou cobrar na seleção', async () => {
+    const user = userEvent.setup();
+    const onContinue = vi.fn();
+    render(<CheckoutConfigurator onContinue={onContinue}/>);
+    const initialTotal = screen.getAllByText(/1\\.739,80/).length;
+    await user.click(screen.getByRole('radio', { name: /Pix/ }));
+    expect(screen.getByText('Seu pagamento via Pix')).toBeInTheDocument();
+    expect(screen.getByText(/Nenhuma cobrança é feita ao selecionar Pix/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continuar com Pix/ })).toBeDisabled();
+    expect(screen.getAllByText(/1\\.739,80/).length).toBeGreaterThanOrEqual(initialTotal);
+    expect(onContinue).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText('Nome completo'), 'Marina Costa');
+    await user.type(screen.getByLabelText('E-mail corporativo'), 'marina@acme.example');
+    await user.type(screen.getByLabelText('Empresa'), 'Acme Comércio');
+    await user.type(screen.getByLabelText('CPF ou CNPJ'), '52998224725');
+    await user.click(screen.getByRole('button', { name: /Continuar com Pix/ }));
+    expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'pix', tax_id: '52998224725' }));
+  });
+});
