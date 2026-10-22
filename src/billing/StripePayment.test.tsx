@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PaymentPage, StripePayment, type PublicBillingOrder } from './PaymentPage';
 
@@ -37,7 +37,7 @@ async function consentAndPay() {
 
 describe('StripePayment', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     window.history.replaceState({}, '', '/pagar/?token=token-de-teste');
     mocks.invoke.mockResolvedValue({data:{ok:true},error:null});
   });
@@ -50,7 +50,7 @@ describe('StripePayment', () => {
     expect(confirm).not.toHaveBeenCalled();
     expect(screen.getByText(/Conectando à Stripe para gerar seu Pix/)).toBeInTheDocument();
     const user=userEvent.setup();
-    await user.click(screen.getByRole('button',{name:'Simular Stripe pronta'}));
+    fireEvent.click(screen.getByRole('button',{name:'Simular Stripe pronta',hidden:true}));
     await waitFor(()=>expect(confirm).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('StripePayment', () => {
     expect(screen.queryByText(/Escaneie o QR Code ou copie o Pix abaixo/)).not.toBeInTheDocument();
     expect(confirm).not.toHaveBeenCalled();
     const user=userEvent.setup();
-    await user.click(screen.getByRole('button',{name:'Simular Stripe pronta'}));
+    fireEvent.click(screen.getByRole('button',{name:'Simular Stripe pronta',hidden:true}));
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível criar o Pix.');
     expect(screen.getByText('Campos Stripe').closest('.pay-pix-stripe-host')).toHaveClass('is-preparing');
     expect(screen.getByRole('button',{name:'Tentar gerar Pix novamente'})).toBeEnabled();
@@ -81,9 +81,9 @@ describe('StripePayment', () => {
     mocks.invoke.mockResolvedValueOnce({data:{ok:true},error:null}).mockResolvedValue({data:{order:{status:'awaiting_payment'}},error:null});
     render(<StripePayment order={{...order,payment_method:'pix'}}/>);
     const user=userEvent.setup();
-    const ready=screen.getByRole('button',{name:'Simular Stripe pronta'});
-    await user.click(ready);
-    await user.click(ready);
+    const ready=screen.getByRole('button',{name:'Simular Stripe pronta',hidden:true});
+    fireEvent.click(ready);
+    fireEvent.click(ready);
     await waitFor(()=>expect(confirm).toHaveBeenCalledTimes(1));
   });
 
@@ -147,7 +147,7 @@ describe('StripePayment', () => {
 
 describe('seleção de crédito/débito no Checkout',()=>{
  beforeEach(()=>{
-  vi.clearAllMocks();window.history.replaceState({},'', '/pagar/?token=token-de-teste');
+  vi.resetAllMocks();window.history.replaceState({},'', '/pagar/?token=token-de-teste');
  });
  it('persiste a escolha do comprador no servidor antes de carregar o formulário de pagamento',async()=>{
   const user=userEvent.setup();
