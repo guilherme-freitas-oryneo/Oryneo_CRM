@@ -42,7 +42,7 @@ export function DirectCheckoutPage() {
       setError(cause instanceof Error ? cause.message : 'Não foi possível preparar o pagamento agora. Nenhuma cobrança foi realizada.');
     } finally { setBusy(false); }
   };
-  return <main className="pay-page"><header className="pay-header"><div className="pay-shell pay-header-inner"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><span>Contratação segura</span></div></header><div className="pay-glow" aria-hidden="true"/><section className="pay-shell" style={{ position: 'relative', zIndex: 1, width: 'min(760px, calc(100% - 40px))', padding: '42px 0 32px' }}><div className="pay-card"><div className="pay-form-body"><CheckoutConfigurator onContinue={selection => void continueToPayment(selection)} busy={busy} error={error}/></div></div></section></main>;
+  return <main className="pay-page"><header className="pay-header"><div className="pay-shell pay-header-inner"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><span>Contratação segura</span></div></header><div className="pay-glow" aria-hidden="true"/><section className="pay-shell" style={{ position: 'relative', zIndex: 1, width: 'min(1180px, calc(100% - 36px))', padding: '32px 0 42px' }}><div className="pay-card checkout-review-card"><div className="checkout-progress" aria-label="Etapas da contratação"><span aria-current="step"><b>01</b> Revisão e aceite</span><span><b>02</b> Pagamento seguro</span></div><div className="pay-form-body"><CheckoutConfigurator onContinue={selection => void continueToPayment(selection)} busy={busy} error={error}/></div></div></section></main>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<DirectCheckoutPage/>);
