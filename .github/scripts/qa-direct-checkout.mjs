@@ -38,6 +38,7 @@ for (const [name, engine, viewport] of [
     await page.getByLabel('Empresa').fill('Oryneo QA Controlado');
     await page.getByLabel('CPF ou CNPJ').fill('52998224725');
     const action = page.getByRole('button', { name: /Continuar com Pix/ });
+    await page.screenshot({ path: `qa-results/${name}.png`, fullPage: true });
     const checkoutResponse = page.waitForResponse(response => response.url() === supabase && response.request().method() === 'POST');
     const returnedToCheckout = page.waitForURL(`${root}#checkout-qa-controlado`);
     await action.click();
@@ -56,7 +57,6 @@ for (const [name, engine, viewport] of [
     assert.deepEqual(errors, []);
     const metrics = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth }));
     assert.ok(metrics.width <= metrics.viewport + 1, `overflow horizontal: ${JSON.stringify(metrics)}`);
-    await page.screenshot({ path: `qa-results/${name}.png`, fullPage: false });
     console.log(`${name} OK: seleção imutável, adicionais, payload seguro e responsividade`);
   } finally {
     await browser.close();
