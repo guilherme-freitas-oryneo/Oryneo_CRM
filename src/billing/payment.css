@@ -96,3 +96,11 @@
 .pay-element-pix .pay-element-head svg{color:#168371}
 .pay-pix-note{margin:0 0 14px}
 @media(max-width:800px){.pay-pix-guidance{padding:14px}}
+
+/* Official Pix artwork remains unaltered; no filter, recoloring or clipping. */
+.pay-pix-brand{display:block;width:38px;height:25px;object-fit:contain;max-width:none}
+.pay-method-badge-pix .pay-method-mark{width:52px;min-width:52px;background:#fff;border:1px solid #d7eae5}
+.pay-pix-brand-inline{width:32px;height:21px;flex-shrink:0}
+.pay-pix-instructions{margin-bottom:16px}
+.pay-pix-instructions ol{padding-left:21px;margin:12px 0 0;color:#49635d;font-size:12px;line-height:1.8}
+.pay-pix-instructions li+li{margin-top:3px}
