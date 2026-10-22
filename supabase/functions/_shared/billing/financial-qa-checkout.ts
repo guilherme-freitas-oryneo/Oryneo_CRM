@@ -21,8 +21,8 @@ export function buildFinancialQaCardCheckoutForm(input:Readonly<{
  const recurring=selection.items.filter(item=>item.recurring),oneTime=selection.items.filter(item=>!item.recurring);
  if(recurring.length!==1)throw new Error('INVALID_SERVER_PRICES');
  const form=new URLSearchParams();
- form.set('mode','subscription');form.set('ui_mode','elements');form.set('payment_method_types[0]','card');
- form.set('customer_email','qa@example.com');form.set('customer_creation','always');form.set('locale','pt-BR');
+ form.set('mode','subscription');form.set('ui_mode','elements');form.set('allowed_payment_method_types[0]','card');
+ form.set('customer_email','qa@example.com');form.set('locale','pt-BR');
  form.set('billing_address_collection','required');form.set('return_url',QA_RETURN_URL);
  form.set('client_reference_id',input.orderId);
  for(const [name,value] of Object.entries({oryneo_qa_isolated:'true',oryneo_billing_environment:'test',oryneo_order_id:input.orderId,oryneo_payment_method:'card',oryneo_card_funding:input.funding})){
@@ -30,7 +30,7 @@ export function buildFinancialQaCardCheckoutForm(input:Readonly<{
  }
  form.set('subscription_data[billing_mode][type]','flexible');
  form.set('line_items[0][price]',recurring[0].stripePriceId);form.set('line_items[0][quantity]','1');
- oneTime.forEach((item,index)=>{form.set(`add_invoice_items[${index}][price]`,item.stripePriceId);form.set(`add_invoice_items[${index}][quantity]`,'1')});
+ oneTime.forEach((item,index)=>{const lineIndex=index+1;form.set(`line_items[${lineIndex}][price]`,item.stripePriceId);form.set(`line_items[${lineIndex}][quantity]`,'1')});
  applyCardFundingRestriction(form,input.funding);
  return form;
 }

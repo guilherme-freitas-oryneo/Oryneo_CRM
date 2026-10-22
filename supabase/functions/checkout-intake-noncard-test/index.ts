@@ -38,7 +38,7 @@ async function stripeCreateCheckoutSession(form:URLSearchParams,key:string,order
   'Content-Type':'application/x-www-form-urlencoded',
  },body:form});
  const value=await r.json();
- if(!r.ok)throw Error('QA_CARD_SESSION_CREATE_FAILED_'+(value?.error?.code||r.status));
+ if(!r.ok)throw Error('QA_CARD_SESSION_CREATE_FAILED_'+(value?.error?.param||'unknown')+'_'+(value?.error?.code||r.status)+'_'+String(value?.error?.message||'').slice(0,120));
  if(value?.livemode!==false||!value.id?.startsWith('cs_test_')||
   value.metadata?.oryneo_qa_isolated!=='true'||value.metadata?.oryneo_order_id!==orderId)
   throw Error('QA_CARD_SESSION_IDENTITY_MISMATCH');

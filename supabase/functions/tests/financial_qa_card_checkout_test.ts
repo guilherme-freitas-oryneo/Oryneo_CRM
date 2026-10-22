@@ -12,7 +12,7 @@ Deno.test('QA card session uses the server quote, isolates TEST metadata, and en
  assertEquals(credit.get('mode'),'subscription');
  assertEquals(credit.get('ui_mode'),'elements');
  assertEquals(credit.get('line_items[0][price]'),'price_monthly');
- assertEquals(credit.get('add_invoice_items[0][price]'),'price_setup');
+ assertEquals(credit.get('line_items[1][price]'),'price_setup');
  assertEquals(credit.get('metadata[oryneo_qa_isolated]'),'true');
  assertEquals(credit.get('subscription_data[metadata][oryneo_order_id]'),'00000000-0000-4000-8000-000000000001');
  assertEquals(credit.get('payment_method_options[card][restrictions][funding_types_blocked][0]'),'debit');
