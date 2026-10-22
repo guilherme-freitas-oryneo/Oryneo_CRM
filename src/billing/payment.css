@@ -204,3 +204,22 @@
 .pay-element-pix .pay-inline-error{margin:16px 0 8px}
 .pay-element-pix .pay-retry{min-height:44px;border-radius:9px;border:1px solid #4357e8;background:#fff;color:#4357e8;font-weight:600;padding:10px 16px;cursor:pointer}
 .pay-element-pix .pay-retry:focus-visible{outline:3px solid #4f6bff99;outline-offset:3px}
+
+
+/* Read-only Pix presentation: QR image and Copia e Cola are fetched from the
+   verified Stripe PaymentIntent. No client-side generation or confirmation. */
+.pay-pix-generated{display:flex;flex-direction:column;align-items:center;gap:16px;padding:25px 20px 22px;background:#fff;border:1px solid #dee7e4;border-radius:13px;min-width:0}
+.pay-pix-generated-top{align-self:stretch;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:700;color:#0f1115}
+.pay-pix-generated-top .pay-pix-brand{width:76px;max-height:32px;object-fit:contain}
+.pay-pix-qr-image{display:block;max-width:100%;width:248px;height:auto;aspect-ratio:1/1;object-fit:contain;border-radius:7px}
+.pay-pix-expiration{color:#52606f;font-size:12px;margin:0;text-align:center}
+.pay-pix-copy-label{font-size:13px;font-weight:700;color:#0f1115;align-self:flex-start}
+.pay-pix-copy-row{display:flex;width:100%;min-width:0;gap:8px}
+.pay-pix-copy-row input{flex:1;min-width:0;border:1px solid #cfd7e0;border-radius:9px;background:#f8f7f4;padding:11px 12px;color:#323a46;font:12px ui-monospace,SFMono-Regular,Consolas,monospace}
+.pay-pix-copy-row button{flex:none;cursor:pointer;border:0;border-radius:9px;padding:11px 16px;background:#4357e8;color:white;font-weight:700;font-size:12px;min-height:44px}
+.pay-pix-copy-row button:focus-visible{outline:3px solid #4f6bff88;outline-offset:3px}
+.pay-pix-waiting{font-size:12px;text-align:center;color:#536174;margin:3px 0 0;line-height:1.5}
+.pay-pix-copy-error{color:#9a3412;font-size:12px;align-self:flex-start}
+.pay-pix-expired{padding:25px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;color:#854d0e;border:1px solid #fcd34d;border-radius:12px;background:#fffbeb}
+.pay-pix-image-fallback{font-size:13px;text-align:center;color:#4b5563}
+@media(max-width:600px){.pay-pix-generated{padding:21px 14px;gap:14px}.pay-pix-copy-row{flex-direction:column}.pay-pix-copy-row input{width:100%;min-height:46px}.pay-pix-copy-row button{width:100%}}
