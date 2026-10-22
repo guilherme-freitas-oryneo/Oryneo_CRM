@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { parseDirectCheckoutInput } from '../_shared/billing/direct-checkout.ts';
 
-const input = { request_id: '11111111-1111-4111-8111-111111111111', payment_token: 'A'.repeat(43), customer_name: 'Marina Costa', customer_email: 'MARINA@ACME.EXAMPLE ', company: 'Acme Comércio', plan: 'Growth', cycle: 'annual', addons: ['landing-page', 'traffic'] };
+const input = { request_id: '11111111-1111-4111-8111-111111111111', payment_token: 'A'.repeat(43), customer_name: 'Marina Costa', customer_email: 'MARINA@ACME.EXAMPLE ', company: 'Acme Comércio', tax_id: '52998224725', plan: 'Growth', cycle: 'annual', addons: ['landing-page', 'traffic'] };
 Deno.test('checkout direto normaliza o mínimo necessário e ignora qualquer preço vindo do navegador', () => {
   const parsed = parseDirectCheckoutInput({ ...input, amount_total: 1, price_id: 'price_unsafe' });
   assert.equal(parsed.customer_email, 'marina@acme.example');

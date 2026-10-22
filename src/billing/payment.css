@@ -84,4 +84,72 @@
 @media(max-width:800px){.pay-shell{width:min(100% - 28px,640px)}.pay-header-inner{height:66px}.pay-header img{width:113px}.pay-header-inner>span{display:none}.pay-layout{grid-template-columns:1fr;gap:14px;padding-top:18px}.pay-summary{position:static;order:-1;padding:20px}.pay-method-badge{padding:15px 21px}.pay-intro{padding:24px 21px 22px}.pay-intro h1{font-size:25px}.pay-form-body{padding:22px 20px 25px}.pay-total strong{font-size:22px}.pay-footer{flex-direction:column;gap:7px;padding-bottom:20px}.pay-element-head small{display:none}}
 @media(max-width:390px){.pay-header-inner>div{font-size:0}.pay-header-inner>div svg{width:20px;height:20px}.pay-summary-head{display:block}.pay-summary-head>span{display:inline-block;margin-top:12px}.pay-field-row{grid-template-columns:1fr}.pay-consent span{display:block}.pay-consent svg{display:none}}
 @media(prefers-reduced-motion:reduce){.pay-page *{animation-duration:.01ms!important;transition:none!important}}
-.funding-picker{width:min(520px,100%);padding:32px}.funding-picker>img{width:112px;margin-bottom:26px}.funding-picker>small{display:block;color:#6373d9;font-size:10px;font-weight:750;letter-spacing:.14em}.funding-picker h1{font-size:25px;margin:7px 0}.funding-picker>p{font-size:12px;color:#758091;line-height:1.7}.funding-picker fieldset{border:0;border-top:1px solid #e7eaf0;padding:19px 0 0;margin:22px 0}.funding-picker legend{font-size:11px;font-weight:700;color:#57657a;padding-right:8px}.funding-picker label{display:flex;align-items:flex-start;gap:12px;border:1px solid #e0e5ed;border-radius:9px;padding:14px;margin:9px 0;cursor:pointer}.funding-picker label:has(input:checked){border-color:#7285ff;background:#f7f8ff}.funding-picker input{accent-color:#5269ff;margin-top:2px}.funding-picker label span{display:flex;flex-direction:column;gap:5px}.funding-picker label strong{font-size:12px;color:#303743}.funding-picker label small{font-size:10px;line-height:1.55;color:#7e8590}.funding-picker .pay-test-note{font-size:10px;text-align:center}
+.funding-picker{width:min(520px,100%);padding:32px}.funding-picker>img{width:112px;margin-bottom:26px}.funding-picker>small{display:block;color:var(--oryneo-cta);font-size:10px;font-weight:750;letter-spacing:.14em}.funding-picker h1{font-size:25px;margin:7px 0}.funding-picker>p{font-size:12px;color:#758091;line-height:1.7}.funding-picker fieldset{border:0;border-top:1px solid #e7eaf0;padding:19px 0 0;margin:22px 0}.funding-picker legend{font-size:11px;font-weight:700;color:#57657a;padding-right:8px}.funding-picker label{display:flex;align-items:flex-start;gap:12px;border:1px solid #e0e5ed;border-radius:9px;padding:14px;margin:9px 0;cursor:pointer}.funding-picker label:has(input:checked){border-color:var(--oryneo-indigo);background:#f6f7ff}.funding-picker input{accent-color:var(--oryneo-cta);margin-top:2px}.funding-picker label span{display:flex;flex-direction:column;gap:5px}.funding-picker label strong{font-size:12px;color:#303743}.funding-picker label small{font-size:10px;line-height:1.55;color:#7e8590}.funding-picker .pay-test-note{font-size:10px;text-align:center}
+
+/* Pix stage 1: presentation only; Stripe owns QR and payment confirmation. */
+.pay-method-badge-pix{background:linear-gradient(110deg,#f2fbf9,#fff);border-bottom:1px solid #d8ece8}
+.pay-method-badge-pix .pay-method-mark{background:#d9f5ed;color:#126c60}
+.pay-pix-guidance{padding:16px 18px;margin-bottom:20px;border:1px solid #d7eae5;border-radius:12px;background:#f5fbf9}
+.pay-pix-guidance strong{font-size:13px;color:#155c51}
+.pay-pix-guidance p,.pay-pix-note{font-size:12px;line-height:1.7;color:#49635d;margin:8px 0 0}
+.pay-element-pix{border-color:#d7eae5}
+.pay-element-pix .pay-element-head svg{color:#168371}
+.pay-pix-note{margin:0 0 14px}
+@media(max-width:800px){.pay-pix-guidance{padding:14px}}
+
+/* Official Pix artwork remains unaltered; no filter, recoloring or clipping. */
+.pay-pix-brand{display:block;width:38px;height:25px;object-fit:contain;max-width:none}
+.pay-method-badge-pix .pay-method-mark{width:52px;min-width:52px;background:#fff;border:1px solid #d7eae5}
+.pay-pix-brand-inline{width:32px;height:21px;flex-shrink:0}
+.pay-pix-instructions{margin-bottom:16px}
+.pay-pix-instructions ol{padding-left:21px;margin:12px 0 0;color:#49635d;font-size:12px;line-height:1.8}
+.pay-pix-instructions li+li{margin-top:3px}
+
+/* Boleto: informational panel only; Stripe owns the invoice and settlement. */
+.pay-boleto-guidance{padding:16px 18px;margin:12px 0 2px;border:1px solid #dce3ed;border-radius:12px;background:#f7f9fc}
+.pay-boleto-guidance strong{display:block;color:#263449;font-size:13px;line-height:1.5}
+.pay-boleto-guidance p{margin:9px 0 0;color:#566377;font-size:12px;line-height:1.7}
+@media(max-width:600px){.pay-boleto-guidance{padding:14px}}
+
+/* Card brand is detected by Stripe's secure Payment Element, not local PAN inspection. */
+.pay-card-brands{margin:0 0 16px;padding:15px 17px;background:#f8faff;border:1px solid #e0e8f4;border-radius:12px}
+.pay-card-brands-heading{display:flex;align-items:center;gap:8px;color:#263c63;font-size:13px}
+.pay-card-brands p{font-size:12px;line-height:1.65;color:#52627b;margin:8px 0 0}
+@media(max-width:600px){.pay-card-brands{padding:13px 14px}}
+
+
+/* Checkout payment selection — progressive Pix disclosure, responsive and accessible. */
+.checkout-section-intro{margin:0 0 20px;color:#596273;font-size:13px;line-height:1.65;max-width:58ch}
+.checkout-payment-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.checkout-payment-options>label{min-width:0;display:flex;align-items:flex-start;gap:12px;padding:19px 16px;border:1px solid #dfe3ea;border-radius:14px;background:#fff;cursor:pointer;transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease}
+.checkout-payment-options>label:hover{border-color:#a6b0c8}
+.checkout-payment-options>label.selected,.checkout-payment-options>label:has(input:checked){border-color:var(--oryneo-indigo);background:#f6f7ff;box-shadow:0 0 0 2px #4f6bff16}
+.checkout-payment-options>label:focus-within{outline:3px solid #9eabff;outline-offset:2px}
+.checkout-payment-options input{flex:0 0 auto;width:18px;height:18px;margin:3px 0 0;accent-color:var(--oryneo-cta)}
+.checkout-option-icon{flex:0 0 auto;color:#58647a;margin-top:1px}
+.checkout-payment-options>label.selected .checkout-option-icon{color:var(--oryneo-cta)}
+.checkout-payment-options>label>span{min-width:0;display:block}
+.checkout-payment-options strong{display:block;color:#232a35;font-size:14px;line-height:1.5}
+.checkout-payment-options small{display:block;margin-top:5px;color:#667080;font-size:12px;line-height:1.6}
+.checkout-option-tag{display:inline-block;vertical-align:middle;margin-left:5px;padding:3px 7px;border-radius:5px;background:#e3f4ee;color:#176451;font-size:10px;font-style:normal;font-weight:700;letter-spacing:.02em}
+.checkout-pix-context{margin-top:16px;padding:20px 22px;border:1px solid #cde7dd;border-radius:15px;background:#f3faf7}
+.checkout-pix-context-heading{display:flex;align-items:center;gap:10px;color:#155e4e}
+.checkout-pix-context-heading strong{font-size:15px}
+.checkout-pix-context>p{margin:12px 0 17px;color:#365b51;font-size:13px;line-height:1.7}
+.checkout-pix-context-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.checkout-pix-context-steps span{display:flex;align-items:center;gap:8px;color:#294c43;font-size:11px;line-height:1.45}
+.checkout-pix-context-steps b{display:grid;place-items:center;flex:0 0 27px;height:27px;border-radius:50%;background:#dcefe7;color:#176451;font-size:10px}
+.checkout-pix-context>small{display:flex;align-items:flex-start;gap:8px;margin-top:17px;color:#42675c;font-size:11px;line-height:1.6}
+.checkout-pix-context>small svg{flex:0 0 auto;margin-top:1px}
+@media(max-width:760px){.checkout-payment-options{grid-template-columns:1fr}.checkout-payment-options>label{padding:17px 15px}.checkout-pix-context{padding:17px 16px}.checkout-pix-context-steps{grid-template-columns:1fr;gap:10px}}
+@media(prefers-reduced-motion:reduce){.checkout-payment-options>label{transition:none}}
+
+/* ORYNEO Brand Kit v1.1 — checkout touch targets and small-screen resilience. */
+.funding-picker input[type=radio]{width:18px;height:18px;flex-shrink:0}
+.funding-picker label{min-height:56px}
+.funding-picker label:focus-within{outline:3px solid var(--oryneo-indigo);outline-offset:2px}
+.pay-pix-guidance[role=status]{overflow-wrap:anywhere}
+.pay-form-body,.pay-card,.pay-summary{min-width:0}
+.pay-items>div>span{min-width:0;overflow-wrap:anywhere}
+.pay-items>div>strong{font-variant-numeric:tabular-nums}
+@media(max-width:600px){.funding-picker{padding:22px 18px}.pay-shell{width:calc(100% - 24px)}.pay-summary{padding:18px}.pay-items>div{gap:10px}.pay-items>div>strong{white-space:normal;text-align:right}.pay-pix-instructions ol{padding-left:19px}}

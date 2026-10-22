@@ -24,17 +24,24 @@ for (const [name, engine, viewport] of [
     const response = await page.goto(root + '?plan=Scale&cycle=annual', { waitUntil: 'domcontentloaded' });
     assert.equal(response.status(), 200);
     await page.getByRole('heading', { name: 'Revise sua contratação.' }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Continuar para o pagamento' }).isDisabled(), true);
+    assert.equal(await page.getByRole('button', { name: /Continuar para o pagamento/ }).isDisabled(), true);
     const selection=page.getByRole('region', { name: 'Plano e periodicidade selecionados' });
     assert.match(await selection.innerText(), /ORYNEO Scale/);
     assert.match(await selection.innerText(), /Anual/);
-    assert.equal(await page.getByRole('radio').count(), 0, 'O checkout não deve permitir alterar plano ou ciclo');
+    assert.equal(await page.getByRole('radio').count(), 4, 'As quatro opções são meios de pagamento; plano e ciclo permanecem bloqueados');
+    await page.getByRole('radio', { name: /Pix/ }).check();
+    assert.equal(await page.getByText('Seu pagamento via Pix').count(), 0, 'Não apresentar etapa explicativa redundante do Pix');
     await page.getByRole('checkbox', { name: /Landing page de conversão/i }).check();
     await page.getByRole('checkbox', { name: /Gestão de tráfego pago/i }).check();
     await page.getByLabel('Nome completo').fill('Cliente de Homologação');
     await page.getByLabel('E-mail corporativo').fill('cliente.qa@example.invalid');
     await page.getByLabel('Empresa').fill('Oryneo QA Controlado');
-    const action = page.getByRole('button', { name: 'Continuar para o pagamento' });
+    await page.getByLabel('CPF ou CNPJ').fill('52998224725');
+    const action = page.getByRole('button', { name: /Continuar para o Pix/ });
+    assert.equal(await action.isDisabled(), true, 'O aceite da primeira tela é obrigatório');
+    await page.getByRole('checkbox', { name: /Li e aceito os termos/ }).check();
+    assert.equal(await action.isEnabled(), true);
+    await page.screenshot({ path: `qa-results/${name}.png`, fullPage: true });
     const checkoutResponse = page.waitForResponse(response => response.url() === supabase && response.request().method() === 'POST');
     const returnedToCheckout = page.waitForURL(`${root}#checkout-qa-controlado`);
     await action.click();
@@ -44,6 +51,8 @@ for (const [name, engine, viewport] of [
     assert.equal(checkoutRequest.cycle, 'annual');
     assert.deepEqual(checkoutRequest.addons, ['landing-page', 'traffic']);
     assert.equal(checkoutRequest.customer_email, 'cliente.qa@example.invalid');
+    assert.equal(checkoutRequest.tax_id, '52998224725');
+    assert.equal(checkoutRequest.payment_method, 'pix');
     assert.match(checkoutRequest.request_id, /^[0-9a-f-]{36}$/i);
     assert.match(checkoutRequest.payment_token, /^[A-Za-z0-9_-]{43}$/);
     const stored = await page.evaluate(() => sessionStorage.getItem('oryneo.direct-checkout.request'));
@@ -51,7 +60,6 @@ for (const [name, engine, viewport] of [
     assert.deepEqual(errors, []);
     const metrics = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth }));
     assert.ok(metrics.width <= metrics.viewport + 1, `overflow horizontal: ${JSON.stringify(metrics)}`);
-    await page.screenshot({ path: `qa-results/${name}.png`, fullPage: false });
     console.log(`${name} OK: seleção imutável, adicionais, payload seguro e responsividade`);
   } finally {
     await browser.close();

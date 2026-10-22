@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { PaymentPage, PaymentPageView, type PublicBillingOrder } from './PaymentPage';
+import { BoletoPayment, PaymentPage, PaymentPageView, type PublicBillingOrder } from './PaymentPage';
 
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('../data', () => ({ supabase: { functions: { invoke } } }));
@@ -34,6 +34,40 @@ describe('PaymentPageView', () => {
     expect(screen.getByText(/Nenhum pagamento foi confirmado/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
     expect(screen.queryByText('Pagamento indisponível.')).not.toBeInTheDocument();
+  });
+
+  it('não confunde ausência temporária da sessão Stripe com pagamento recusado', async () => {
+    invoke.mockResolvedValue({data:{order:{...order,payment_method:'pix'},client_secret:null,publishable_key:null},error:null});
+    window.history.pushState({}, '', '/pagar/?token='+'t'.repeat(48));
+    render(<PaymentPage/>);
+    expect(await screen.findByRole('heading',{name:'Não foi possível carregar o pagamento agora.'})).toBeInTheDocument();
+    expect(screen.getByText(/não significa que seu pagamento foi recusado ou confirmado/i)).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Consultar novamente'})).toBeInTheDocument();
+    expect(screen.queryByText('Pagamento indisponível.')).not.toBeInTheDocument();
+  });
+
+  it('não solicita segundo aceite ou botão de confirmação na tela Pix',()=>{
+    render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code e Pix Copia e Cola da Stripe</div>} onPay={vi.fn()}/>);
+    expect(screen.getByText('QR Code e Pix Copia e Cola da Stripe')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
+  });
+
+  it('permite selecionar Pix em pedido assistido e envia escolha ao backend',async()=>{
+    const user=userEvent.setup();
+    invoke.mockImplementation(async (_fn: string, args: {body:{action:string}})=>{
+      if(args.body.action==='read')return {data:{order:{...order,payment_method:undefined,card_funding:null},client_secret:null,publishable_key:null},error:null};
+      if(args.body.action==='set_checkout_method')return {data:{ok:true,payment_method:'pix',client_secret:null,publishable_key:null},error:null};
+      return {data:{ok:true},error:null};
+    });
+    window.history.pushState({},'', '/pagar/?token='+'t'.repeat(48));
+    render(<PaymentPage/>);
+    await screen.findByRole('heading',{name:'Como você vai pagar?'});
+    await user.click(screen.getByRole('radio',{name:/Pix/}));
+    expect(screen.getByText(/Não há renovação automática/)).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
+    await user.click(screen.getByRole('button',{name:'Continuar'}));
+    await waitFor(()=>expect(invoke).toHaveBeenCalledWith('billing-public',expect.objectContaining({body:expect.objectContaining({action:'set_checkout_method',payment_method:'pix'})})));
   });
 
   it('mostra o acompanhamento de implantação apenas após pagamento confirmado',()=>{
@@ -100,11 +134,56 @@ describe('PaymentPageView', () => {
     await user.click(button);
     expect(onPay).toHaveBeenCalledOnce();
   });
+  it('boleto mostra instruções sem afirmar que a fatura foi paga',()=>{
+    render(<BoletoPayment order={{...order,payment_method:'boleto'}} invoiceUrl="https://invoice.stripe.com/example"/>);
+    expect(screen.getByText(/Seu boleto está disponível na fatura segura/i)).toBeInTheDocument();
+    expect(screen.getByText(/código de barras e o vencimento/i)).toBeInTheDocument();
+    expect(screen.getByText(/depende da confirmação financeira/i)).toBeInTheDocument();
+    expect(screen.queryByText('Pagamento confirmado')).not.toBeInTheDocument();
+  });
+
+  it('mantém resumo e aceite em cartão sem exigir dados sensíveis fora da Stripe', async ()=>{
+    const user=userEvent.setup();
+    const onPay=vi.fn();
+    render(<PaymentPageView order={{...order,payment_method:'card',card_funding:'credit'}} paymentSlot={<div>Stripe Payment Element</div>} onPay={onPay}/>);
+    expect(screen.getByRole('region',{name:'Forma de pagamento: Cartão de crédito'})).toBeInTheDocument();
+    expect(screen.getByText('Stripe Payment Element')).toBeInTheDocument();
+    expect(screen.getByText('R$ 3.279,80')).toBeInTheDocument();
+    const pay=screen.getByRole('button',{name:/Pagar R\$\s*3\.279,80 agora/});
+    expect(pay).toBeDisabled();
+    await user.click(screen.getByRole('checkbox'));
+    expect(pay).toBeEnabled();
+  });
+
+  it('Pix em processamento preserva acompanhamento sem disponibilizar nova cobrança', async () => {
+    const user=userEvent.setup();
+    const onRefresh=vi.fn();
+    render(<PaymentPageView order={{...order,payment_method:'pix',status:'processing'}} paymentSlot={<div>QR Code Pix</div>} onPay={vi.fn()} onRefresh={onRefresh}/>);
+    expect(screen.getByRole('heading',{name:'Estamos confirmando seu pagamento.'})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button',{name:'Verificar status'}));
+    expect(onRefresh).toHaveBeenCalledOnce();
+  });
+
+  it('Pix expirado não disponibiliza nova cobrança pelo pedido original', () => {
+    render(<PaymentPageView order={{...order,payment_method:'pix',status:'expired'}} paymentSlot={null} onPay={vi.fn()}/>);
+    expect(screen.getByRole('heading',{name:'Este link expirou.'})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
+  });
+
+  it('Pix orienta QR Code e copia e cola sem afirmar liquidação antecipada',()=>{
+    render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>Stripe PaymentElement</div>} onPay={()=>undefined}/>);
+    expect(screen.queryByText(/Stripe apresenta as instruções/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getByText('Stripe PaymentElement')).toBeInTheDocument();
+    expect(screen.queryByRole('heading',{name:'Pagamento confirmado.'})).not.toBeInTheDocument();
+  });
+
   it('Pix avulso não promete renovação automática',()=>{
     render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code Pix</div>} onPay={()=>undefined}/>);
-    expect(screen.getByText(/não renova automaticamente/i)).toBeInTheDocument();
     expect(screen.getByRole('region',{name:'Forma de pagamento: Pix'})).toBeInTheDocument();
-    expect(screen.getByRole('button',{name:/Pagar R\$\s*3\.279,80 com Pix/})).toBeDisabled();
+    expect(screen.getByText(/Cobrança avulsa gerada pelo CRM/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
   });
 
 });

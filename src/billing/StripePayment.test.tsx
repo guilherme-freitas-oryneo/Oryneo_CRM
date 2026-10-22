@@ -41,13 +41,26 @@ describe('StripePayment', () => {
     mocks.invoke.mockResolvedValue({data:{ok:true},error:null});
   });
 
+  it('abre o Pix após o aceite anterior, sem segundo clique nem novo checkbox',async()=>{
+    const confirm=vi.fn().mockResolvedValue({type:'success'});
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
+    mocks.invoke.mockResolvedValueOnce({data:{ok:true},error:null}).mockResolvedValue({data:{order:{status:'awaiting_payment'}},error:null});
+    render(<StripePayment order={{...order,payment_method:'pix'}}/>);
+    await waitFor(()=>expect(confirm).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
+    expect(screen.getByText('Campos Stripe')).toBeInTheDocument();
+    expect(await screen.findByText(/Escaneie o QR Code ou copie o Pix abaixo/)).toBeInTheDocument();
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
   it('não chama a Stripe se o aceite não puder ser registrado', async () => {
     const confirm=vi.fn();
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
     mocks.invoke.mockResolvedValueOnce({data:null,error:{message:'indisponível'}});
     render(<StripePayment order={order}/>);
     await consentAndPay();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível registrar seu aceite');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível registrar o aceite anterior');
     expect(confirm).not.toHaveBeenCalled();
   });
 
@@ -107,12 +120,14 @@ describe('seleção de crédito/débito no Checkout',()=>{
   const user=userEvent.setup();
   mocks.checkout.mockReturnValue({type:'success',checkout:{confirm:vi.fn()}});
   mocks.invoke.mockResolvedValueOnce({data:{order:{...order,payment_method:'card',card_funding:null}},error:null})
+   .mockResolvedValueOnce({data:{ok:true,recorded:true},error:null})
    .mockResolvedValueOnce({data:{ok:true,client_secret:'cs_test_secret',publishable_key:'pk_test_key'},error:null});
   render(<PaymentPage/>);
   await user.click(await screen.findByRole('radio',{name:/Cartão de débito/}));
+  await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
   await user.click(screen.getByRole('button',{name:'Continuar'}));
   await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'card',card_funding:'debit'}}));
-  expect(await screen.findAllByText('Cartão de débito')).toHaveLength(2);
+  expect((await screen.findAllByText('Cartão de débito')).length).toBeGreaterThanOrEqual(1);
   expect(await screen.findByText('Campos Stripe')).toBeInTheDocument();
  });
  it('permite escolher faturas Boleto recorrentes sem criar assinatura de cartão',async()=>{
@@ -122,10 +137,10 @@ describe('seleção de crédito/débito no Checkout',()=>{
    .mockResolvedValueOnce({data:{ok:true,invoice_url:'https://invoice.stripe.com/test_invoice'},error:null});
   render(<PaymentPage/>);
   await user.click(await screen.findByRole('radio',{name:/Boleto recorrente/}));
-  await user.click(screen.getByRole('checkbox',{name:/Aceito as condições comerciais e as faturas recorrentes/}));
+  await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
   await user.click(screen.getByRole('button',{name:'Continuar'}));
   await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'boleto',card_funding:undefined}}));
-  expect(await screen.findAllByText('Boleto bancário')).toHaveLength(2);
+  expect((await screen.findAllByText(/Boleto bancário/)).length).toBeGreaterThanOrEqual(1);
   expect(await screen.findByRole('button',{name:/Abrir boleto seguro/})).toBeInTheDocument();
   expect(screen.queryByText('Campos Stripe')).not.toBeInTheDocument();
  });

@@ -69,3 +69,29 @@ export function buildAssistedCheckoutForm(input:AssistedCheckoutInput):URLSearch
  form.set('cancel_url','https://oryneo.com.br/');
  return form;
 }
+
+export type AssistedPixOrderInput=Readonly<{
+ orderId:string;environment:BillingEnvironment;customerEmail:string;amountCents:number;description:string;
+ returnUrl:string;integrationIdentifier:string;
+}>;
+
+/** One-time Pix only: the payment intent is reconciled by the existing webhook. */
+export function buildAssistedPixOrderForm(input:AssistedPixOrderInput):URLSearchParams{
+ if(!/^[0-9a-f-]{36}$/i.test(input.orderId)||!Number.isSafeInteger(input.amountCents)||input.amountCents<=0)throw new Error('INVALID_PIX_AMOUNT');
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.customerEmail)||input.description.trim().length<3||!/^oryneo_[a-z]+$/.test(input.integrationIdentifier))throw new Error('INVALID_PIX_CONTEXT');
+ const url=new URL(input.returnUrl);
+ if(url.protocol!=='https:'||url.hostname!=='guilherme-freitas-oryneo.github.io'||url.port||url.username||url.password||url.hash||url.pathname!=='/Oryneo_CRM/pagar/')throw new Error('INVALID_RETURN_URL');
+ const form=new URLSearchParams();
+ form.set('mode','payment');form.set('ui_mode','elements');form.set('allowed_payment_method_types[0]','pix');
+ form.set('customer_email',input.customerEmail);form.set('integration_identifier',input.integrationIdentifier);form.set('locale','pt-BR');
+ form.set('return_url',input.returnUrl);
+ form.set('line_items[0][price_data][currency]','brl');
+ form.set('line_items[0][price_data][unit_amount]',String(input.amountCents));
+ form.set('line_items[0][price_data][product_data][name]',input.description);
+ form.set('line_items[0][quantity]','1');
+ form.set('metadata[oryneo_order_id]',input.orderId);form.set('metadata[oryneo_billing_environment]',input.environment);
+ form.set('metadata[oryneo_payment_method]','pix');
+ form.set('payment_intent_data[metadata][oryneo_order_id]',input.orderId);
+ form.set('payment_intent_data[metadata][oryneo_billing_environment]',input.environment);
+ return form;
+}
