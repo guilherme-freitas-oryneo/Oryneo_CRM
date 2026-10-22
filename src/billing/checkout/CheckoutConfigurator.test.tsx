@@ -15,12 +15,14 @@ describe('CheckoutConfigurator', () => {
     await user.click(screen.getByRole('checkbox', { name: /Landing page de conversão/i }));
     expect(screen.getAllByText(/2\.629,70/).length).toBeGreaterThan(0);
 
-    const button = screen.getByRole('button', { name: /Pagar R\$/ });
+    const button = screen.getByRole('button', { name: /Continuar para o pagamento/ });
     expect(button).toBeDisabled();
     await user.type(screen.getByLabelText('Nome completo'), 'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'), 'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'), 'Acme Comércio');
     await user.type(screen.getByLabelText('CPF ou CNPJ'), '52998224725');
+    expect(button).toBeDisabled();
+    await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
     expect(button).toBeEnabled();
     await user.click(button);
     expect(onContinue).toHaveBeenCalledWith({
@@ -85,7 +87,7 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     render(<CheckoutConfigurator onContinue={onContinue}/>);
     expect(screen.getAllByRole('radio')).toHaveLength(4);
     expect(screen.getByRole('region',{name:'Plano e periodicidade selecionados'})).toHaveTextContent('ORYNEO Growth');
-    expect(screen.getByRole('link',{name:'página de planos'})).toHaveAttribute('href','https://oryneo.com.br/');
+    expect(screen.queryByRole('link',{name:'página de planos'})).not.toBeInTheDocument();
     await user.click(screen.getByRole('checkbox',{name:/Landing page de conversão/i}));
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
@@ -134,16 +136,17 @@ describe('jornada Pix guiada', () => {
     render(<CheckoutConfigurator onContinue={onContinue}/>);
     const initialTotal = screen.getAllByText(/1\.739,80/).length;
     await user.click(screen.getByRole('radio', { name: /Pix/ }));
-    expect(screen.getByText('Seu pagamento via Pix')).toBeInTheDocument();
-    expect(screen.getByText(/Nenhuma cobrança é feita ao selecionar Pix/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Continuar com Pix/ })).toBeDisabled();
+    expect(screen.queryByText('Seu pagamento via Pix')).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox',{name:/Li e aceito os termos/})).not.toBeChecked();
+    expect(screen.getByRole('button', { name: /Continuar para o Pix/ })).toBeDisabled();
     expect(screen.getAllByText(/1\.739,80/).length).toBeGreaterThanOrEqual(initialTotal);
     expect(onContinue).not.toHaveBeenCalled();
     await user.type(screen.getByLabelText('Nome completo'), 'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'), 'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'), 'Acme Comércio');
     await user.type(screen.getByLabelText('CPF ou CNPJ'), '52998224725');
-    await user.click(screen.getByRole('button', { name: /Continuar com Pix/ }));
+    await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
+    await user.click(screen.getByRole('button', { name: /Continuar para o Pix/ }));
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'pix', tax_id: '52998224725' }));
   });
 });
