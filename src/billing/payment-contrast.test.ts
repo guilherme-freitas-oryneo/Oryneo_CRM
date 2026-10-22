@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const css = readFileSync(`${process.cwd()}/src/billing/payment.css`, 'utf8');
+const css = readFileSync(`${process.cwd()}/src/billing/order-summary.css`, 'utf8');
 
 const rule = (selector: string) => {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -9,22 +9,20 @@ const rule = (selector: string) => {
 };
 
 describe('contraste do resumo de cobrança', () => {
-  it('define contraste claro nos nomes e valores sobre o resumo grafite', () => {
-    expect(rule('.pay-items>div>span')).toMatch(/color:\s*#e7eaf0/i);
-    expect(rule('.pay-items>div>strong')).toMatch(/color:\s*#f7f8fa/i);
+  it('mantém nomes e valores com contraste editorial no fundo claro', () => {
+    expect(rule('.order-summary-items dt')).toMatch(/color:\s*#242931/i);
+    expect(rule('.order-summary-items dd')).toMatch(/color:\s*#171a20/i);
   });
 
-  it('mantém textos auxiliares legíveis sobre o fundo grafite', () => {
-    expect(rule('.pay-items span small')).toMatch(/color:\s*#aeb5c0/i);
-    expect(rule('.pay-total span')).toMatch(/color:\s*#b5bbc5/i);
-    expect(rule('.pay-help')).toMatch(/color:\s*#a6adb8/i);
+  it('mantém textos auxiliares e a recorrência legíveis, sem caixa interna', () => {
+    expect(rule('.order-summary-items dt small')).toMatch(/color:\s*#6b7280/i);
+    expect(rule('.order-summary-total span')).toMatch(/color:\s*#4c5560/i);
+    expect(rule('.order-summary-recurring')).not.toMatch(/border:/i);
   });
 
-  it('usa os tokens oficiais ORYNEO no fundo, CTA e tipografia do checkout', () => {
-    expect(css).toMatch(/--oryneo-graphite:\s*#0f1115/i);
-    expect(css).toMatch(/--oryneo-indigo:\s*#4f6bff/i);
-    expect(css).toMatch(/--oryneo-off-white:\s*#f8f7f4/i);
-    expect(css).toMatch(/--oryneo-cta:\s*#4357e8/i);
+  it('usa a família tipográfica e os neutrals oficiais da ORYNEO', () => {
+    expect(css).toMatch(/background:\s*#fff/i);
+    expect(css).toMatch(/color:\s*#0f1115/i);
     expect(css).toMatch(/font-family:\s*Inter,\s*Arial,\s*sans-serif/i);
   });
 });

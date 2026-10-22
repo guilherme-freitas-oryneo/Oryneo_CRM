@@ -11,7 +11,7 @@ describe('CheckoutConfigurator', () => {
 
     expect(screen.getAllByText(/1\.739,80/).length).toBeGreaterThan(0);
     expect(screen.getByRole('region', { name: 'Plano e periodicidade selecionados' })).toHaveTextContent('ORYNEO Start');
-    expect(screen.getAllByRole('radio')).toHaveLength(4);
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
     await user.click(screen.getByRole('checkbox', { name: /Landing page de conversão/i }));
     expect(screen.getAllByText(/2\.629,70/).length).toBeGreaterThan(0);
 
@@ -32,21 +32,31 @@ describe('CheckoutConfigurator', () => {
     });
   });
 
-  it('apresenta os quatro ativos aprovados de pagamento, sem ícones genéricos', async () => {
+  it('apresenta formas de pagamento e bandeiras aprovadas, sem ícones genéricos', async () => {
     const {container} = render(<CheckoutConfigurator onContinue={vi.fn()}/>);
     const methods = container.querySelectorAll('.checkout-payment-options label');
-    expect(methods).toHaveLength(4);
+    expect(methods).toHaveLength(3);
     expect(methods[0]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(2);
-    expect(methods[1]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(2);
+    expect(methods[1]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(1);
     expect(methods[2]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(1);
-    expect(methods[3]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(1);
     const images = [...container.querySelectorAll<HTMLImageElement>('.checkout-payment-art img')];
-    expect(images).toHaveLength(6);
+    expect(images).toHaveLength(4);
     for(const image of images){
       expect(image.src).toMatch(/^data:image\/png;base64,/);
       expect(image.alt).toBe('');
     }
     expect(screen.queryByText('Seu pagamento via Pix')).not.toBeInTheDocument();
+  });
+
+  it('só revela crédito ou débito depois que cartão é escolhido', async () => {
+    const user = userEvent.setup();
+    render(<CheckoutConfigurator onContinue={vi.fn()}/>);
+
+    expect(screen.getByRole('radio', { name: 'Cartão' })).toBeChecked();
+    expect(screen.getByRole('radiogroup', { name: 'Tipo do cartão' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Cartão de crédito' })).toBeChecked();
+    await user.click(screen.getByRole('radio', { name: /Pix/ }));
+    expect(screen.queryByRole('radiogroup', { name: 'Tipo do cartão' })).not.toBeInTheDocument();
   });
 
   it('explica a recorrência separada de tráfego sem misturar verba de mídia ao total', async () => {
@@ -84,7 +94,7 @@ describe('seleção vinda da landing page', () => {
     const locked = screen.getByRole('region',{name:'Plano e periodicidade selecionados'});
     expect(locked).toHaveTextContent('ORYNEO Scale');
     expect(locked).toHaveTextContent('Anual');
-    expect(screen.getAllByRole('radio')).toHaveLength(4);
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
     expect(screen.getByRole('checkbox',{name:/Landing page de conversão/i})).toBeChecked();
     expect(screen.getByRole('checkbox',{name:/Gestão de tráfego pago/i})).toBeChecked();
     expect(screen.getAllByText(/21\.692,42/).length).toBeGreaterThan(0);
@@ -102,7 +112,7 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     const onContinue = vi.fn();
     const user = userEvent.setup();
     render(<CheckoutConfigurator onContinue={onContinue}/>);
-    expect(screen.getAllByRole('radio')).toHaveLength(4);
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
     expect(screen.getByRole('region',{name:'Plano e periodicidade selecionados'})).toHaveTextContent('ORYNEO Growth');
     expect(screen.queryByRole('link',{name:'página de planos'})).not.toBeInTheDocument();
     await user.click(screen.getByRole('checkbox',{name:/Landing page de conversão/i}));

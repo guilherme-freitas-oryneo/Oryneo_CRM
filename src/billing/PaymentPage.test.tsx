@@ -149,7 +149,7 @@ describe('PaymentPageView', () => {
     render(<PaymentPageView order={withTraffic} paymentSlot={<div>Campos seguros</div>} onPay={() => undefined}/>);
     expect(screen.getByText(/Valor trimestral/)).toBeInTheDocument();
     expect(screen.getByText(/R\$ 2.969,70 a cada 3 meses/)).toBeInTheDocument();
-    expect(screen.getByText(/Verba de mídia paga separadamente/)).toBeInTheDocument();
+    expect(screen.getByText(/Verba de mídia não está incluída; paga separadamente/)).toBeInTheDocument();
   });
 
   it('boleto exige aceite antes de abrir a fatura e esclarece liquidação assíncrona',async()=>{
