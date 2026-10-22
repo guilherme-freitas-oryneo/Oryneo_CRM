@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { buildBillingSelection, resolveStripeBillingPrices } from '../_shared/billing/catalog.ts';
-import { buildCardSubscriptionCheckoutForm } from '../_shared/billing/assisted-checkout.ts';
+import { buildAssistedPixOrderForm, buildCardSubscriptionCheckoutForm } from '../_shared/billing/assisted-checkout.ts';
 import { createStripeBoletoSubscription, finalizeStripeBoletoInvoice } from '../_shared/billing/stripe-noncard-service.ts';
 import { publicCheckoutSnapshot } from '../_shared/billing/public-status.ts';
 import { boletoInvoiceView } from '../_shared/billing/invoice-public-status.ts';
@@ -34,9 +34,42 @@ Deno.serve(async req=>{
  }
  if(body.action==='set_checkout_method'){
   const method=body.payment_method;
-  if(method!=='card'&&method!=='boleto')return respond({error:'Escolha cartão ou boleto.'},400);
+  if(method!=='card'&&method!=='boleto'&&method!=='pix')return respond({error:'Escolha cartão, boleto ou Pix.'},400);
   if(method==='card'&&body.card_funding!=='credit'&&body.card_funding!=='debit')return respond({error:'Escolha crédito ou débito.'},400);
   if(order.status!=='awaiting_payment'||(order.commercial_consent_at&&order.selection?.payment_method!==method))return respond({error:'A forma de pagamento deste pedido não pode mais ser alterada.'},409);
+  if(method==='pix'){
+   if(order.commercial_consent_at&&order.selection?.payment_method!=='pix')return respond({error:'O meio de pagamento já foi aceito e não pode ser alterado.'},409);
+   let prices:Awaited<ReturnType<typeof resolveStripeBillingPrices>>,selection:ReturnType<typeof buildBillingSelection>;
+   try{prices=await resolveStripeBillingPrices(config);selection=buildBillingSelection({plan:order.selection.plan,cycle:order.selection.cycle,addons:order.selection.addons||[]},prices)}catch{return respond({error:'Não foi possível validar o catálogo do pedido.'},503)}
+   if(selection.amountTotal!==order.amount_total)return respond({error:'O valor do pedido diverge do catálogo aceito.'},409);
+   const previousId=order.stripe_checkout_session_id;
+   if(!previousId)return respond({error:'A sessão atual ainda não está pronta.'},409);
+   const headers={Authorization:`Bearer ${config.secretKey}`,'Stripe-Version':'2026-08-26.dahlia'};
+   const currentResponse=await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(previousId)}`,{headers});
+   if(!currentResponse.ok)return respond({error:'Não foi possível verificar a sessão atual.'},503);
+   const current=await currentResponse.json();
+   if(current.livemode!==config.livemode)return respond({error:'O ambiente da sessão diverge do pedido.'},409);
+   if(order.selection?.payment_method==='pix'&&current.status==='open'&&typeof current.client_secret==='string')
+     return respond({ok:true,payment_method:'pix',client_secret:current.client_secret,publishable_key:config.publishableKey});
+   if(current.status==='complete')return respond({error:'O pagamento anterior já foi concluído. Aguarde a conciliação.'},409);
+   if(current.status==='open'){
+     const expired=await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(previousId)}/expire`,{method:'POST',headers:{...headers,'Idempotency-Key':`oryneo-expire-before-pix-${previousId}`}});
+     if(!expired.ok)return respond({error:'Não foi possível substituir a tentativa anterior com segurança.'},409);
+   }else if(current.status!=='expired')return respond({error:'Há uma transação em andamento. Aguarde a confirmação.'},409);
+   const identifier='oryneo_'+Array.from(`${previousId}-pix`,char=>String.fromCharCode(97+char.charCodeAt(0)%26)).join('').slice(0,40);
+   let form:URLSearchParams;
+   try{form=buildAssistedPixOrderForm({orderId:order.id,environment,customerEmail:order.customer_email,amountCents:selection.amountTotal,description:`Contratação ORYNEO ${selection.plan} · ${order.company}`,returnUrl:`https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`,integrationIdentifier:identifier})}
+   catch{return respond({error:'Não foi possível validar os dados desta cobrança.'},409)}
+   const response=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{...headers,'Idempotency-Key':`oryneo-order-${environment}-${order.id}-${previousId}-pix`,'Content-Type':'application/x-www-form-urlencoded'},body:form});
+   const next=await response.json();
+   if(!response.ok||!next.id||typeof next.client_secret!=='string'||next.livemode!==config.livemode)return respond({error:'Não foi possível preparar o Pix com segurança.'},502);
+   const saved=await db.from('crm_billing_orders').update({selection:{...order.selection,payment_method:'pix',card_funding:null},stripe_checkout_session_id:next.id,updated_at:new Date().toISOString()}).eq('id',order.id).eq('stripe_checkout_session_id',previousId).eq('status','awaiting_payment').select('id').maybeSingle();
+   if(saved.error||!saved.data){
+     await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(next.id)}/expire`,{method:'POST',headers:{...headers,'Idempotency-Key':`oryneo-expire-orphan-pix-${next.id}`}});
+     return respond({error:'O pedido foi atualizado por outra tentativa. Consulte novamente antes de pagar.'},409);
+   }
+   return respond({ok:true,payment_method:'pix',client_secret:next.client_secret,publishable_key:config.publishableKey});
+  }
   if(method==='boleto'){
    if(!order.commercial_consent_at)return respond({error:'Registre o aceite das condições recorrentes antes de emitir a primeira fatura.'},409);
    let prices:Awaited<ReturnType<typeof resolveStripeBillingPrices>>,selection:ReturnType<typeof buildBillingSelection>;
