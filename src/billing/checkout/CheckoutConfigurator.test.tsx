@@ -32,6 +32,23 @@ describe('CheckoutConfigurator', () => {
     });
   });
 
+  it('apresenta os quatro ativos aprovados de pagamento, sem ícones genéricos', async () => {
+    const {container} = render(<CheckoutConfigurator onContinue={vi.fn()}/>);
+    const methods = container.querySelectorAll('.checkout-payment-options label');
+    expect(methods).toHaveLength(4);
+    expect(methods[0]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(2);
+    expect(methods[1]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(2);
+    expect(methods[2]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(1);
+    expect(methods[3]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(1);
+    const images = [...container.querySelectorAll<HTMLImageElement>('.checkout-payment-art img')];
+    expect(images).toHaveLength(6);
+    for(const image of images){
+      expect(image.src).toMatch(/^data:image\/png;base64,/);
+      expect(image.alt).toBe('');
+    }
+    expect(screen.queryByText('Seu pagamento via Pix')).not.toBeInTheDocument();
+  });
+
   it('explica a recorrência separada de tráfego sem misturar verba de mídia ao total', async () => {
     const user = userEvent.setup();
     render(<CheckoutConfigurator onContinue={vi.fn()}/>);
@@ -120,7 +137,7 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     const onContinue=vi.fn(),user=userEvent.setup();
     render(<CheckoutConfigurator onContinue={onContinue}/>);
     await user.click(screen.getByRole('radio',{name:/Boleto bancário/}));
-    expect(screen.getByText(/nova fatura chega por e-mail a cada período/i)).toBeInTheDocument();
+    expect(screen.getByText(/Fatura enviada por e-mail a cada período/i)).toBeInTheDocument();
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');

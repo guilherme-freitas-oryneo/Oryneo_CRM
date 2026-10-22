@@ -70,3 +70,77 @@
 .checkout-progress>[aria-current=step]{color:#0F1115}
 .checkout-progress>[aria-current=step] b{color:#fff;background:#4357E8;border-color:#4357E8}
 @media(max-width:640px){.checkout-review-card>.pay-form-body{padding:23px 18px 30px}.checkout-progress{padding:15px 18px;gap:15px;font-size:11px}.checkout-progress b{width:24px;height:24px;font-size:10px}}
+
+/* Payment selector v2 · approved ORYNEO icons, practical information density. */
+.checkout-main-flow{gap:15px}
+.checkout-configurator{gap:25px}
+.checkout-config-head{padding-bottom:0}
+.checkout-config-head h1{font-size:clamp(24px,2.6vw,30px);margin:6px 0 5px}
+.checkout-config-head p{font-size:12px;line-height:1.5}
+.checkout-choice{padding-top:13px}
+.checkout-choice legend{padding-bottom:8px;font-size:10px;letter-spacing:.085em}
+.checkout-locked-selection{gap:8px}
+.checkout-locked-grid>div{padding:10px 13px;border-radius:9px}
+.checkout-locked-grid small{font-size:9px}
+.checkout-locked-grid strong{font-size:14px;margin-top:4px}
+.checkout-locked-grid span{font-size:10.5px;margin-top:2px}
+.checkout-locked-heading span{font-size:10px}
+.checkout-addons{gap:8px}
+.checkout-addons label{min-height:62px;padding:10px 12px;border-radius:9px}
+.checkout-addons label>span{min-width:0}
+.checkout-addons strong{font-size:12px;line-height:1.35}
+.checkout-addons small{font-size:10px;line-height:1.35;margin-top:2px}
+.checkout-addons b{font-size:11px;white-space:nowrap}
+.checkout-addons input{width:17px;height:17px;flex-shrink:0}
+.checkout-section-intro{font-size:11px;line-height:1.35;margin:0 0 9px}
+.checkout-payment-options{gap:8px}
+.checkout-payment-options>label{min-height:66px;padding:9px 10px;border-radius:10px;gap:10px;display:flex;align-items:center}
+.checkout-payment-options>label input{margin:0;width:17px;height:17px}
+.checkout-payment-options>label>.checkout-payment-art{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;min-width:65px;width:65px;height:34px;flex-shrink:0}
+.checkout-payment-art img{display:block;object-fit:contain;max-width:100%;height:auto}
+.checkout-payment-art .checkout-pix{width:60px}
+.checkout-payment-art .checkout-boleto{width:65px}
+.checkout-payment-art .checkout-visa{width:35px}
+.checkout-payment-art .checkout-mastercard{width:24px}
+.checkout-payment-options>label>.checkout-payment-copy{min-width:0;display:block;flex:1}
+.checkout-payment-options .checkout-payment-copy strong{color:#0F1115;font-size:12px;line-height:1.25;margin:0}
+.checkout-payment-options .checkout-payment-copy small{color:#6B7280;font-size:10px;line-height:1.35;margin-top:3px}
+.checkout-payment-options .checkout-option-tag{font-size:8px;padding:2px 5px;margin-left:3px;background:#E9F7F2;color:#176451}
+.checkout-contact{gap:9px 12px}
+.checkout-contact label{font-size:11px}
+.checkout-contact input{height:44px;margin-top:4px;border-radius:8px;font-size:13px}
+.checkout-side-flow{gap:12px;top:14px}
+.checkout-quote{padding:3px 17px;border-radius:11px}
+.checkout-quote>div{padding:10px 0;font-size:11px}
+.checkout-quote .checkout-total{padding:12px 0}
+.checkout-total strong{font-size:23px}
+.checkout-consent{padding:12px 14px;border-radius:9px}
+.checkout-side-flow .checkout-consent{padding:12px}
+.checkout-side-flow .pay-submit{min-height:49px;margin:0;font-size:12.5px}
+.checkout-secure{font-size:10px;line-height:1.35}
+.checkout-review-card>.pay-form-body{padding:23px 27px 27px}
+.checkout-progress{padding:14px 27px;gap:19px}
+.checkout-progress b{width:25px;height:25px}
+@media (max-width:940px){
+ .checkout-main-flow{gap:15px}
+ .checkout-review-card>.pay-form-body{padding:21px 20px 25px}
+ .checkout-progress{padding:14px 20px}
+}
+@media (max-width:640px){
+ .checkout-configurator{gap:19px}
+ .checkout-main-flow{gap:15px}
+ .checkout-locked-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .checkout-locked-grid>div{padding:9px 10px}
+ .checkout-locked-grid strong{font-size:12px;overflow-wrap:anywhere}
+ .checkout-locked-grid span{font-size:9px}
+ .checkout-addons{gap:7px}
+ .checkout-addons label{min-height:58px}
+ .checkout-payment-options{gap:7px}
+ .checkout-payment-options>label{min-height:60px;padding:9px 11px}
+ .checkout-payment-options>label>.checkout-payment-art{min-width:66px;width:66px}
+ .checkout-choice{padding-top:12px}
+ .checkout-review-card>.pay-form-body{padding:18px 16px 23px}
+ .checkout-progress{padding:12px 16px}
+ .checkout-config-head h1{font-size:25px}
+ .checkout-side-flow{gap:11px}
+}

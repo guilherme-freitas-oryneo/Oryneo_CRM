@@ -31,6 +31,15 @@ for (const [name, engine, viewport] of [
     assert.equal(await page.getByRole('radio').count(), 4, 'As quatro opções são meios de pagamento; plano e ciclo permanecem bloqueados');
     await page.getByRole('radio', { name: /Pix/ }).check();
     assert.equal(await page.getByText('Seu pagamento via Pix').count(), 0, 'Não apresentar etapa explicativa redundante do Pix');
+    const marks=page.locator('.checkout-payment-art img');
+    assert.equal(await marks.count(),6,'Visa/Mastercard em ambos os cartões, Pix e boleto');
+    await page.waitForFunction(()=>[...document.querySelectorAll('.checkout-payment-art img')].every(img=>img.complete),null,{timeout:12000});
+    const logoDetails=await marks.evaluateAll(images=>images.map(img=>({loaded:img.complete,width:img.naturalWidth,srcPrefix:img.src.slice(0,22)})));
+    assert.ok(logoDetails.every(img=>img.loaded && img.width>0 && img.srcPrefix==='data:image/png;base64,'),`os símbolos aprovados precisam carregar: ${JSON.stringify(logoDetails)}`);
+    const maxCardHeight=await page.locator('.checkout-payment-options>label').evaluateAll(items=>Math.max(...items.map(item=>item.getBoundingClientRect().height)));
+    assert.ok(maxCardHeight<=96,`cards altos demais: ${maxCardHeight}px`);
+    console.log(`${name}: 6 imagens locais de pagamento válidas; cartão mais alto ${Math.round(maxCardHeight)}px`);
+    assert.equal(await page.getByText('Seu pagamento via Pix').count(),0);
     await page.getByRole('checkbox', { name: /Landing page de conversão/i }).check();
     await page.getByRole('checkbox', { name: /Gestão de tráfego pago/i }).check();
     await page.getByLabel('Nome completo').fill('Cliente de Homologação');
