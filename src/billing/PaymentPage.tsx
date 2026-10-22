@@ -324,10 +324,8 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
     try{
       const token=new URLSearchParams(window.location.search).get('token');
       if(!token)throw new Error('Link de pagamento inválido. Atualize a página e tente novamente.');
-      if(order.payment_method!=='pix'){
-        const {data:consent,error:consentError}=await supabase.functions.invoke('billing-public',{body:{action:'record_consent',token}});
-        if(consentError||!consent?.ok)throw new Error('Não foi possível registrar seu aceite agora. Nenhum pagamento foi confirmado. Tente novamente.');
-      }
+      const {data:consent,error:consentError}=await supabase.functions.invoke('billing-public',{body:{action:'record_consent',token}});
+      if(consentError||!consent?.ok)throw new Error('Não foi possível registrar o aceite anterior. Nenhum pagamento foi confirmado. Tente novamente.');
       // The Checkout Session already carries return_url. Passing it again here
       // makes Stripe reject Pix confirmation with a duplicate return_url error.
       const confirmation=await result.checkout.confirm();
