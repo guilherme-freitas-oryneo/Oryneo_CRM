@@ -100,7 +100,7 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
     </div></fieldset>
     <fieldset className="checkout-choice checkout-contact"><legend>Dados para o pedido</legend>
       <label>Nome completo<input aria-label="Nome completo" autoComplete="name" value={customerName} onChange={event => setCustomerName(event.target.value)}/></label>
-      <label>E-mail corporativo<input aria-label="E-mail corporativo" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)}/></label>
+      <label>E-mail corporativo<input aria-label="E-mail corporativo" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)}/>{email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && <small className="checkout-field-error">Digite um e-mail válido, como nome@empresa.com.br.</small>}</label>
       <label>Empresa<input aria-label="Empresa" autoComplete="organization" value={company} onChange={event => setCompany(event.target.value)}/></label>
       <label>CPF ou CNPJ<input aria-label="CPF ou CNPJ" inputMode="numeric" autoComplete="off" placeholder="000.000.000-00 ou 00.000.000/0000-00" value={taxId} onChange={event => setTaxId(formatTaxId(event.target.value))} onBlur={() => taxId && !validTaxId(taxId)}/>{taxId && !validTaxId(taxId) && <small className="checkout-field-error">Digite um CPF ou CNPJ válido para continuar.</small>}</label>
     </fieldset>
