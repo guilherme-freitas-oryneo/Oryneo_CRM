@@ -43,6 +43,12 @@ const paymentMethods = {
   boleto: { label: 'Boleto bancário', Icon: Barcode },
 } as const;
 
+// Official Banco Central Pix asset; preserve the brand artwork without recreating its geometry.
+const PIX_OFFICIAL_LOGO = 'https://www.bcb.gov.br/content/estabilidadefinanceira/piximg/logo_pix.png';
+function PixBrand({ className = '' }: { className?: string }) {
+  return <img className={`pay-pix-brand ${className}`} src={PIX_OFFICIAL_LOGO} alt="Pix" loading="eager" decoding="async" />;
+}
+
 const offboardingLink = () => {
   const token = new URLSearchParams(window.location.search).get('token');
   if (!token) return '';
@@ -91,7 +97,7 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
     <div className="pay-shell pay-layout">
       <section className="pay-card pay-form-card">
         <div className={`pay-method-badge${order.payment_method === 'pix' ? ' pay-method-badge-pix' : ''}`} role="region" aria-label={`Forma de pagamento: ${methodLabel}`}>
-          <span className="pay-method-mark" aria-hidden="true"><method.Icon size={19}/></span>
+          <span className="pay-method-mark" aria-hidden="true">{order.payment_method === 'pix' ? <PixBrand/> : <method.Icon size={19}/>}</span>
           <span className="pay-method-copy"><small>FORMA DE PAGAMENTO</small><strong>{methodLabel}</strong></span>
         </div>
         <div className="pay-intro">
@@ -324,11 +330,11 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
   if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={completion==='paid'?deliveryLink():''} accountUrl={completion==='paid'?offboardingLink():''}/>;
   const slot=<div className={`pay-element${order.payment_method === 'pix' ? ' pay-element-pix' : ''}`}>
     <div className="pay-element-head">
-      {order.payment_method==='boleto'?<Barcode size={17}/>:order.payment_method==='pix'?<QrCode size={17}/>:<CreditCard size={17}/>}
+      {order.payment_method==='boleto'?<Barcode size={17}/>:order.payment_method==='pix'?<PixBrand className="pay-pix-brand-inline"/>:<CreditCard size={17}/>}
       <span>{order.payment_method==='pix'?'Pagamento via Pix':order.payment_method==='boleto'?'Boleto bancário':`Cartão de ${order.card_funding==='debit'?'débito':'crédito'}`}</span>
       <small>Campos seguros da Stripe</small>
     </div>
-    {order.payment_method==='pix' && <p className="pay-pix-note">O QR Code e o código Pix são gerados e exibidos pelo Stripe. Não compartilhe o código com terceiros e não efetue pagamentos duplicados.</p>}
+    {order.payment_method==='pix' && <div className="pay-pix-instructions"><p className="pay-pix-note">O QR Code e o Pix Copia e Cola são disponibilizados pelo Stripe após a confirmação desta etapa. Utilize exclusivamente o código exibido na área segura de pagamento.</p><ol><li>Confirme o pagamento para gerar as instruções.</li><li>Abra o aplicativo do seu banco e escolha pagar com Pix.</li><li>Escaneie o QR Code ou use o Pix Copia e Cola fornecido pelo Stripe.</li><li>Confira o valor e aguarde a confirmação do pagamento.</li></ol></div>}
     {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
     {error&&<p className="pay-inline-error" role="alert">{error}</p>}
   </div>;
