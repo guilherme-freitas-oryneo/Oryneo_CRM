@@ -204,7 +204,7 @@ export function PaymentPage() {
     })();
     return () => { active = false; };
   }, [token]);
-  const chooseCheckout=async(method:'card'|'boleto',funding?:'credit'|'debit')=>{
+  const chooseCheckout=async(method:'card'|'boleto'|'pix',funding?:'credit'|'debit')=>{
     if(fundingBusy||!token)return;
     setFundingBusy(true);setFundingError('');
     try{
@@ -219,7 +219,7 @@ export function PaymentPage() {
         if(!url)throw new Error('A fatura foi criada, mas o link ainda não está disponível. Atualize esta página.');
         setInvoiceUrl(url);
       }else{
-        if(!data.client_secret||!data.publishable_key)throw new Error('Não foi possível preparar esse tipo de cartão.');
+        if(!data.client_secret||!data.publishable_key)throw new Error('Não foi possível preparar o pagamento seguro.');
         setCheckout({clientSecret:data.client_secret,publishableKey:data.publishable_key});
       }
       setOrder(current=>current?{...current,payment_method:method,card_funding:method==='card'?funding:null}:current);
@@ -239,10 +239,10 @@ export function PaymentPage() {
   </CheckoutElementsProvider>;
 }
 
-function CheckoutMethodPicker({order,onContinue,busy,error}:{order:PublicBillingOrder;onContinue:(method:'card'|'boleto',funding?:'credit'|'debit')=>void;busy:boolean;error:string}){
- const [choice,setChoice]=useState<'credit'|'debit'|'boleto'>(order.payment_method==='boleto'?'boleto':'credit');
+function CheckoutMethodPicker({order,onContinue,busy,error}:{order:PublicBillingOrder;onContinue:(method:'card'|'boleto'|'pix',funding?:'credit'|'debit')=>void;busy:boolean;error:string}){
+ const [choice,setChoice]=useState<'credit'|'debit'|'boleto'|'pix'>(order.payment_method==='boleto'?'boleto':order.payment_method==='pix'?'pix':'credit');
  const [boletoAccepted,setBoletoAccepted]=useState(false);
- return <main className="pay-page pay-center"><section className="pay-card funding-picker"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><small>FORMA DE PAGAMENTO</small><h1>Como você vai pagar?</h1><p>Pedido {order.reference} · {money(order.amount_total)}. Escolha a forma de pagamento para preparar sua cobrança.</p><fieldset><legend>Escolha uma opção</legend><label><input type="radio" name="checkout-method" checked={choice==='credit'} onChange={()=>setChoice('credit')}/><span><strong>Cartão de crédito</strong><small>Renovação conforme a periodicidade do plano.</small></span></label><label><input type="radio" name="checkout-method" checked={choice==='debit'} onChange={()=>setChoice('debit')}/><span><strong>Cartão de débito</strong><small>O emissor precisa permitir a transação e a recorrência escolhida.</small></span></label><label><input type="radio" name="checkout-method" checked={choice==='boleto'} onChange={()=>setChoice('boleto')}/><span><strong>Boleto recorrente</strong><small>Uma nova fatura chega por e-mail a cada período e exige pagamento manual.</small></span></label></fieldset>{choice==='boleto'&&<label className="pay-consent"><input type="checkbox" checked={boletoAccepted} onChange={e=>setBoletoAccepted(e.target.checked)}/><span><Check size={15}/> Aceito as condições comerciais e as faturas recorrentes por Boleto enviadas por e-mail.</span></label>}{error&&<p role="alert" className="pay-inline-error">{error}</p>}<button className="pay-submit" disabled={busy||(choice==='boleto'&&!boletoAccepted)} onClick={()=>choice==='boleto'?onContinue('boleto'):onContinue('card',choice)}><LockKeyhole size={17}/>{busy?'Preparando checkout…':'Continuar'}</button><p className="pay-test-note">No cartão, o Checkout Stripe bloqueia o tipo que você não selecionou. A aprovação depende do emissor.</p></section></main>;
+ return <main className="pay-page pay-center"><section className="pay-card funding-picker"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><small>FORMA DE PAGAMENTO</small><h1>Como você vai pagar?</h1><p>Pedido {order.reference} · {money(order.amount_total)}. Escolha a forma de pagamento para preparar sua cobrança.</p><fieldset><legend>Escolha uma opção</legend><label><input type="radio" name="checkout-method" checked={choice==='credit'} onChange={()=>setChoice('credit')}/><span><strong>Cartão de crédito</strong><small>Renovação conforme a periodicidade do plano.</small></span></label><label><input type="radio" name="checkout-method" checked={choice==='debit'} onChange={()=>setChoice('debit')}/><span><strong>Cartão de débito</strong><small>O emissor precisa permitir a transação e a recorrência escolhida.</small></span></label><label><input type="radio" name="checkout-method" checked={choice==='boleto'} onChange={()=>setChoice('boleto')}/><span><strong>Boleto recorrente</strong><small>Uma nova fatura chega por e-mail a cada período e exige pagamento manual.</small></span></label><label><input type="radio" name="checkout-method" checked={choice==='pix'} onChange={()=>setChoice('pix')}/><span><strong>Pix</strong><small>Pagamento único por QR Code ou Pix copia e cola. Não há renovação automática.</small></span></label></fieldset>{choice==='boleto'&&<label className="pay-consent"><input type="checkbox" checked={boletoAccepted} onChange={e=>setBoletoAccepted(e.target.checked)}/><span><Check size={15}/> Aceito as condições comerciais e as faturas recorrentes por Boleto enviadas por e-mail.</span></label>}{error&&<p role="alert" className="pay-inline-error">{error}</p>}<button className="pay-submit" disabled={busy||(choice==='boleto'&&!boletoAccepted)} onClick={()=>choice==='boleto'?onContinue('boleto'):choice==='pix'?onContinue('pix'):onContinue('card',choice)}><LockKeyhole size={17}/>{busy?'Preparando checkout…':'Continuar'}</button><p className="pay-test-note">O Pix é avulso e depende da confirmação bancária. No cartão, o Checkout Stripe bloqueia o tipo que você não selecionou. A aprovação depende do emissor.</p></section></main>;
 }
 
 /** The bank settles the invoice asynchronously. Opening the Stripe link is not payment confirmation. */
