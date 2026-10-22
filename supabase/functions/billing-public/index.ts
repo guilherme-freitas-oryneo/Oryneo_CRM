@@ -3,6 +3,7 @@ import { buildBillingSelection, resolveStripeBillingPrices } from '../_shared/bi
 import { buildAssistedPixOrderForm, buildCardSubscriptionCheckoutForm } from '../_shared/billing/assisted-checkout.ts';
 import { createStripeBoletoSubscription, finalizeStripeBoletoInvoice } from '../_shared/billing/stripe-noncard-service.ts';
 import { publicCheckoutSnapshot } from '../_shared/billing/public-status.ts';
+import { verifiedPixPresentation, type PublicPixDetails } from '../_shared/billing/pix-public.ts';
 import { boletoInvoiceView } from '../_shared/billing/invoice-public-status.ts';
 import { billingEnvironmentMatchesLivemode, getBillingEnvironmentConfig, parseBillingEnvironment } from '../_shared/billing/environment.ts';
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -129,6 +130,7 @@ Deno.serve(async req=>{
  }
  const paymentMethod=order.selection?.payment_method==='boleto'?'boleto':order.selection?.payment_method==='pix'?'pix':'card';
  let invoiceUrl:string|null=null;
+ let pixSession:Record<string,any>|null=null;
  let snapshot:{status:string;clientSecret:string|null};
  if(paymentMethod==='boleto'&&order.stripe_invoice_id){
   if(order.status==='awaiting_payment'){
@@ -155,6 +157,7 @@ Deno.serve(async req=>{
     if(!stripe.ok)return null;
     const session=await stripe.json();
     if(typeof session.livemode!=='boolean'||!billingEnvironmentMatchesLivemode(environment,session.livemode))return null;
+    if(paymentMethod==='pix'&&session.id===order.stripe_checkout_session_id)pixSession=session;
     return {payment_status:typeof session.payment_status==='string'?session.payment_status:undefined,client_secret:typeof session.client_secret==='string'?session.client_secret:null};
    });
   } catch (error) {
@@ -167,6 +170,24 @@ Deno.serve(async req=>{
 
  }
  const {status,clientSecret}=snapshot;
+ let pix:PublicPixDetails|null=null;
+ // Stripe may already have generated the Pix QR when the Checkout Session opened.
+ // Read the existing PaymentIntent; never confirm it or issue another charge here.
+ if(paymentMethod==='pix'&&status==='awaiting_payment'&&pixSession?.payment_intent){
+  try{
+   const session=pixSession;
+   if(session.status!=='open'||!/^pi_[A-Za-z0-9]+$/.test(session.payment_intent))throw new Error('PIX_SESSION_UNAVAILABLE');
+   const intentResponse=await fetch('https://api.stripe.com/v1/payment_intents/'+encodeURIComponent(session.payment_intent),{
+    headers:{Authorization:`Bearer ${config.secretKey}`,'Stripe-Version':'2026-08-26.dahlia'},
+   });
+   if(!intentResponse.ok)throw new Error('PIX_INTENT_UNAVAILABLE');
+   const intent=await intentResponse.json();
+   pix=verifiedPixPresentation({id:order.id,amount_total:order.amount_total},session,intent,config.livemode);
+  }catch(error){
+   console.error('billing-public pix presentation unavailable',{code:error instanceof Error?error.message:'unknown'});
+   return respond({error:'Não foi possível consultar o código Pix existente. Atualize a página, sem gerar outra cobrança.'},503);
+  }
+ }
  const selection=order.selection as {plan:string;cycle:string};
- return respond({order:{reference:order.reference,company:order.company,customer_name:order.customer_name,status,payment_method:paymentMethod,card_funding:order.selection?.card_funding||null,currency:'brl',amount_total:order.amount_total,items:order.items,recurring:{label:`Plano ${selection.plan}`,amount_cents:(order.items as any[])[0]?.amount_cents||0,interval_label:selection.cycle==='annual'?'por ano':'por mês',next_charge_at:null},expires_at:order.expires_at,test_mode:environment==='test'},client_secret:clientSecret,publishable_key:config.publishableKey,invoice_url:invoiceUrl});
+ return respond({order:{reference:order.reference,company:order.company,customer_name:order.customer_name,status,payment_method:paymentMethod,card_funding:order.selection?.card_funding||null,currency:'brl',amount_total:order.amount_total,items:order.items,recurring:{label:`Plano ${selection.plan}`,amount_cents:(order.items as any[])[0]?.amount_cents||0,interval_label:selection.cycle==='annual'?'por ano':'por mês',next_charge_at:null},expires_at:order.expires_at,test_mode:environment==='test'},client_secret:clientSecret,publishable_key:config.publishableKey,invoice_url:invoiceUrl,pix});
 });
