@@ -282,10 +282,10 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
   const result=useCheckoutElements();
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
-  const [completion,setCompletion]=useState<'idle'|'processing'|'paid'>('idle');
+  const [completion,setCompletion]=useState<'idle'|'awaiting_pix'|'processing'|'paid'>('idle');
 
   useEffect(()=>{
-    if(completion!=='processing')return;
+    if(completion!=='processing'&&completion!=='awaiting_pix')return;
     const token=new URLSearchParams(window.location.search).get('token');
     if(!token)return;
     let active=true;
@@ -322,7 +322,9 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
         setError(confirmation.error.message||'Confira os dados de pagamento e tente novamente.');
         return;
       }
-      setCompletion('processing');
+      // Pix instructions are rendered inside Stripe's PaymentElement after confirm().
+      // Do not unmount it before the customer has scanned or copied the code.
+      setCompletion(order.payment_method==='pix'?'awaiting_pix':'processing');
     }catch(cause){
       setError(cause instanceof Error&&cause.message?cause.message:'Não foi possível confirmar o pagamento. Tente novamente.');
     }finally{
@@ -330,7 +332,7 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
     }
   };
 
-  if(completion!=='idle')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={completion==='paid'?deliveryLink():''} accountUrl={completion==='paid'?offboardingLink():''}/>;
+  if(completion!=='idle'&&completion!=='awaiting_pix')return <PaymentPageView order={{...order,status:completion}} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={completion==='paid'?deliveryLink():''} accountUrl={completion==='paid'?offboardingLink():''}/>;
   const slot=<div className={`pay-element${order.payment_method === 'pix' ? ' pay-element-pix' : ''}`}>
     <div className="pay-element-head">
       {order.payment_method==='boleto'?<Barcode size={17}/>:order.payment_method==='pix'?<PixBrand className="pay-pix-brand-inline"/>:<CreditCard size={17}/>}
@@ -342,9 +344,10 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
       <p>A bandeira é identificada automaticamente nos campos protegidos da Stripe enquanto você digita. Visa e Mastercard são as bandeiras previstas para este checkout.</p>
       <p>Os dados do cartão são inseridos diretamente na Stripe; a ORYNEO não recebe nem armazena o número completo.</p>
     </div>}
+    {completion==='awaiting_pix' && <div className="pay-pix-guidance" role="status"><strong>Pix gerado — aguardando pagamento</strong><p>Use o QR Code ou o código Pix exibido pela Stripe abaixo. Mantenha esta página aberta ou volte pelo mesmo link para consultar a confirmação. Não gere uma segunda cobrança.</p></div>}
     {order.payment_method==='pix' && <div className="pay-pix-instructions"><p className="pay-pix-note">O QR Code e o Pix Copia e Cola são disponibilizados pelo Stripe após a confirmação desta etapa. Utilize exclusivamente o código exibido na área segura de pagamento.</p><ol><li>Confirme o pagamento para gerar as instruções.</li><li>Abra o aplicativo do seu banco e escolha pagar com Pix.</li><li>Escaneie o QR Code ou use o Pix Copia e Cola fornecido pelo Stripe.</li><li>Confira o valor e aguarde a confirmação do pagamento.</li></ol></div>}
     {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
     {error&&<p className="pay-inline-error" role="alert">{error}</p>}
   </div>;
-  return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} onRefresh={()=>window.location.reload()} busy={busy||result.type!=='success'}/>;
+  return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} onRefresh={()=>window.location.reload()} busy={busy||result.type!=='success'||completion==='awaiting_pix'} payLabel={completion==='awaiting_pix'?'Aguardando pagamento Pix…':undefined}/>;
 }
