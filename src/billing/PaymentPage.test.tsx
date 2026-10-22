@@ -30,7 +30,7 @@ describe('Pix apresentado a partir da cobrança já criada na Stripe',()=>{
     invoke.mockResolvedValue({data:{order:{...order,payment_method:'pix'},pix:qr,client_secret:null,publishable_key:null},error:null});
     window.history.replaceState({},'', '/pagar/?token='+'t'.repeat(48));
     render(<PaymentPage/>);
-    expect(await screen.findByRole('heading',{name:'Pague com Pix.'})).toBeInTheDocument();
+    expect(await screen.findByRole('heading',{name:/Pague R\$\s3\.279,80 com Pix/})).toBeInTheDocument();
     expect(screen.getByRole('region',{name:'QR Code e Pix Copia e Cola'})).toBeInTheDocument();
     expect(screen.getByAltText('QR Code Pix deste pedido, gerado pela Stripe')).toHaveAttribute('src',qr.qr_code_url);
     expect(screen.getByRole('textbox',{name:'Código Pix Copia e Cola'})).toHaveValue(qr.copy_paste);
@@ -92,11 +92,11 @@ describe('PaymentPageView', () => {
     });
     window.history.pushState({},'', '/pagar/?token='+'t'.repeat(48));
     render(<PaymentPage/>);
-    await screen.findByRole('heading',{name:'Como você vai pagar?'});
+    await screen.findByRole('heading',{name:'Como você prefere pagar?'});
     await user.click(screen.getByRole('radio',{name:/Pix/}));
-    expect(screen.getByText(/Não há renovação automática/)).toBeInTheDocument();
+    expect(screen.getByText(/Nada será debitado automaticamente/)).toBeInTheDocument();
     await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
-    await user.click(screen.getByRole('button',{name:'Continuar'}));
+    await user.click(screen.getByRole('button',{name:'Continuar com esta opção'}));
     await waitFor(()=>expect(invoke).toHaveBeenCalledWith('billing-public',expect.objectContaining({body:expect.objectContaining({action:'set_checkout_method',payment_method:'pix'})})));
   });
 
@@ -121,7 +121,7 @@ describe('PaymentPageView', () => {
 
   it('expõe total, composição e recorrência antes do pagamento', () => {
     const {container}=render(<PaymentPageView order={order} paymentSlot={<div>Pagamento seguro</div>} onPay={() => undefined} />);
-    expect(screen.getByRole('heading', { name: 'Finalize sua contratação.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Pague R\$\s3\.279,80 com cartão/ })).toBeInTheDocument();
     expect(screen.getByText('R$ 3.279,80')).toBeInTheDocument();
     expect(screen.getByText('R$ 1.099,90 por mês')).toBeInTheDocument();
     expect(screen.getByText(/Ambiente de homologação/)).toBeInTheDocument();
@@ -203,7 +203,7 @@ describe('PaymentPageView', () => {
 
   it('exibe o Pix aprovado localmente sem segundo aceite e com título direto',()=>{
     const {container}=render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>Área Stripe para Pix</div>} onPay={vi.fn()}/>);
-    expect(screen.getByRole('heading',{name:'Pague com Pix.'})).toBeInTheDocument();
+    expect(screen.getByRole('heading',{name:/Pague R\$\s3\.279,80 com Pix/})).toBeInTheDocument();
     const image=container.querySelector('.pay-pix-brand') as HTMLImageElement;
     expect(image).not.toBeNull();
     expect(image.src).toMatch(/^data:image\/png;base64,/);
@@ -222,8 +222,22 @@ describe('PaymentPageView', () => {
   it('Pix avulso não promete renovação automática',()=>{
     render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code Pix</div>} onPay={()=>undefined}/>);
     expect(screen.getByRole('region',{name:'Forma de pagamento: Pix'})).toBeInTheDocument();
-    expect(screen.getByText(/Cobrança avulsa gerada pelo CRM/i)).toBeInTheDocument();
+    expect(screen.getByText(/Novo Pix necessário por período/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nada será debitado automaticamente/i)).toBeInTheDocument();
     expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
+  });
+
+  it('apresenta o Pix uma única vez, sem cabeçalhos e marcas repetidos',()=>{
+    const {container}=render(<PixPayment order={{...order,payment_method:'pix'}} pix={{
+      status:'ready',
+      copy_paste:'00020101021226890014br.gov.bcb.pix520400005303986',
+      qr_code_url:'https://qr.stripe.com/test_oryneo.png',
+      expires_at:'2030-10-22T15:00:00Z',
+    }}/>);
+    expect(container.querySelectorAll('.pay-pix-brand')).toHaveLength(1);
+    expect(screen.queryByText('FORMA DE PAGAMENTO')).not.toBeInTheDocument();
+    expect(screen.queryByText('PAGAMENTO INSTANTÂNEO')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pagamento via Pix')).not.toBeInTheDocument();
   });
 
 });

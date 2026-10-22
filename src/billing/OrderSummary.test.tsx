@@ -22,9 +22,11 @@ describe('OrderSummary', () => {
     expect(screen.getByRole('complementary', { name: 'Resumo do pedido' })).toBeInTheDocument();
     expect(screen.getByText('Resumo do pedido')).toBeInTheDocument();
     expect(screen.getByText('R$ 2.489,80')).toBeInTheDocument();
-    expect(screen.getByText('Cobrança avulsa gerada pelo CRM')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Próximos pagamentos' })).toBeInTheDocument();
+    expect(screen.getByText('Novo Pix necessário por período')).toBeInTheDocument();
     expect(screen.getByText('R$ 1.099,90 por mês')).toBeInTheDocument();
-    expect(screen.getByText('Sem renovação automática.')).toBeInTheDocument();
+    expect(screen.getByText('Nada será debitado automaticamente.')).toBeInTheDocument();
+    expect(screen.queryByText('Cobrança avulsa gerada pelo CRM')).not.toBeInTheDocument();
     expect(container.querySelector('.order-summary-recurring')).not.toHaveClass('order-summary-inset');
     expect(container.querySelector('.order-summary-recurring')).not.toHaveStyle({ border: expect.stringContaining('1px') });
   });
@@ -38,7 +40,7 @@ describe('OrderSummary', () => {
       recurring={{ amount_cents: 109_990, interval_label: 'por mês', next_charge_at: '2026-11-13' }}
     />);
 
-    expect(screen.getByText('Renovação automática')).toBeInTheDocument();
+    expect(screen.getByText('Próximos pagamentos')).toBeInTheDocument();
     expect(screen.getByText('Gestão de tráfego')).toBeInTheDocument();
     expect(screen.getByText(/R\$ 2\.969,70 a cada 3 meses após o período inicial/)).toBeInTheDocument();
     expect(screen.getByText(/Verba de mídia não está incluída; paga separadamente/)).toBeInTheDocument();

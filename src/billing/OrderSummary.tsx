@@ -38,10 +38,10 @@ export function OrderSummary({ company, heading, reference, status, items, total
   const traffic = items.find(item => item.key === 'traffic');
   const nextCharge = shortDate(recurring?.next_charge_at);
   const recurringLabel = paymentMethod === 'pix'
-    ? 'Cobrança avulsa gerada pelo CRM'
+    ? 'Novo Pix necessário por período'
     : paymentMethod === 'boleto'
-      ? 'Fatura manual por período'
-      : 'Renovação automática';
+      ? 'Novo boleto enviado por período'
+      : 'Cartão cobrado automaticamente';
 
   return <aside className="order-summary" aria-label="Resumo do pedido">
     <header className="order-summary-header">
@@ -62,13 +62,13 @@ export function OrderSummary({ company, heading, reference, status, items, total
 
     <div className="order-summary-total"><span>Total de hoje</span><strong>{money(totalCents)}</strong></div>
 
-    {recurring && <section className="order-summary-recurring" aria-label="Cobranças futuras">
-      <h3>Cobranças futuras</h3>
+    {recurring && <section className="order-summary-recurring" aria-label="Próximos pagamentos">
+      <h3>Próximos pagamentos</h3>
       <div className="order-summary-recurring-line"><span>{recurringLabel}</span><strong>{money(recurring.amount_cents)} {recurring.interval_label}</strong></div>
       {paymentMethod === 'pix'
-        ? <p>Sem renovação automática.</p>
+        ? <p>Nada será debitado automaticamente.</p>
         : paymentMethod === 'boleto'
-          ? <p>Uma nova fatura será enviada a cada período.</p>
+          ? <p>Cada boleto exige pagamento manual.</p>
           : <p>{nextCharge ? `Próxima cobrança em ${nextCharge}.` : 'Conforme o período contratado.'}</p>}
     </section>}
 

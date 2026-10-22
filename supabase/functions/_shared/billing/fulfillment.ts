@@ -151,26 +151,26 @@ export function welcomeMarkup(order:Order):{subject:string;text:string;html:stri
  'Em caso de dúvidas, responda a este e-mail.\nEquipe ORYNEO\nCrescimento em sistema.\n'+
  'Esta mensagem é transacional. Não solicitamos senhas ou dados completos de cartão.';
  const rows=order.items.map(x=>'<tr><td style="padding:12px 0;border-bottom:1px solid #eceef3"><strong style="color:#293041">'+esc(x.label)+
- '</strong><br><span style="font-size:12px;color:#818b9c">'+esc(x.detail)+'</span></td>'+
- '<td align="right" style="white-space:nowrap;border-bottom:1px solid #eceef3;color:#293041">'+esc(format(x.amount_cents))+'</td></tr>').join('');
- const extra=(hasLanding||hasTraffic)?'<div style="background:#f5f6fb;border-radius:10px;padding:17px;margin-top:25px;font-size:13px;color:#646e80;line-height:1.7">'+
+ '</strong><br><span style="font-size:13px;color:#626b78">'+esc(x.detail)+'</span></td>'+
+ '<td align="right" style="white-space:nowrap;border-bottom:1px solid #eceef3;color:#171a20;font-weight:700;font-variant-numeric:tabular-nums">'+esc(format(x.amount_cents))+'</td></tr>').join('');
+ const extra=(hasLanding||hasTraffic)?'<p style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:24px;font-size:13px;color:#4c5560;line-height:1.6">'+
  (hasLanding?'<strong>Landing page:</strong> contemplada na implantação conforme a proposta.<br>':'')+
- (hasTraffic?'<strong>Tráfego pago:</strong> cobrança recorrente trimestral de R$ 2.969,70. Verba de mídia separada.':'')+'</div>':'';
+ (hasTraffic?'<strong>Tráfego pago:</strong> cobrança recorrente trimestral de R$ 2.969,70. Verba de mídia separada.':'')+'</p>':'';
  const html='<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'+
  '<body style="margin:0;background:#f3f5f8;font-family:Arial,Helvetica,sans-serif;color:#252b36">'+
  '<div style="display:none;max-height:0;overflow:hidden">Sua contratação foi confirmada. Veja o resumo e os próximos passos.</div>'+
  '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f3f5f8"><tr><td align="center" style="padding:25px 12px">'+
  '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:620px;background:#fff">'+
  '<tr><td style="background:#181d28;color:#fff;padding:30px 34px 36px"><img src="https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/oryneo-wordmark-mono-reverse.png" width="162" alt="ORYNEO" style="display:block;width:162px;max-width:100%;height:auto;border:0">'+
- '<p style="color:#bfc8ff;font-size:11px;letter-spacing:2px;margin-top:40px">CONTRATAÇÃO CONFIRMADA</p>'+
+ '<p style="color:#d6dcff;font-size:13px;margin-top:40px">Contratação confirmada</p>'+
  '<h1 style="font-size:31px;letter-spacing:-1px;line-height:1.2;margin:15px 0">O próximo passo da sua operação começa aqui.</h1>'+
  '<p style="color:#bdc5d2;font-size:14px;line-height:1.7">Uma parceria para estruturar o que vem pela frente.</p></td></tr>'+
  '<tr><td style="padding:35px 34px"><h2 style="font-size:20px">Olá, '+esc(firstname)+'.</h2>'+
  '<p style="color:#636d7e;font-size:14px;line-height:1.8">É um prazer receber você na ORYNEO. Confirmamos a contratação de <strong>'+esc(order.company)+'</strong>. Nossa equipe organizará as próximas etapas de implantação.</p>'+
- '<p style="font-size:11px;color:#737bd3;letter-spacing:1px;margin-top:30px">RESUMO DA CONTRATAÇÃO · '+esc(order.reference)+'</p>'+
+ '<p style="font-size:13px;color:#4c5560;margin-top:30px">Resumo da contratação · '+esc(order.reference)+'</p>'+
  '<h2 style="font-size:20px">Plano '+esc(plan)+' · '+esc(interval)+'</h2>'+
- '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px">'+rows+'</table>'+
- '<p style="background:#eef0ff;padding:15px;border-radius:8px;color:#3e479d"><span>Total inicial</span><strong style="float:right">'+esc(format(order.amount_total))+'</strong></p>'+
+ '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px">'+rows+'</table>'+
+ '<p style="border-bottom:1px solid #e5e7eb;padding:16px 0;color:#242931;font-size:14px"><span>Total inicial</span><strong style="float:right;color:#0f1115;font-size:19px;font-variant-numeric:tabular-nums">'+esc(format(order.amount_total))+'</strong></p>'+
  '<p style="font-size:12px;color:#777f8f;line-height:1.6">Assinatura do plano: '+esc(format(recurring))+(interval==='anual'?' por ano':' por mês')+'. Condições detalhadas na proposta.</p>'+
  extra+
  (paymentNote?'<p style="font-size:12px;color:#5c6475;line-height:1.7">'+esc(paymentNote)+'</p>':'')+

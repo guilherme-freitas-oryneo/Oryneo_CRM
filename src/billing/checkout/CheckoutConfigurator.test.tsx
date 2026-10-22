@@ -59,6 +59,19 @@ describe('CheckoutConfigurator', () => {
     expect(screen.queryByRole('radiogroup', { name: 'Tipo do cartão' })).not.toBeInTheDocument();
   });
 
+  it('antecipa os valores futuros ao aceite no fluxo mobile e distingue o Pix avulso', async () => {
+    const user = userEvent.setup();
+    const {container} = render(<CheckoutConfigurator onContinue={vi.fn()}/>);
+    await user.click(screen.getByRole('checkbox', { name: /Gestão de tráfego pago/i }));
+    await user.click(screen.getByRole('radio', { name: /Pix/ }));
+    const terms = container.querySelector('.checkout-mobile-terms');
+    const consent = container.querySelector('.checkout-consent');
+    expect(terms).toHaveTextContent('Cada período futuro exige um novo Pix.');
+    expect(terms).toHaveTextContent('R$');
+    expect(terms).toHaveTextContent('Gestão de tráfego');
+    expect(terms?.compareDocumentPosition(consent!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it('explica a recorrência separada de tráfego sem misturar verba de mídia ao total', async () => {
     const user = userEvent.setup();
     render(<CheckoutConfigurator onContinue={vi.fn()}/>);
@@ -147,7 +160,7 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     const onContinue=vi.fn(),user=userEvent.setup();
     render(<CheckoutConfigurator onContinue={onContinue}/>);
     await user.click(screen.getByRole('radio',{name:/Boleto bancário/}));
-    expect(screen.getByText(/Fatura enviada por e-mail a cada período/i)).toBeInTheDocument();
+    expect(screen.getByText(/Novo boleto por período; pagamento manual/i)).toBeInTheDocument();
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');
