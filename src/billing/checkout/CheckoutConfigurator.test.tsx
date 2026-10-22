@@ -132,12 +132,12 @@ describe('jornada Pix guiada', () => {
     const user = userEvent.setup();
     const onContinue = vi.fn();
     render(<CheckoutConfigurator onContinue={onContinue}/>);
-    const initialTotal = screen.getAllByText(/1\\.739,80/).length;
+    const initialTotal = screen.getAllByText(/1\.739,80/).length;
     await user.click(screen.getByRole('radio', { name: /Pix/ }));
     expect(screen.getByText('Seu pagamento via Pix')).toBeInTheDocument();
     expect(screen.getByText(/Nenhuma cobrança é feita ao selecionar Pix/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Continuar com Pix/ })).toBeDisabled();
-    expect(screen.getAllByText(/1\\.739,80/).length).toBeGreaterThanOrEqual(initialTotal);
+    expect(screen.getAllByText(/1\.739,80/).length).toBeGreaterThanOrEqual(initialTotal);
     expect(onContinue).not.toHaveBeenCalled();
     await user.type(screen.getByLabelText('Nome completo'), 'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'), 'marina@acme.example');
