@@ -1,6 +1,6 @@
 # ORYNEO — checkout, recorrência e prontidão LIVE
 
-**Status:** desenho para execução autônoma no branch draft da PR #46; sem autorização para cobrança ou merge LIVE.
+**Status:** implementação publicada na branch draft da PR #46, funções Supabase e preview isolado; nenhum pagamento real foi iniciado. A PR permanece sem merge.
 **Base:** `2026-10-20-oryneo-financial-readiness-design.md` e `2026-10-20-oryneo-financial-readiness.md`.
 
 ## Resultado desejado
@@ -17,7 +17,7 @@ Preparar um percurso comercial coerente, desde plano/adicionais e seleção de p
 - O cliente envia seleção lógica, nunca preço, total ou Price ID autoritativo. Servidor resolve catálogo, método elegível, moeda, intervalo, modo Stripe e total antes de persistir ou abrir pagamento.
 - Confirmação de pagamento vem de webhook Stripe assinado e estado Stripe reconciliado. Retorno ao browser, boleto emitido, Pix pendente, invoice aberta ou subscription ativa não liberam implantação.
 - Eventos são registrados/reconciliados de forma idempotente e monotônica; eventos duplicados ou fora de ordem não repetem e-mail/provisionamento nem rebaixam estado pago.
-- Pix de renovação é criado manualmente no CRM por competência, como cobrança de pagamento único; não há Pix Automático. Boleto também pode ser emitido como cobrança única e futuras renovações são geradas pela equipe no CRM. Cartão de crédito/débito segue assinatura Stripe; o tipo escolhido é aplicado como restrição server-side e a compatibilidade do emissor é informada.
+- Pix é cobrança avulsa criada manualmente no CRM por competência; não há Pix Automático. Boleto é recorrente: uma assinatura Stripe `send_invoice` gera uma fatura/boleto a cada competência e a fatura é enviada por e-mail. A central do CRM também pode emitir uma obrigação avulsa assistida quando necessário. Cartão de crédito/débito segue assinatura Stripe; o tipo escolhido é aplicado como restrição server-side e a compatibilidade do emissor é informada.
 - Tráfego tem três meses iniciais e recorrência trimestral separada do plano mensal/anual; nenhum total, data ou intervalo será anunciado até confirmar no TEST a assinatura de intervalo misto e as faturas geradas.
 - Não habilitar cálculo automático de impostos sem verificar o cadastro fiscal aplicável. Confirmar obrigações de nota/ISS e tributação com contador; Stripe Tax só coleta em jurisdição com registro ativo.
 - Emails de QA ficam em caixa de teste/transport fake. Email comercial só pode sair por outbox idempotente, com consentimento aplicável e transição válida.
@@ -37,10 +37,10 @@ Preservar logo, nomenclatura, tons e linguagem existentes da ORYNEO; revisar mar
 Validar as 24 combinações existentes (3 planos × 2 ciclos × quatro estados de adicionais) com valores inteiros em centavos e catálogo TEST/LIVE separado. Para cada método, definir cobertura e faturamento no contrato:
 
 - Cartão: plano com cobrança mensal/anual via assinatura; adicionais únicos; tráfego com período inicial e linha trimestral separada, com invoices por item/ciclo conforme comportamento Stripe verificado.
-- Boleto: Checkout de pagamento único na compra e nova cobrança individual por competência criada pelo CRM; confirmar somente após webhook assinado e liquidação Stripe. Um boleto aberto nunca libera serviço.
-- Pix: para renovação, a equipe emite uma nova Checkout Session de pagamento único no CRM; não há débito ou geração automática.
+- Boleto: assinatura recorrente Stripe com `collection_method=send_invoice`, boleto em cada ciclo e aviso por e-mail; confirmar cada competência somente após webhook assinado e prova de liquidação Stripe. Uma fatura/boleto aberto nunca libera serviço.
+- Pix: cobrança avulsa criada pelo CRM para a competência escolhida, com link compartilhável e gatilho de e-mail; não há débito ou geração automática.
 
-Cartão usa billing mode `flexible` e mantém a cobrança do plano e o período trimestral de tráfego separados. Boleto/Pix de renovação não tentam representar assinaturas: cada competência é uma obrigação avulsa reconciliada por evento assinado.
+Cartão usa billing mode `flexible` e mantém a cobrança do plano e o período trimestral de tráfego separados. Boleto recorrente gera invoices por assinatura; Pix permanece uma obrigação avulsa reconciliada por evento assinado.
 
 ### Webhooks, estados e gatilhos
 
@@ -65,8 +65,8 @@ Na leitura de 21/10, o Supabase tinha versões ativas de checkout, cobrança e w
 3. TEST cobre, para cada combinação habilitada, criação, pagamento aprovado/pendente/falhou/expirou, webhook assinado, reconciliação, ciclo/renovação, cancelamento e e-mail esperado; inclui eventos duplicados, inválidos, atrasados e fora de ordem.
 4. QA não toca em dados/tabelas/outbox comerciais; email fica no sink; nenhuma operação gera cobrança LIVE.
 5. Diff remoto/local é explicado, CI, testes, build, revisão de segurança e advisors estão verdes. Versão anterior e plano de rollback ficam registrados.
-6. Matriz final marca cada plano × ciclo × adicionais × meio como `homologado`, `bloqueado` ou `não suportado`, com evidência. Só métodos integralmente homologados são habilitados em LIVE.
-7. O usuário pode iniciar manualmente um primeiro checkout real em sua conta depois de ver preço/período/método e aceitar os termos; nenhuma automação de teste paga por ele.
+6. Matriz final marca cada plano × ciclo × adicionais × meio como `homologado`, `bloqueado` ou `não suportado`, com evidência. Métodos LIVE são habilitados com validação server-side e permanecem sob teste manual do proprietário.
+7. O usuário inicia qualquer pagamento real manualmente depois de ver preço/período/método e aceitar os termos; nenhuma automação de teste paga por ele.
 
 ## Sequência de entrega
 
