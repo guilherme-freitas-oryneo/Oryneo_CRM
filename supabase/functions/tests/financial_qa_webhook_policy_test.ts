@@ -1,5 +1,5 @@
 import {assertEquals,assertRejects,assertThrows} from 'jsr:@std/assert';
-import {verifyQaStripeSignature,stripeInvoiceSubscription,verifiedQaInvoice,verifiedQaPixSession,verifiedQaCardCheckoutSession,verifiedStripeInvoicePaymentProof,pixReconciliationDecision,qaOrderLinkPending,qaWebhookLinkDisposition}
+import {verifyQaStripeSignature,stripeInvoiceSubscription,verifiedQaInvoice,verifiedQaPixSession,verifiedQaCardCheckoutSession,verifiedStripeInvoicePaymentProof,pixReconciliationDecision,qaOrderLinkPending,qaWebhookLinkDisposition,qaInvoiceEmailTemplate}
  from '../_shared/billing/financial-qa-webhook-policy.ts';
 const order={id:'00000000-0000-4000-8000-000000000001',environment:'test',method:'boleto',
  stripe_customer_id:'cus_qa',stripe_subscription_id:'sub_qa',
@@ -92,4 +92,12 @@ Deno.test('rejects forged, expired or future Stripe signatures',async()=>{
  assertEquals(await verifyQaStripeSignature(raw+' ', 't='+timestamp+',v1='+signature,secret,now),false);
  assertEquals(await verifyQaStripeSignature(raw,'t='+timestamp+',v1='+signature,secret,now+301000),false);
  assertEquals(await verifyQaStripeSignature(raw,'t=1,v1='+signature,secret,now),false);
+});
+
+Deno.test('QA dispara apenas os modelos financeiros correspondentes aos eventos certos',()=>{
+ assertEquals(qaInvoiceEmailTemplate({eventType:'invoice.finalized',method:'boleto',collectionMethod:'send_invoice',billingReason:'subscription_cycle',paid:false}),'payment_link');
+ assertEquals(qaInvoiceEmailTemplate({eventType:'invoice.finalized',method:'card',collectionMethod:'charge_automatically',billingReason:'subscription_cycle',paid:false}),null);
+ assertEquals(qaInvoiceEmailTemplate({eventType:'invoice.sent',method:'boleto',collectionMethod:'send_invoice',billingReason:'subscription_cycle',paid:false}),null);
+ assertEquals(qaInvoiceEmailTemplate({eventType:'invoice.payment_failed',method:'boleto',collectionMethod:'send_invoice',billingReason:'subscription_cycle',paid:false}),'renewal_failed');
+ assertEquals(qaInvoiceEmailTemplate({eventType:'invoice.paid',method:'card',collectionMethod:'charge_automatically',billingReason:'subscription_create',paid:true}),null);
 });

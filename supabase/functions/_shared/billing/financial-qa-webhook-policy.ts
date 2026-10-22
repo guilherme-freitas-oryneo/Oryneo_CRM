@@ -7,6 +7,15 @@ export const QA_INVOICE_EVENTS=new Set([
  'invoice.created','invoice.finalized','invoice.sent','invoice.paid','invoice.payment_succeeded',
  'invoice.payment_failed','invoice.voided','invoice.marked_uncollectible',
 ]);
+
+export function qaInvoiceEmailTemplate(input:{eventType:string;method:'card'|'boleto';collectionMethod?:string|null;billingReason:string|null;paid:boolean}):'payment_link'|'payment_failed'|'renewal_paid'|'renewal_failed'|null{
+ if(input.eventType==='invoice.finalized')return input.method==='boleto'&&input.collectionMethod==='send_invoice'?'payment_link':null;
+ if(input.eventType==='invoice.payment_failed')return input.billingReason==='subscription_create'?'payment_failed':'renewal_failed';
+ if(['invoice.paid','invoice.payment_succeeded'].includes(input.eventType)&&input.paid)
+  return input.billingReason==='subscription_create'?null:'renewal_paid';
+ return null;
+}
+
 /** Polling may observe payment, but only the separately verified webhook persists Pix settlement. */
 export function pixReconciliationDecision(providerPaid:boolean,orderState:string){
  return {confirmedPaid:providerPaid&&orderState==='paid',
