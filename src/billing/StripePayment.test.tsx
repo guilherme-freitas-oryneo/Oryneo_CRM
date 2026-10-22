@@ -47,7 +47,7 @@ describe('StripePayment', () => {
     mocks.invoke.mockResolvedValueOnce({data:null,error:{message:'indisponível'}});
     render(<StripePayment order={order}/>);
     await consentAndPay();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível registrar seu aceite');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível registrar o aceite anterior');
     expect(confirm).not.toHaveBeenCalled();
   });
 
