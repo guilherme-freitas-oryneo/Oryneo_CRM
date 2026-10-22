@@ -104,3 +104,9 @@
 .pay-pix-instructions{margin-bottom:16px}
 .pay-pix-instructions ol{padding-left:21px;margin:12px 0 0;color:#49635d;font-size:12px;line-height:1.8}
 .pay-pix-instructions li+li{margin-top:3px}
+
+/* Boleto: informational panel only; Stripe owns the invoice and settlement. */
+.pay-boleto-guidance{padding:16px 18px;margin:12px 0 2px;border:1px solid #dce3ed;border-radius:12px;background:#f7f9fc}
+.pay-boleto-guidance strong{display:block;color:#263449;font-size:13px;line-height:1.5}
+.pay-boleto-guidance p{margin:9px 0 0;color:#566377;font-size:12px;line-height:1.7}
+@media(max-width:600px){.pay-boleto-guidance{padding:14px}}
