@@ -34,7 +34,7 @@ for (const [name, engine, viewport] of [
     const marks=page.locator('.checkout-payment-art img');
     assert.equal(await marks.count(),6,'Visa/Mastercard em ambos os cartões, Pix e boleto');
     await page.waitForFunction(()=>[...document.querySelectorAll('.checkout-payment-art img')].every(img=>img.complete),null,{timeout:12000});
-    const logoDetails=await marks.evaluateAll(images=>images.map(img=>({loaded:img.complete,width:img.naturalWidth,srcPrefix:img.src.slice(0,24)})));
+    const logoDetails=await marks.evaluateAll(images=>images.map(img=>({loaded:img.complete,width:img.naturalWidth,srcPrefix:img.src.slice(0,22)})));
     assert.ok(logoDetails.every(img=>img.loaded && img.width>0 && img.srcPrefix==='data:image/png;base64,'),`os símbolos aprovados precisam carregar: ${JSON.stringify(logoDetails)}`);
     const maxCardHeight=await page.locator('.checkout-payment-options>label').evaluateAll(items=>Math.max(...items.map(item=>item.getBoundingClientRect().height)));
     assert.ok(maxCardHeight<=96,`cards altos demais: ${maxCardHeight}px`);
