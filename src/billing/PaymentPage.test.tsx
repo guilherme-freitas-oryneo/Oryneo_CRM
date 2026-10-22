@@ -36,6 +36,16 @@ describe('PaymentPageView', () => {
     expect(screen.queryByText('Pagamento indisponível.')).not.toBeInTheDocument();
   });
 
+  it('não confunde ausência temporária da sessão Stripe com pagamento recusado', async () => {
+    invoke.mockResolvedValue({data:{order:{...order,payment_method:'pix'},client_secret:null,publishable_key:null},error:null});
+    window.history.pushState({}, '', '/pagar/?token='+'t'.repeat(48));
+    render(<PaymentPage/>);
+    expect(await screen.findByRole('heading',{name:'Não foi possível carregar o pagamento agora.'})).toBeInTheDocument();
+    expect(screen.getByText(/não significa que seu pagamento foi recusado ou confirmado/i)).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Consultar novamente'})).toBeInTheDocument();
+    expect(screen.queryByText('Pagamento indisponível.')).not.toBeInTheDocument();
+  });
+
   it('mostra o acompanhamento de implantação apenas após pagamento confirmado',()=>{
     const url='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/implantacao/?token=token-seguro';
     const {rerender}=render(<PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} portalUrl={url}/>);
