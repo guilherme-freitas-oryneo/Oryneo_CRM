@@ -24,8 +24,6 @@ Deno.serve(async req => {
     if (Number(req.headers.get('content-length') || 0) > 8_000) return respond({error:'Solicitação muito longa.'},413);
     const environment = 'live' as const;
     const input = parseDirectCheckoutInput(await req.json());
-    // Pix renewal is created by the CRM as a one-off payment for each competence.
-    if(input.payment_method==='pix')return respond({error:'O Pix de renovação é gerado pela equipe ORYNEO no CRM para cada cobrança.'},409);
     const config = getBillingEnvironmentConfig(environment, name => Deno.env.get(name));
     const prices = await resolveStripeBillingPrices(config);
     const selection = buildBillingSelection({plan:input.plan,cycle:input.cycle,addons:input.addons},prices);
@@ -47,7 +45,7 @@ Deno.serve(async req => {
     if(storedError||!storedOrder||storedOrder.billing_environment!==environment||storedOrder.status!=='awaiting_payment'||storedOrder.amount_total!==selection.amountTotal||storedOrder.customer_email!==input.customer_email||storedSelection?.plan!==selection.plan||storedSelection.cycle!==selection.cycle||storedSelection.payment_method!==input.payment_method||(input.payment_method==='card'&&storedSelection.card_funding!==input.card_funding)||JSON.stringify([...(storedSelection.addons||[])].sort())!==JSON.stringify([...input.addons].sort()))
       return respond({error:'A seleção deste pedido mudou. Reinicie o checkout para preparar um novo pedido.'},409);
     let sessionId = created.stripe_checkout_session_id as string | null;
-    if (!sessionId && input.payment_method!=='boleto') {
+    if (!sessionId) {
       const form = new URLSearchParams();
       form.set('ui_mode','elements');form.set('customer_email',input.customer_email);form.set('integration_identifier',identifier());form.set('locale','pt-BR');form.set('billing_address_collection','required');
       form.set('return_url',`${origin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(input.payment_token)}&retorno=1`);
@@ -58,8 +56,13 @@ Deno.serve(async req => {
         applyCardFundingRestriction(form,input.card_funding);
         if (selection.trafficRenewalPriceId) form.set('metadata[oryneo_traffic_renewal_price]',selection.trafficRenewalPriceId);
         selection.stripePriceIds.forEach((price,index) => {form.set(`line_items[${index}][price]`,price);form.set(`line_items[${index}][quantity]`,'1')});
-      }else{
+      }else if(input.payment_method==='boleto'){
         form.set('mode','payment');form.set('allowed_payment_method_types[0]','boleto');form.set('customer_creation','always');
+        form.set('line_items[0][price_data][currency]','brl');form.set('line_items[0][price_data][unit_amount]',String(selection.amountTotal));
+        form.set('line_items[0][price_data][product_data][name]',`Contratação ORYNEO ${selection.plan} · ${input.company}`);form.set('line_items[0][quantity]','1');
+        form.set('payment_intent_data[metadata][oryneo_order_id]',created.order_id);form.set('payment_intent_data[metadata][oryneo_billing_environment]',environment);
+      }else{
+        form.set('mode','payment');form.set('allowed_payment_method_types[0]','pix');
         form.set('line_items[0][price_data][currency]','brl');form.set('line_items[0][price_data][unit_amount]',String(selection.amountTotal));
         form.set('line_items[0][price_data][product_data][name]',`Contratação ORYNEO ${selection.plan} · ${input.company}`);form.set('line_items[0][quantity]','1');
         form.set('payment_intent_data[metadata][oryneo_order_id]',created.order_id);form.set('payment_intent_data[metadata][oryneo_billing_environment]',environment);
