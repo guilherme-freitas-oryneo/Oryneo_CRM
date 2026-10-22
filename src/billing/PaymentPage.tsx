@@ -267,9 +267,12 @@ export function BoletoPayment({order,invoiceUrl}:{order:PublicBillingOrder;invoi
   }
  };
   const slot=<div className="pay-element">
-  <div className="pay-element-head"><Barcode size={17}/><span>Boleto bancário</span><small>Emitido pela Stripe</small></div>
-  <p>Abra a fatura segura para obter o boleto. O pagamento de cada período é realizado individualmente e a confirmação bancária pode levar até um dia útil.</p>
-  <p>O acesso e a implantação serão liberados somente após a confirmação financeira.</p>
+  <div className="pay-element-head"><Barcode size={17}/><span>Boleto bancário</span><small>Fatura Stripe disponível</small></div>
+  <div className="pay-boleto-guidance" aria-label="Orientações para pagamento do boleto">
+    <strong>Seu boleto está disponível na fatura segura</strong>
+    <p>Abra a fatura emitida pela Stripe para consultar o documento, o código de barras e o vencimento. Confira os dados antes de pagar.</p>
+    <p>O pagamento é manual a cada período. A compensação bancária pode levar até um dia útil e a liberação do serviço depende da confirmação financeira.</p>
+  </div>
   {error&&<p className="pay-inline-error" role="alert">{error}</p>}
  </div>;
  return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} busy={busy} payLabel="Abrir boleto seguro"/>;
