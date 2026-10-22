@@ -284,6 +284,7 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
   const [error,setError]=useState('');
   const [completion,setCompletion]=useState<'idle'|'awaiting_pix'|'processing'|'paid'>('idle');
   const [pixStatus,setPixStatus]=useState<'awaiting_payment'|'processing'|'expired'|'payment_failed'>('awaiting_payment');
+  const [pollingError,setPollingError]=useState(false);
 
   useEffect(()=>{
     if(completion!=='processing'&&completion!=='awaiting_pix')return;
@@ -300,13 +301,14 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
           setCompletion('paid');
           return;
         }
-        if(!lookupError&&data?.order?.status==='processing')setPixStatus('processing');
+        if(!lookupError&&data?.order?.status==='processing'){setPollingError(false);setPixStatus('processing');}
+        if(lookupError)setPollingError(true);
         if(!lookupError&&(data?.order?.status==='expired'||data?.order?.status==='payment_failed')){
           setPixStatus(data.order.status);
           setCompletion('processing');
           return;
         }
-      }catch{/* Manter status pendente; confirmação financeira cabe ao servidor. */}
+      }catch{if(active)setPollingError(true);/* A confirmação financeira cabe ao servidor. */}
       if(active)timer=setTimeout(()=>void verify(),attempts++<8?2000:10000);
     };
     void verify();
@@ -351,7 +353,7 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
       <p>A bandeira é identificada automaticamente nos campos protegidos da Stripe enquanto você digita. Visa e Mastercard são as bandeiras previstas para este checkout.</p>
       <p>Os dados do cartão são inseridos diretamente na Stripe; a ORYNEO não recebe nem armazena o número completo.</p>
     </div>}
-    {completion==='awaiting_pix' && <div className="pay-pix-guidance" role="status"><strong>{pixStatus==='processing'?'Pagamento identificado — aguardando confirmação financeira':'Pix gerado — aguardando pagamento'}</strong><p>Use o QR Code ou o código Pix exibido pela Stripe abaixo. Mantenha esta página aberta ou volte pelo mesmo link para consultar a confirmação. Não gere uma segunda cobrança.</p></div>}
+    {completion==='awaiting_pix' && <div className="pay-pix-guidance" role="status"><strong>{pixStatus==='processing'?'Pagamento identificado — aguardando confirmação financeira':'Pix gerado — aguardando pagamento'}</strong><p>Use o QR Code ou o código Pix exibido pela Stripe abaixo. Mantenha esta página aberta ou volte pelo mesmo link para consultar a confirmação. Não gere uma segunda cobrança.</p>{pollingError&&<p>Não conseguimos consultar a atualização financeira agora. O Pix continua disponível abaixo; a confirmação não foi presumida.</p>}</div>}
     {order.payment_method==='pix' && <div className="pay-pix-instructions"><p className="pay-pix-note">O QR Code e o Pix Copia e Cola são disponibilizados pelo Stripe após a confirmação desta etapa. Utilize exclusivamente o código exibido na área segura de pagamento.</p><ol><li>Confirme o pagamento para gerar as instruções.</li><li>Abra o aplicativo do seu banco e escolha pagar com Pix.</li><li>Escaneie o QR Code ou use o Pix Copia e Cola fornecido pelo Stripe.</li><li>Confira o valor e aguarde a confirmação do pagamento.</li></ol></div>}
     {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
     {error&&<p className="pay-inline-error" role="alert">{error}</p>}
