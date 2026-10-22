@@ -107,9 +107,11 @@ describe('seleção de crédito/débito no Checkout',()=>{
   const user=userEvent.setup();
   mocks.checkout.mockReturnValue({type:'success',checkout:{confirm:vi.fn()}});
   mocks.invoke.mockResolvedValueOnce({data:{order:{...order,payment_method:'card',card_funding:null}},error:null})
+   .mockResolvedValueOnce({data:{ok:true,recorded:true},error:null})
    .mockResolvedValueOnce({data:{ok:true,client_secret:'cs_test_secret',publishable_key:'pk_test_key'},error:null});
   render(<PaymentPage/>);
   await user.click(await screen.findByRole('radio',{name:/Cartão de débito/}));
+  await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
   await user.click(screen.getByRole('button',{name:'Continuar'}));
   await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'card',card_funding:'debit'}}));
   expect(await screen.findAllByText('Cartão de débito')).toHaveLength(2);
@@ -122,7 +124,7 @@ describe('seleção de crédito/débito no Checkout',()=>{
    .mockResolvedValueOnce({data:{ok:true,invoice_url:'https://invoice.stripe.com/test_invoice'},error:null});
   render(<PaymentPage/>);
   await user.click(await screen.findByRole('radio',{name:/Boleto recorrente/}));
-  await user.click(screen.getByRole('checkbox',{name:/Aceito as condições comerciais e as faturas recorrentes/}));
+  await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
   await user.click(screen.getByRole('button',{name:'Continuar'}));
   await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'boleto',card_funding:undefined}}));
   expect(await screen.findAllByText('Boleto bancário')).toHaveLength(2);
