@@ -6,7 +6,7 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 import {
  QA_CHECKOUT_EVENTS,QA_INVOICE_EVENTS,stripeInvoiceSubscription,
- qaOrderLinkPending,qaWebhookLinkDisposition,verifiedStripeInvoicePaymentProof,verifiedQaInvoice,verifiedQaPixSession,verifyQaStripeSignature,
+ qaOrderLinkPending,qaWebhookLinkDisposition,verifiedStripeInvoicePaymentProof,verifiedQaInvoice,verifiedQaPixSession,verifiedQaCardCheckoutSession,verifyQaStripeSignature,
 } from '../_shared/billing/financial-qa-webhook-policy.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
@@ -25,33 +25,38 @@ async function getStripeObject(path:string,key:string):Promise<Record<string,any
  if(data?.livemode!==false||typeof data?.id!=='string')throw Error('QA_PROVIDER_WRONG_ENVIRONMENT');
  return data;
 }
-async function lookup(method:'pix'|'boleto',providerId:string){
+async function lookup(method:'pix'|'boleto'|'card',providerId:string){
  const {data,error}=await db.rpc('oryneo_qa_webhook_lookup',{
   p_method:method,p_provider_id:providerId,
  });
  if(error)throw Error('QA_WEBHOOK_ORDER_LOOKUP_UNAVAILABLE');
  return data as Record<string,any>|null;
 }
-async function handlePix(event:EventShape,key:string){
+async function handleOneTime(event:EventShape,key:string){
  const sessionId=event.data?.object?.id;
- if(typeof sessionId!=='string'||!sessionId.startsWith('cs_test_'))
-  return response({error:'QA_SESSION_ID_INVALID'},422);
+ if(typeof sessionId!=='string'||!sessionId.startsWith('cs_test_'))return response({error:'QA_SESSION_ID_INVALID'},422);
  const order=await lookup('pix',sessionId);
- if(!order){
-  // A request may precede linkage. Never acknowledge a marked QA event prematurely.
-  if(qaOrderLinkPending(event.data?.object?.metadata))return response({error:'QA_LINK_PENDING'},503);
-  return response({received:true,ignored:true});
- }
+ if(!order){if(qaOrderLinkPending(event.data?.object?.metadata))return response({error:'QA_LINK_PENDING'},503);return response({received:true,ignored:true});}
  const session=await getStripeObject('checkout/sessions/'+encodeURIComponent(sessionId),key);
  const settlement=verifiedQaPixSession(session,order);
- const {data,error}=await db.rpc('oryneo_qa_billing_reconcile',{
-  p_order_id:order.id,p_owner_id:order.owner_id,p_provider_object_id:sessionId,
-  p_provider_status:settlement.status,p_confirmed_paid:settlement.paid,
-  p_paid_amount:settlement.paid?settlement.amount:0,
-  p_event_key:'qa_'+event.id,
- });
- if(error||!data?.ok)throw Error('QA_PIX_RECONCILIATION_FAILED');
+ const {data,error}=await db.rpc('oryneo_qa_billing_reconcile',{p_order_id:order.id,p_owner_id:order.owner_id,
+  p_provider_object_id:sessionId,p_provider_status:settlement.status,p_confirmed_paid:settlement.paid,
+  p_paid_amount:settlement.paid?settlement.amount:0,p_event_key:'qa_'+event.id});
+ if(error||!data?.ok)throw Error('QA_CHECKOUT_RECONCILIATION_FAILED');
  return response({received:true,method:'pix',state:data.state,duplicate:data.duplicate===true});
+}
+async function handleCardSession(event:EventShape,key:string){
+ const sessionId=event.data?.object?.id;
+ if(typeof sessionId!=='string'||!sessionId.startsWith('cs_test_'))return response({error:'QA_SESSION_ID_INVALID'},422);
+ const order=await lookup('card',sessionId);
+ if(!order){if(qaOrderLinkPending(event.data?.object?.metadata))return response({error:'QA_LINK_PENDING'},503);return response({received:true,ignored:true});}
+ const session=await getStripeObject('checkout/sessions/'+encodeURIComponent(sessionId),key);
+ const checked=verifiedQaCardCheckoutSession(session,order);
+ if(!checked.customerId||!checked.subscriptionId)return response({error:'QA_CARD_IDENTITIES_PENDING'},503);
+ const {data,error}=await db.rpc('oryneo_qa_billing_link',{p_order_id:order.id,p_owner_id:order.owner_id,
+  p_checkout_session_id:session.id,p_customer_id:checked.customerId,p_subscription_id:checked.subscriptionId,p_invoice_id:checked.invoiceId});
+ if(error||!data?.ok)throw Error('QA_CARD_LINK_FAILED');
+ return response({received:true,method:'card',state:'awaiting_payment',duplicate:data.duplicate===true});
 }
 async function handlePendingSignedInvoice(event:EventShape){
  // Stripe's verified HMAC authenticates the original invoice event. This
@@ -61,7 +66,9 @@ async function handlePendingSignedInvoice(event:EventShape){
   return response({error:'QA_SIGNED_INVOICE_INVALID'},422);
  const subId=stripeInvoiceSubscription(inv);
  if(!subId)return response({received:true,ignored:true});
- const order=await lookup('boleto',subId);
+ let method:'card'|'boleto'='card';
+ let order=await lookup(method,subId);
+ if(!order){method='boleto';order=await lookup(method,subId);}
  const metadata=inv.parent?.subscription_details?.metadata;
  if(!order){
   if(qaOrderLinkPending(metadata))
@@ -79,11 +86,18 @@ async function handlePendingSignedInvoice(event:EventShape){
  const status=event.type==='invoice.payment_failed'&&inv.status==='open'?'payment_failed':inv.status;
  if(!['draft','open','void','uncollectible','payment_failed'].includes(status))
   return response({error:'QA_INVOICE_STATUS_INVALID'},422);
- const {data,error}=await db.rpc('oryneo_qa_boleto_invoice_event',{
-  p_order_id:order.id,p_invoice_id:inv.id,p_event_id:event.id,
-  p_status:status,p_amount_cents:inv.total,
-  p_billing_reason:typeof inv.billing_reason==='string'?inv.billing_reason:null,
-  p_paid:false,
+ if(method==='card'&&!order.stripe_invoice_id){
+  const {data:link,error:linkError}=await db.rpc('oryneo_qa_billing_link',{p_order_id:order.id,p_owner_id:order.owner_id,
+   p_checkout_session_id:order.stripe_checkout_session_id,p_customer_id:order.stripe_customer_id,
+   p_subscription_id:subId,p_invoice_id:inv.id});
+  if(linkError||!link?.ok)throw Error('QA_CARD_PENDING_LINK_FAILED');
+ }
+ const {data,error}=method==='card'?await db.rpc('oryneo_qa_invoice_cycle_event',{
+  p_order_id:order.id,p_subscription_id:subId,p_subscription_role:'primary',p_invoice_id:inv.id,p_event_id:event.id,
+  p_status:status,p_amount_cents:inv.total,p_billing_reason:typeof inv.billing_reason==='string'?inv.billing_reason:null,p_paid:false,
+ }):await db.rpc('oryneo_qa_boleto_invoice_event',{
+  p_order_id:order.id,p_invoice_id:inv.id,p_event_id:event.id,p_status:status,p_amount_cents:inv.total,
+  p_billing_reason:typeof inv.billing_reason==='string'?inv.billing_reason:null,p_paid:false,
  });
  if(error||!data?.ok)throw Error('QA_PENDING_INVOICE_RECONCILIATION_FAILED');
  return response({received:true,method:'boleto',compensated:false,
@@ -99,7 +113,9 @@ async function handleInvoice(event:EventShape,key:string|null){
  const invoice=await getStripeObject('invoices/'+encodeURIComponent(incomingId),key);
  const subscriptionId=stripeInvoiceSubscription(invoice);
  if(!subscriptionId)return response({received:true,ignored:true,reason:'not_subscription_invoice'});
- const order=await lookup('boleto',subscriptionId);
+ let method:'card'|'boleto'='card';
+ let order=await lookup(method,subscriptionId);
+ if(!order){method='boleto';order=await lookup(method,subscriptionId);}
  if(!order){
   const sub=await getStripeObject('subscriptions/'+encodeURIComponent(subscriptionId),key);
   if(qaOrderLinkPending(sub.metadata))
@@ -128,13 +144,22 @@ async function handleInvoice(event:EventShape,key:string|null){
  }
  const recordedStatus=event.type==='invoice.payment_failed'&&!state.paid&&state.status==='open'
   ?'payment_failed':state.status;
- const {data,error}=await db.rpc('oryneo_qa_boleto_invoice_event',{
-  p_order_id:order.id,p_invoice_id:state.invoiceId,p_event_id:event.id,
-  p_status:recordedStatus,p_amount_cents:state.amount,
-  p_billing_reason:state.billingReason,p_paid:state.paid,
+ if(method==='card'&&!order.stripe_invoice_id){
+  const {data:link,error:linkError}=await db.rpc('oryneo_qa_billing_link',{p_order_id:order.id,p_owner_id:order.owner_id,
+   p_checkout_session_id:order.stripe_checkout_session_id,p_customer_id:order.stripe_customer_id,
+   p_subscription_id:subscriptionId,p_invoice_id:state.invoiceId});
+  if(linkError||!link?.ok)throw Error('QA_INVOICE_LINK_FAILED');
+ }
+ const {data,error}=method==='card'?await db.rpc('oryneo_qa_invoice_cycle_event',{
+  p_order_id:order.id,p_subscription_id:subscriptionId,p_subscription_role:'primary',
+  p_invoice_id:state.invoiceId,p_event_id:event.id,p_status:recordedStatus,
+  p_amount_cents:state.amount,p_billing_reason:state.billingReason,p_paid:state.paid,
+ }):await db.rpc('oryneo_qa_boleto_invoice_event',{
+  p_order_id:order.id,p_invoice_id:state.invoiceId,p_event_id:event.id,p_status:recordedStatus,
+  p_amount_cents:state.amount,p_billing_reason:state.billingReason,p_paid:state.paid,
  });
  if(error||!data?.ok)throw Error('QA_BOLETO_RECONCILIATION_FAILED');
- return response({received:true,method:'boleto',order_state:data.order_state,
+ return response({received:true,method,order_state:data.order_state,
   invoice_state:data.invoice_state,duplicate:data.duplicate===true});
 }
 Deno.serve(async(req:Request)=>{
@@ -166,12 +191,15 @@ Deno.serve(async(req:Request)=>{
    const sessionId=event.data?.object?.id;
    if(typeof sessionId!=='string'||!sessionId.startsWith('cs_test_'))
     return response({received:true,ignored:true});
-   const linkedOrder=await lookup('pix',sessionId);
+   const hintedMethod=event.data?.object?.metadata?.oryneo_payment_method;
+   if(hintedMethod==='boleto')return response({received:true,ignored:true,reason:'boleto_uses_subscription_invoices'});
+   const method=hintedMethod==='card'?'card':'pix';
+   const linkedOrder=await lookup(method,sessionId);
    const linkDisposition=qaWebhookLinkDisposition(!!linkedOrder,event.data?.object?.metadata);
    if(linkDisposition==='ignore')
     return response({received:true,ignored:true});
    if(!testKey)return response({error:'QA_TEST_STRIPE_KEY_REQUIRED'},503);
-   return await handlePix(event,testKey);
+   return method==='card'?await handleCardSession(event,testKey):await handleOneTime(event,testKey);
   }
   return await handleInvoice(event,testKey);
  }catch(cause){

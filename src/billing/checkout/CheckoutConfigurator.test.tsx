@@ -11,7 +11,7 @@ describe('CheckoutConfigurator', () => {
 
     expect(screen.getByText(/1\.739,80/)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Plano e periodicidade selecionados' })).toHaveTextContent('ORYNEO Start');
-    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
     await user.click(screen.getByRole('checkbox', { name: /Landing page de conversão/i }));
     expect(screen.getByText(/2\.629,70/)).toBeInTheDocument();
 
@@ -24,6 +24,7 @@ describe('CheckoutConfigurator', () => {
     await user.click(button);
     expect(onContinue).toHaveBeenCalledWith({
       plan: 'Start', cycle: 'monthly', addons: ['landing-page'],
+      payment_method:'card',card_funding:'credit',
       customer_name: 'Marina Costa', customer_email: 'marina@acme.example', company: 'Acme Comércio',
     });
   });
@@ -63,7 +64,7 @@ describe('seleção vinda da landing page', () => {
     const locked = screen.getByRole('region',{name:'Plano e periodicidade selecionados'});
     expect(locked).toHaveTextContent('ORYNEO Scale');
     expect(locked).toHaveTextContent('Anual');
-    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
     expect(screen.getByRole('checkbox',{name:/Landing page de conversão/i})).toBeChecked();
     expect(screen.getByRole('checkbox',{name:/Gestão de tráfego pago/i})).toBeChecked();
     expect(screen.getByText(/21\.692,42/)).toBeInTheDocument();
@@ -81,7 +82,7 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     const onContinue = vi.fn();
     const user = userEvent.setup();
     render(<CheckoutConfigurator onContinue={onContinue}/>);
-    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
     expect(screen.getByRole('region',{name:'Plano e periodicidade selecionados'})).toHaveTextContent('ORYNEO Growth');
     expect(screen.getByRole('link',{name:'página de planos'})).toHaveAttribute('href','https://oryneo.com.br/');
     await user.click(screen.getByRole('checkbox',{name:/Landing page de conversão/i}));
@@ -91,7 +92,32 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     await user.click(screen.getByRole('button',{name:'Continuar para o pagamento'}));
     expect(onContinue).toHaveBeenCalledWith({
       plan:'Growth',cycle:'annual',addons:['landing-page'],
+      payment_method:'card',card_funding:'credit',
       customer_name:'Marina Costa',customer_email:'marina@acme.example',company:'Acme',
     });
+  });
+
+  it('applies the selected debit option before preparing checkout',async()=>{
+    window.history.replaceState({}, '', '/contratar/?plan=Growth&cycle=monthly');
+    const onContinue=vi.fn(),user=userEvent.setup();
+    render(<CheckoutConfigurator onContinue={onContinue}/>);
+    await user.click(screen.getByRole('radio',{name:/Cartão de débito/}));
+    await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
+    await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
+    await user.type(screen.getByLabelText('Empresa'),'Acme');
+    await user.click(screen.getByRole('button',{name:'Continuar para o pagamento'}));
+    expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({payment_method:'card',card_funding:'debit'}));
+  });
+
+  it('offers boleto recurring invoices with manual payment per period',async()=>{
+    const onContinue=vi.fn(),user=userEvent.setup();
+    render(<CheckoutConfigurator onContinue={onContinue}/>);
+    await user.click(screen.getByRole('radio',{name:/Boleto bancário/}));
+    expect(screen.getByText(/nova fatura chega por e-mail a cada período/i)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
+    await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
+    await user.type(screen.getByLabelText('Empresa'),'Acme');
+    await user.click(screen.getByRole('button',{name:'Continuar para o pagamento'}));
+    expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({payment_method:'boleto'}));
   });
 });

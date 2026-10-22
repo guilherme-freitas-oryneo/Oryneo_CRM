@@ -4,6 +4,7 @@ export type DirectCheckoutInput = {
   request_id: string; payment_token: string; customer_name: string; customer_email: string; company: string;
   plan: string; cycle: string; addons: string[];
   payment_method: 'card'|'boleto'|'pix';
+  card_funding: 'credit'|'debit';
 };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const token = /^[A-Za-z0-9_-]{43}$/;
@@ -18,9 +19,11 @@ export function parseDirectCheckoutInput(value: unknown): DirectCheckoutInput {
     customer_name: text(raw.customer_name, 180), customer_email: text(raw.customer_email, 254).toLowerCase(), company: text(raw.company, 200),
     plan: text(raw.plan, 25), cycle: text(raw.cycle, 20), addons: Array.isArray(raw.addons) ? raw.addons.map(item => text(item, 30)) : [],
     payment_method: (raw.payment_method === undefined ? 'card' : text(raw.payment_method, 20)) as DirectCheckoutInput['payment_method'],
+    card_funding: (raw.card_funding === undefined ? 'credit' : text(raw.card_funding, 20)) as DirectCheckoutInput['card_funding'],
   };
   if (!uuid.test(input.request_id) || !token.test(input.payment_token) || input.customer_name.length < 2 || input.company.length < 2 || !email.test(input.customer_email)) throw new Error('INVALID_DIRECT_CHECKOUT');
   if (!['card','boleto','pix'].includes(input.payment_method)) throw new Error('INVALID_PAYMENT_METHOD');
+  if (!['credit','debit'].includes(input.card_funding)) throw new Error('INVALID_CARD_FUNDING');
   buildBillingQuote({ plan: input.plan, cycle: input.cycle, addons: input.addons });
   return input;
 }

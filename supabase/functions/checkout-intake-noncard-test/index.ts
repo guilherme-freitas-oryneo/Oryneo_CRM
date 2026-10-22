@@ -9,6 +9,7 @@ import {buildBillingSelection,resolveStripeBillingPrices} from '../_shared/billi
 import {getBillingEnvironmentConfig} from '../_shared/billing/environment.ts';
 import {checkStripeMethodAvailability} from '../_shared/billing/stripe-method-availability.ts';
 import {createStripeBoletoSubscription,createStripePixCheckout,finalizeStripeBoletoInvoice} from '../_shared/billing/stripe-noncard-service.ts';
+import {buildFinancialQaCardCheckoutForm} from '../_shared/billing/financial-qa-checkout.ts';
 import {pixReconciliationDecision} from '../_shared/billing/financial-qa-webhook-policy.ts';
 import type {PaymentOrderContext,ServerBillingSelection} from '../_shared/billing/stripe-payment-forms.ts';
 
@@ -20,7 +21,7 @@ const StripeApiVersion='2026-08-26.dahlia';
 const qaEmail='qa@example.com';
 const qaName='ORYNEO Homologacao';
 const sha256=async(v:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)))).map(n=>n.toString(16).padStart(2,'0')).join('');
-type QaOrder={id:string;reference?:string;method:'pix'|'boleto';state:string;amount_cents:number;environment:'test';currency:'brl';stripe_checkout_session_id:string|null;stripe_customer_id:string|null;stripe_subscription_id:string|null;stripe_invoice_id:string|null};
+type QaOrder={id:string;reference?:string;method:'card'|'pix'|'boleto';state:string;amount_cents:number;environment:'test';currency:'brl';selection?:Record<string,any>;stripe_checkout_session_id:string|null;stripe_customer_id:string|null;stripe_subscription_id:string|null;stripe_invoice_id:string|null};
 function errorCode(cause:unknown){return cause instanceof Error?cause.message:'unknown'}
 async function stripeRead(path:string,key:string):Promise<Record<string,any>>{
  const r=await fetch('https://api.stripe.com/v1/'+path,{
@@ -31,6 +32,18 @@ async function stripeRead(path:string,key:string):Promise<Record<string,any>>{
  if(value?.livemode!==false||typeof value?.id!=='string')throw Error('QA_STRIPE_ENVIRONMENT_MISMATCH');
  return value;
 }
+async function stripeCreateCheckoutSession(form:URLSearchParams,key:string,orderId:string):Promise<Record<string,any>>{
+ const r=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{
+  Authorization:'Bearer '+key,'Stripe-Version':StripeApiVersion,'Idempotency-Key':'oryneo-qa-card-'+orderId,
+  'Content-Type':'application/x-www-form-urlencoded',
+ },body:form});
+ const value=await r.json();
+ if(!r.ok)throw Error('QA_CARD_SESSION_CREATE_FAILED_'+(value?.error?.code||r.status));
+ if(value?.livemode!==false||!value.id?.startsWith('cs_test_')||
+  value.metadata?.oryneo_qa_isolated!=='true'||value.metadata?.oryneo_order_id!==orderId)
+  throw Error('QA_CARD_SESSION_IDENTITY_MISMATCH');
+ return value;
+}
 async function loadOrder(orderId:string,userId:string):Promise<QaOrder>{
  if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(orderId))throw Error('QA_ORDER_ID_INVALID');
  const {data,error}=await db.rpc('oryneo_qa_billing_read',{p_order_id:orderId,p_owner_id:userId});
@@ -38,13 +51,24 @@ async function loadOrder(orderId:string,userId:string):Promise<QaOrder>{
  return data as QaOrder;
 }
 async function reconcile(order:QaOrder,userId:string,key:string){
- const linked=order.method==='pix'?order.stripe_checkout_session_id:order.stripe_invoice_id;
+ if(order.method==='card'){
+  if(order.state==='paid')return {ok:true,environment:'test',method:'card',state:'paid',confirmed_paid:true};
+  if(!order.stripe_checkout_session_id)return {ok:false,reason:'provider_link_pending'};
+  const session=await stripeRead('checkout/sessions/'+encodeURIComponent(order.stripe_checkout_session_id),key);
+  if(session.mode!=='subscription'||session.metadata?.oryneo_qa_isolated!=='true'||
+   session.metadata?.oryneo_billing_environment!=='test'||session.metadata?.oryneo_order_id!==order.id||
+   !Array.isArray(session.payment_method_types)||!session.payment_method_types.includes('card'))throw Error('QA_CARD_SESSION_MISMATCH');
+  return {ok:true,environment:'test',method:'card',state:order.state,confirmed_paid:false,
+   reason:session.payment_status==='paid'?'signed_webhook_pending':session.status==='expired'?'checkout_expired':'awaiting_card_payment'};
+ }
+ const oneTimeCheckout=order.method==='pix';
+ const linked=oneTimeCheckout?order.stripe_checkout_session_id:order.stripe_invoice_id;
  if(!linked)return {ok:false,reason:'provider_link_pending'};
  let provider:Record<string,any>;
  let providerStatus:string;
  let paid=false;
  let paidAmount=0;
- if(order.method==='pix'){
+ if(oneTimeCheckout){
   provider=await stripeRead('checkout/sessions/'+encodeURIComponent(linked),key);
   if(provider.id!==linked||provider.mode!=='payment'||provider.currency!=='brl'
    ||provider.amount_total!==order.amount_cents
@@ -88,7 +112,7 @@ async function reconcile(order:QaOrder,userId:string,key:string){
  const eventKey='qa_'+await sha256(JSON.stringify([
   order.id,linked,providerStatus,paid,paidAmount,
  ]));
- const {data,error}=await db.rpc('oryneo_qa_billing_reconcile',{
+  const {data,error}=await db.rpc('oryneo_qa_billing_reconcile',{
   p_order_id:order.id,p_owner_id:userId,p_provider_object_id:linked,
   p_provider_status:providerStatus,p_confirmed_paid:paid,p_paid_amount:paidAmount,
   p_event_key:eventKey,
@@ -134,8 +158,7 @@ Deno.serve(async(req:Request)=>{
   }
   if(action!=='create')return respond({error:'Ação inválida.'},422);
   const input=parseDirectCheckoutInput(raw);
-  if(input.payment_method==='card')return respond({error:'Cartão usa o checkout original.'},422);
-  if(input.addons.includes('traffic'))return respond({error:'Tráfego trimestral não homologado neste método.'},422);
+  if(input.addons.includes('traffic'))return respond({error:'Gestão de tráfego ainda não está habilitada nesta compra de homologação.'},422);
   const availability=await checkStripeMethodAvailability(input.payment_method,config);
   if(!availability.available)return respond({error:'Método indisponível em TEST.',reason:availability.reason},503);
   const prices=await resolveStripeBillingPrices(config);
@@ -146,6 +169,7 @@ Deno.serve(async(req:Request)=>{
   };
   // No customer PII is retained or sent. TEST uses a non-deliverable example address.
   const quote={plan:selection.plan,cycle:selection.cycle,addons:input.addons,
+   ...(input.payment_method==='card'?{card_funding:input.card_funding}:{}),
    catalog_version:selection.catalogVersion,items:selection.items.map(i=>({key:i.key,price:i.stripePriceId,amount:i.amountCents}))};
   const {data:orderRaw,error:createError}=await db.rpc('oryneo_qa_billing_create',{
    p_request_id:input.request_id,p_owner_id:user.id,p_method:input.payment_method,
@@ -160,6 +184,29 @@ Deno.serve(async(req:Request)=>{
    orderId:created.id,environment:'test',customerEmail:qaEmail,customerName:qaName,
    returnUrl:'https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/qa/pr-46/?qa_return=1',
   };
+  if(input.payment_method==='card'){
+   const funding=input.card_funding;
+   const previousId=created.stripe_checkout_session_id;
+   let session:Record<string,any>;
+   if(previousId){
+    session=await stripeRead('checkout/sessions/'+encodeURIComponent(previousId),config.secretKey);
+    if(session.id!==previousId||session.mode!=='subscription'||session.metadata?.oryneo_order_id!==created.id||
+      session.metadata?.oryneo_qa_isolated!=='true'||session.metadata?.oryneo_card_funding!==funding)
+      throw Error('QA_CARD_REPLAY_MISMATCH');
+   }else{
+    const form=buildFinancialQaCardCheckoutForm({orderId:created.id,selection:serverSelection,funding,environment:'test'});
+    session=await stripeCreateCheckoutSession(form,config.secretKey,created.id);
+    const {data:linked,error:linkError}=await db.rpc('oryneo_qa_billing_link',{
+     p_order_id:created.id,p_owner_id:user.id,p_checkout_session_id:session.id,
+     p_customer_id:typeof session.customer==='string'?session.customer:null,p_subscription_id:null,p_invoice_id:null,
+    });
+    if(linkError||!linked?.ok)throw Error('QA_CARD_LINK_PENDING');
+   }
+   if(!session.client_secret||!config.publishableKey.startsWith('pk_test_'))throw Error('QA_CARD_CLIENT_SECRET_MISSING');
+   return respond({ok:true,environment:'test',payment_method:'card',card_funding:funding,
+    reference:created.reference,order_id:created.id,session_id:session.id,
+    client_secret:session.client_secret,publishable_key:config.publishableKey});
+  }
   if(input.payment_method==='pix'){
    if(!created.stripe_checkout_session_id){
     const session=await createStripePixCheckout(serverSelection,context,config);

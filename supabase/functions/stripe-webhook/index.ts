@@ -178,7 +178,7 @@ Deno.serve(async (req: Request) => {
         // O claim persistente da mensagem torna seguro o retry do webhook.
         await runPaidOrderPostpayment({
           sendWelcome:()=>sendWelcomeTestSafe(db,paidOrder),
-          ensureTrafficSubscription:()=>ensureTrafficSubscription(db,paidOrder,config.secretKey),
+          ensureTrafficSubscription:()=>paidOrder.selection.payment_method==='card'?ensureTrafficSubscription(db,paidOrder,config.secretKey):Promise.resolve(),
           waitUntil:typeof EdgeRuntime!=='undefined'?(job)=>EdgeRuntime.waitUntil(job):undefined,
           onWelcomeError:err=>console.error('Stripe welcome delivery pending review',{code:err instanceof Error?err.message:'unknown'}),
         });
@@ -250,7 +250,7 @@ Deno.serve(async (req: Request) => {
             const config=getBillingEnvironmentConfig(environment,name=>Deno.env.get(name));
             await runPaidOrderPostpayment({
               sendWelcome:()=>sendWelcomeTestSafe(db,paidOrder),
-              ensureTrafficSubscription:()=>ensureTrafficSubscription(db,paidOrder,config.secretKey),
+              ensureTrafficSubscription:()=>paidOrder.selection.payment_method==='card'?ensureTrafficSubscription(db,paidOrder,config.secretKey):Promise.resolve(),
               waitUntil:typeof EdgeRuntime!=='undefined'?(job)=>EdgeRuntime.waitUntil(job):undefined,
               onWelcomeError:err=>console.error('Boleto welcome pending review',{code:err instanceof Error?err.message:'unknown'}),
             });

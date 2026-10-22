@@ -7,7 +7,7 @@ Deno.test('cartão conserva assinatura recorrente',()=>{
  assertEquals(p.automaticallyRenews,true);
  assertEquals(p.asynchronousSettlement,false);
 });
-Deno.test('boleto conserva ciclo de faturas mas aguarda liquidação',()=>{
+Deno.test('boleto cria faturas recorrentes que exigem pagamento manual a cada período',()=>{
  const p=resolvePaymentPolicy('boleto','annual');
  assertEquals(p.stripeMode,'subscription');
  assertEquals(p.automaticallyRenews,true);

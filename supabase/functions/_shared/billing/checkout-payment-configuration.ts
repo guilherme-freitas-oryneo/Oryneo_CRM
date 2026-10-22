@@ -18,7 +18,7 @@ export function checkoutPaymentConfiguration(method:PaymentMethod,cycle:PaymentC
  const policy=resolvePaymentPolicy(method,cycle);
  switch(policy.method){
   case 'card':return {method,cycle,workflow:'checkout_subscription',stripeMode:'subscription',customerPaysEachInvoice:false,readyForLive:true};
-  case 'boleto':return {method,cycle,workflow:'subscription_invoicing',stripeMode:null,customerPaysEachInvoice:true,readyForLive:false};
+  case 'boleto':return {method,cycle,workflow:'subscription_invoicing',stripeMode:'subscription',customerPaysEachInvoice:true,readyForLive:true};
   case 'pix':return {method,cycle,workflow:'one_time_checkout',stripeMode:'payment',customerPaysEachInvoice:false,readyForLive:false};
  }
 }

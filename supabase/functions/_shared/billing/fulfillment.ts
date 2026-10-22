@@ -137,7 +137,7 @@ export function welcomeMarkup(order:Order):{subject:string;text:string;html:stri
  const recurring=subscriptionLine?.amount_cents||0;
  const hasTraffic=(order.selection.addons||[]).includes('traffic');
  const hasLanding=(order.selection.addons||[]).includes('landing-page');
- const paymentNote=order.selection.payment_method==='pix'?'Pagamento inicial por Pix avulso. Não há renovação automática: cada período futuro exige uma nova cobrança.':order.selection.payment_method==='boleto'?'Faturamento recorrente por boleto: cada fatura exige pagamento individual e o acesso depende da confirmação bancária.':'';
+ const paymentNote=order.selection.payment_method==='pix'?'Pagamento inicial por Pix avulso. Não há renovação automática: cada período futuro exige uma nova cobrança.':order.selection.payment_method==='boleto'?'Assinatura por boleto recorrente. Uma nova fatura chega por e-mail a cada período e precisa ser paga manualmente.':'';
  const subject='Boas-vindas à ORYNEO, '+firstname+' — contratação confirmada';
  const lines=order.items.map(x=>x.label+' ('+x.detail+'): '+format(x.amount_cents)).join('\n');
  const text='Olá, '+firstname+'.\n\n'+

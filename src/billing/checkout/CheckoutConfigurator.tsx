@@ -5,6 +5,8 @@ export type DirectCheckoutSelection = {
   plan: 'Start' | 'Growth' | 'Scale';
   cycle: 'monthly' | 'annual';
   addons: Array<'landing-page' | 'traffic'>;
+  payment_method: 'card'|'boleto';
+  card_funding: 'credit'|'debit';
   customer_name: string;
   customer_email: string;
   company: string;
@@ -41,6 +43,8 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
   const [initialSelection] = useState(() => parseCheckoutPrefill(window.location.search));
   const { plan, cycle } = initialSelection;
   const [addons, setAddons] = useState<DirectCheckoutSelection['addons']>(initialSelection.addons);
+  const [paymentMethod,setPaymentMethod]=useState<DirectCheckoutSelection['payment_method']>('card');
+  const [cardFunding,setCardFunding]=useState<DirectCheckoutSelection['card_funding']>('credit');
   const [customerName, setCustomerName] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
@@ -56,7 +60,7 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
   const toggle = (addon: DirectCheckoutSelection['addons'][number]) => setAddons(current => current.includes(addon) ? current.filter(item => item !== addon) : [...current, addon]);
   const submit = () => {
     if (!valid || busy) return;
-    onContinue({ plan, cycle, addons, customer_name: customerName.trim(), customer_email: email.trim().toLowerCase(), company: company.trim() });
+    onContinue({ plan, cycle, addons, payment_method:paymentMethod, card_funding:cardFunding, customer_name: customerName.trim(), customer_email: email.trim().toLowerCase(), company: company.trim() });
   };
 
   return <div className="checkout-configurator">
@@ -77,6 +81,11 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
         <input type="checkbox" checked={addons.includes(key)} onChange={() => toggle(key)}/><span><strong>{additions[key].label}</strong><small>{additions[key].detail}</small></span><b><Plus size={14}/>{money(additions[key].price)}</b>
       </label>)}
     </div></fieldset>
+    <fieldset className="checkout-choice checkout-funding"><legend>Forma de pagamento</legend><div className="checkout-payment-options">
+      <label className={paymentMethod==='card'&&cardFunding==='credit'?'selected':''}><input type="radio" name="checkout-payment" checked={paymentMethod==='card'&&cardFunding==='credit'} onChange={()=>{setPaymentMethod('card');setCardFunding('credit')}}/><span><strong>Cartão de crédito</strong><small>Renovação conforme a periodicidade do plano.</small></span></label>
+      <label className={paymentMethod==='card'&&cardFunding==='debit'?'selected':''}><input type="radio" name="checkout-payment" checked={paymentMethod==='card'&&cardFunding==='debit'} onChange={()=>{setPaymentMethod('card');setCardFunding('debit')}}/><span><strong>Cartão de débito</strong><small>O emissor precisa permitir a transação e a recorrência escolhida.</small></span></label>
+      <label className={paymentMethod==='boleto'?'selected':''}><input type="radio" name="checkout-payment" checked={paymentMethod==='boleto'} onChange={()=>setPaymentMethod('boleto')}/><span><strong>Boleto bancário recorrente</strong><small>Uma nova fatura chega por e-mail a cada período. Cada boleto precisa ser pago manualmente.</small></span></label>
+    </div></fieldset>
     <fieldset className="checkout-choice checkout-contact"><legend>Dados para o pedido</legend>
       <label>Nome completo<input aria-label="Nome completo" autoComplete="name" value={customerName} onChange={event => setCustomerName(event.target.value)}/></label>
       <label>E-mail corporativo<input aria-label="E-mail corporativo" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)}/></label>
@@ -85,6 +94,6 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
     <aside className="checkout-quote" aria-live="polite"><div><span>Plano {plan} · {cycle === 'annual' ? 'Anual' : 'Mensal'}</span><strong>{money(quote.planAmount)}</strong></div><div><span>Implantação</span><strong>{money(quote.setup)}</strong></div>{quote.selectedAddons.map(item => <div key={item.key}><span>{item.label}<small>{item.detail}</small></span><strong>{money(item.price)}</strong></div>)}<div className="checkout-total"><span>Total de hoje</span><strong>{money(quote.total)}</strong></div>{addons.includes('traffic') && <p>Gestão de tráfego: {money(additions.traffic.price)} a cada 3 meses após o período inicial. Verba de mídia não está incluída.</p>}</aside>
     {error && <p className="checkout-error" role="alert">{error}</p>}
     <button className="pay-submit" type="button" disabled={!valid || busy} onClick={submit}><LockKeyhole size={17}/>{busy ? 'Preparando pagamento…' : 'Continuar para o pagamento'}</button>
-    <p className="checkout-secure"><Check size={14}/> Seus dados servem apenas para preparar este pedido. Os meios de pagamento disponíveis serão apresentados com as condições e o período coberto antes da confirmação.</p>
+    <p className="checkout-secure"><Check size={14}/> {paymentMethod==='card'?`O Checkout Stripe permite somente cartão de ${cardFunding==='credit'?'crédito':'débito'} nesta tentativa. O total e a periodicidade continuam sendo os do pedido.`:'A assinatura emite uma fatura Boleto a cada período e envia a cobrança por e-mail. O pagamento de cada fatura é manual.'}</p>
   </div>;
 }

@@ -7,14 +7,14 @@ Deno.test('card preserves current live subscription Checkout',()=>{
  assertEquals(p.readyForLive,true);
  assertPaymentMethodEnabled('card','monthly');
 });
-Deno.test('boleto requires separate invoice workflow and is not released to LIVE',()=>{
+Deno.test('boleto uses recurring subscription invoices that require manual payment',()=>{
  for(const cycle of ['monthly','annual'] as const){
   const p=checkoutPaymentConfiguration('boleto',cycle);
   assertEquals(p.workflow,'subscription_invoicing');
-  assertEquals(p.stripeMode,null);
+  assertEquals(p.stripeMode,'subscription');
   assertEquals(p.customerPaysEachInvoice,true);
-  assertEquals(p.readyForLive,false);
-  assertThrows(()=>assertPaymentMethodEnabled('boleto',cycle),Error,'PAYMENT_METHOD_NOT_HOMOLOGATED');
+  assertEquals(p.readyForLive,true);
+  assertPaymentMethodEnabled('boleto',cycle);
  }
 });
 Deno.test('Pix is one-time, never subscription, and is gated',()=>{

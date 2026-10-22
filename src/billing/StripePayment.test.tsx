@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { StripePayment, type PublicBillingOrder } from './PaymentPage';
+import { PaymentPage, StripePayment, type PublicBillingOrder } from './PaymentPage';
 
 const mocks = vi.hoisted(() => ({
   checkout: vi.fn(),
@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../data', () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
+vi.mock('@stripe/stripe-js',()=>({loadStripe:vi.fn(()=>Promise.resolve({}))}));
 vi.mock('@stripe/react-stripe-js/checkout', () => ({
   useCheckoutElements: () => mocks.checkout(),
   PaymentElement: () => <div>Campos Stripe</div>,
@@ -96,4 +97,36 @@ describe('StripePayment', () => {
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole('alert')).toHaveTextContent('Confira os dados do cartão.');
   });
+});
+
+describe('seleção de crédito/débito no Checkout',()=>{
+ beforeEach(()=>{
+  vi.clearAllMocks();window.history.replaceState({},'', '/pagar/?token=token-de-teste');
+ });
+ it('persiste a escolha do comprador no servidor antes de carregar o formulário de pagamento',async()=>{
+  const user=userEvent.setup();
+  mocks.checkout.mockReturnValue({type:'success',checkout:{confirm:vi.fn()}});
+  mocks.invoke.mockResolvedValueOnce({data:{order:{...order,payment_method:'card',card_funding:null}},error:null})
+   .mockResolvedValueOnce({data:{ok:true,client_secret:'cs_test_secret',publishable_key:'pk_test_key'},error:null});
+  render(<PaymentPage/>);
+  await user.click(await screen.findByRole('radio',{name:/Cartão de débito/}));
+  await user.click(screen.getByRole('button',{name:'Continuar'}));
+  await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'card',card_funding:'debit'}}));
+  expect(await screen.findAllByText('Cartão de débito')).toHaveLength(2);
+  expect(await screen.findByText('Campos Stripe')).toBeInTheDocument();
+ });
+ it('permite escolher faturas Boleto recorrentes sem criar assinatura de cartão',async()=>{
+  const user=userEvent.setup();mocks.checkout.mockReturnValue({type:'success',checkout:{confirm:vi.fn()}});
+  mocks.invoke.mockResolvedValueOnce({data:{order:{...order,card_funding:null}},error:null})
+   .mockResolvedValueOnce({data:{ok:true,recorded:true},error:null})
+   .mockResolvedValueOnce({data:{ok:true,invoice_url:'https://invoice.stripe.com/test_invoice'},error:null});
+  render(<PaymentPage/>);
+  await user.click(await screen.findByRole('radio',{name:/Boleto recorrente/}));
+  await user.click(screen.getByRole('checkbox',{name:/Aceito as condições comerciais e as faturas recorrentes/}));
+  await user.click(screen.getByRole('button',{name:'Continuar'}));
+  await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'boleto',card_funding:undefined}}));
+  expect(await screen.findAllByText('Boleto bancário')).toHaveLength(2);
+  expect(await screen.findByRole('button',{name:/Abrir boleto seguro/})).toBeInTheDocument();
+  expect(screen.queryByText('Campos Stripe')).not.toBeInTheDocument();
+ });
 });

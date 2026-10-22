@@ -12,6 +12,11 @@ function sandboxOnly(config:BillingEnvironmentConfig,context:PaymentOrderContext
  if(config.environment!=='test'||config.livemode||context.environment!=='test')throw Error('NONCARD_LIVE_NOT_HOMOLOGATED');
  if(!config.secretKey.startsWith('sk_test_')&&!config.secretKey.startsWith('rk_test_'))throw Error('STRIPE_TEST_KEY_REQUIRED');
 }
+function boletoEnvironment(config:BillingEnvironmentConfig,context:PaymentOrderContext){
+ if(config.environment!==context.environment||config.livemode!==(context.environment==='live'))throw Error('BILLING_ENVIRONMENT_MISMATCH');
+ const prefix=context.environment==='live'?/(?:sk|rk)_live_/:/(?:sk|rk)_test_/;
+ if(!prefix.test(config.secretKey))throw Error('STRIPE_SECRET_KEY_ENVIRONMENT_MISMATCH');
+}
 async function stripeCall(path:string,config:BillingEnvironmentConfig,fetchImpl:Fetch,form?:URLSearchParams,idempotencyKey?:string):Promise<StripeObject>{
  const response=await fetchImpl('https://api.stripe.com/v1'+path,{
   method:form?'POST':'GET',
@@ -24,22 +29,22 @@ async function stripeCall(path:string,config:BillingEnvironmentConfig,fetchImpl:
  });
  const result=await response.json() as StripeObject;
  if(!response.ok||!result?.id)throw Error('STRIPE_NONCARD_REQUEST_FAILED_'+response.status+'_'+(result?.error?.code||'unknown'));
- if(result.livemode!==false)throw Error('STRIPE_NONCARD_ENVIRONMENT_MISMATCH');
+ if(result.livemode!==config.livemode)throw Error('STRIPE_NONCARD_ENVIRONMENT_MISMATCH');
  return result;
 }
-/** Staged sandbox-only implementation; persist returned IDs atomically before exposing invoice links.
+/** Creates a subscription with customer action for each boleto invoice.
  * Idempotency protects short retries; the subscription lookup recovers after the Stripe window.
  */
 export async function createStripeBoletoSubscription(
  selection:ServerBillingSelection,context:PaymentOrderContext,config:BillingEnvironmentConfig,fetchImpl:Fetch=fetch,
 ):Promise<BoletoCreation>{
- sandboxOnly(config,context);
+ boletoEnvironment(config,context);
  const customerForm=new URLSearchParams();
  customerForm.set('email',context.customerEmail);
  customerForm.set('name',context.customerName);
  customerForm.set('preferred_locales[0]','pt-BR');
  customerForm.set('metadata[oryneo_order_id]',context.orderId);
- customerForm.set('metadata[oryneo_billing_environment]','test');
+ customerForm.set('metadata[oryneo_billing_environment]',context.environment);
  // Recover a customer after the Stripe idempotency retention window expires.
  const searchQuery=`metadata['oryneo_order_id']:'${context.orderId}'`;
  const search=await fetchImpl('https://api.stripe.com/v1/customers/search?'+new URLSearchParams({query:searchQuery,limit:'10'}),{
@@ -50,7 +55,7 @@ export async function createStripeBoletoSubscription(
  if(found.has_more||!Array.isArray(found.data)||found.data.length>1)throw Error('STRIPE_CUSTOMER_RECONCILIATION_AMBIGUOUS');
  let customer=found.data[0];
  if(customer){
-  if(customer.livemode!==false||customer.metadata?.oryneo_order_id!==context.orderId)
+  if(customer.livemode!==config.livemode||customer.metadata?.oryneo_order_id!==context.orderId||customer.metadata?.oryneo_billing_environment!==context.environment)
    throw Error('STRIPE_EXISTING_CUSTOMER_MISMATCH');
  }else customer=await stripeCall('/customers',config,fetchImpl,customerForm,'oryneo-boleto-customer-'+context.orderId);
  if(!customer.id?.startsWith('cus_'))throw Error('INVALID_CUSTOMER_RESPONSE');
@@ -62,7 +67,7 @@ export async function createStripeBoletoSubscription(
  if(historyData.has_more||!Array.isArray(historyData.data))throw Error('STRIPE_SUBSCRIPTION_HISTORY_INCOMPLETE');
  let sub=historyData.data.find(item=>item.metadata?.oryneo_order_id===context.orderId&&item.metadata?.oryneo_payment_method==='boleto');
  if(sub){
-  if(sub.livemode!==false||sub.customer!==customer.id)throw Error('STRIPE_EXISTING_SUBSCRIPTION_MISMATCH');
+  if(sub.livemode!==config.livemode||sub.customer!==customer.id)throw Error('STRIPE_EXISTING_SUBSCRIPTION_MISMATCH');
  }else{
   const form=buildBoletoSubscriptionForm(selection,context,customer.id);
   form.append('expand[]','latest_invoice');
@@ -95,7 +100,7 @@ export async function finalizeStripeBoletoInvoice(
  selection:ServerBillingSelection,context:PaymentOrderContext,
  config:BillingEnvironmentConfig,fetchImpl:Fetch=fetch,
 ):Promise<string|null>{
- sandboxOnly(config,context);
+ boletoEnvironment(config,context);
  if(!/^in_[a-zA-Z0-9_]+$/.test(invoiceId)||!/^cus_[a-zA-Z0-9_]+$/.test(customerId)||
     !/^sub_[a-zA-Z0-9_]+$/.test(subscriptionId))throw Error('INVALID_STRIPE_INVOICE_CONTEXT');
  let invoice=await stripeCall('/invoices/'+encodeURIComponent(invoiceId),config,fetchImpl);

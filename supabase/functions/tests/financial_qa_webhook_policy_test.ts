@@ -1,5 +1,5 @@
 import {assertEquals,assertRejects,assertThrows} from 'jsr:@std/assert';
-import {verifyQaStripeSignature,stripeInvoiceSubscription,verifiedQaInvoice,verifiedQaPixSession,verifiedStripeInvoicePaymentProof,pixReconciliationDecision,qaOrderLinkPending,qaWebhookLinkDisposition}
+import {verifyQaStripeSignature,stripeInvoiceSubscription,verifiedQaInvoice,verifiedQaPixSession,verifiedQaCardCheckoutSession,verifiedStripeInvoicePaymentProof,pixReconciliationDecision,qaOrderLinkPending,qaWebhookLinkDisposition}
  from '../_shared/billing/financial-qa-webhook-policy.ts';
 const order={id:'00000000-0000-4000-8000-000000000001',environment:'test',method:'boleto',
  stripe_customer_id:'cus_qa',stripe_subscription_id:'sub_qa',
@@ -55,6 +55,15 @@ Deno.test('Pix completed without settlement is not paid',()=>{
  assertEquals(verifiedQaPixSession(session,qaPix).paid,false);
  assertEquals(verifiedQaPixSession({...session,payment_status:'paid'},qaPix).paid,true);
  assertThrows(()=>verifiedQaPixSession({...session,amount_total:1},qaPix),Error,'QA_PIX_PROVIDER_MISMATCH');
+});
+Deno.test('card Checkout session confirms selected funding type and linked TEST identities',()=>{
+ const cardOrder={...order,method:'card',stripe_checkout_session_id:'cs_test_card',selection:{card_funding:'debit'}};
+ const session={id:'cs_test_card',livemode:false,mode:'subscription',currency:'brl',amount_total:173980,status:'complete',payment_status:'paid',
+  customer:'cus_card',subscription:'sub_card',invoice:'in_card',payment_method_types:['card'],
+  metadata:{oryneo_qa_isolated:'true',oryneo_billing_environment:'test',oryneo_order_id:order.id,oryneo_payment_method:'card',oryneo_card_funding:'debit'}};
+ assertEquals(verifiedQaCardCheckoutSession(session,cardOrder),{status:'paid',paid:true,amount:173980,customerId:'cus_card',subscriptionId:'sub_card',invoiceId:'in_card'});
+ assertThrows(()=>verifiedQaCardCheckoutSession({...session,metadata:{...session.metadata,oryneo_card_funding:'credit'}},cardOrder),Error,'QA_CARD_CHECKOUT_PROVIDER_MISMATCH');
+ assertThrows(()=>verifiedQaCardCheckoutSession({...session,livemode:true},cardOrder),Error,'QA_CARD_CHECKOUT_PROVIDER_MISMATCH');
 });
 Deno.test('Pix polling cannot persist paid before the signed webhook does',()=>{
  assertEquals(pixReconciliationDecision(true,'awaiting_payment'),{confirmedPaid:false,webhookPending:true});

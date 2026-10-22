@@ -58,7 +58,7 @@ describe('homologação financeira', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Ciclo' }), 'annual');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Landing page (cobrança única)' }));
     expect(screen.getByText(/14\.158,72/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('radio', { name: /Pix.*avulso/ }));
+    await userEvent.click(screen.getByRole('radio', { name: /Pix.*cobrança avulsa/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Criar checkout QA Pix' }));
 
     expect(await screen.findByLabelText('Payment Element de teste')).toBeInTheDocument();
@@ -87,7 +87,7 @@ describe('homologação financeira', () => {
       .mockResolvedValueOnce({ data: { ok: true, environment: 'test', method: 'boleto', state: 'awaiting_payment', confirmed_paid: false, reason: 'bank_compensation_webhook_pending' }, error: null } as never);
     render(<App />);
     await userEvent.click(await screen.findByRole('button', { name: 'QA financeiro' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Criar fatura QA Boleto' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Criar assinatura QA Boleto' }));
 
     const invoice = await screen.findByRole('link', { name: 'Abrir fatura Stripe TEST' });
     expect(invoice).toHaveAttribute('href', 'https://invoice.stripe.com/i/test_fixture');
@@ -119,7 +119,7 @@ describe('homologação financeira', () => {
     } as never);
     render(<App />);
     await userEvent.click(await screen.findByRole('button', { name: 'QA financeiro' }));
-    await userEvent.click(screen.getByRole('radio', { name: /Pix.*avulso/ }));
+    await userEvent.click(screen.getByRole('radio', { name: /Pix.*cobrança avulsa/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Criar checkout QA Pix' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('falha controlada do SDK');
     expect(screen.getByRole('button', { name: 'Reiniciar a tela de teste' })).toBeInTheDocument();
@@ -133,7 +133,7 @@ describe('homologação financeira', () => {
 
     render(<App />);
     await userEvent.click(await screen.findByRole('button', { name: 'QA financeiro' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Criar fatura QA Boleto' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Criar assinatura QA Boleto' }));
 
     expect(supabase.functions.invoke).toHaveBeenCalledWith(
       'checkout-intake-noncard-test',
@@ -162,7 +162,7 @@ describe('homologação financeira', () => {
     vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: null, error: new Error('Failed to fetch') } as never);
     render(<App />);
     await userEvent.click(await screen.findByRole('button', { name: 'QA financeiro' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Criar fatura QA Boleto' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Criar assinatura QA Boleto' }));
 
     expect(await screen.findByRole('status')).toHaveTextContent('Não foi possível preparar o pagamento de homologação.');
     expect(supabase.functions.invoke).toHaveBeenCalledWith('checkout-intake-noncard-test', expect.any(Object));

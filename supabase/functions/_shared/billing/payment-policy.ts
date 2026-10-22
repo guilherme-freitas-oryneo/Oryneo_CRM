@@ -17,7 +17,7 @@ export function resolvePaymentPolicy(method: PaymentMethod, cycle: PaymentCycle)
   if (cycle !== 'monthly' && cycle !== 'annual') throw new Error('INVALID_BILLING_CYCLE');
   switch (method) {
     case 'card': return {method,cycle,stripeMode:'subscription',automaticallyRenews:true,asynchronousSettlement:false,requiresCustomerActionForEachInvoice:false,accessRequiresSettlement:true,label:'Cartão'};
-    case 'boleto': return {method,cycle,stripeMode:'subscription',automaticallyRenews:true,asynchronousSettlement:true,requiresCustomerActionForEachInvoice:true,accessRequiresSettlement:true,label:'Boleto bancário — pagamento de cada fatura'};
+    case 'boleto': return {method,cycle,stripeMode:'subscription',automaticallyRenews:true,asynchronousSettlement:true,requiresCustomerActionForEachInvoice:true,accessRequiresSettlement:true,label:'Boleto recorrente — uma nova fatura por período'};
     case 'pix': return {method,cycle,stripeMode:'payment',automaticallyRenews:false,asynchronousSettlement:true,requiresCustomerActionForEachInvoice:true,accessRequiresSettlement:true,label:'Pix avulso — sem débito automático'};
     default: throw new Error('UNSUPPORTED_PAYMENT_METHOD');
   }

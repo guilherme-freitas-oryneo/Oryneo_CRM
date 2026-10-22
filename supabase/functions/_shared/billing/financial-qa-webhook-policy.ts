@@ -61,14 +61,14 @@ export function verifiedQaInvoice(
   subscription.metadata?.oryneo_qa_isolated!=='true'||
   subscription.metadata?.oryneo_billing_environment!=='test'||
   subscription.metadata?.oryneo_order_id!==order.id||
-  order.environment!=='test'||order.method!=='boleto'||invoice.currency!=='brl'||
+  order.environment!=='test'||!['boleto','card'].includes(order.method)||invoice.currency!=='brl'||
   !Number.isSafeInteger(invoice.total)||invoice.total<0)
   throw Error('QA_INVOICE_PROVIDER_MISMATCH');
  const paid=invoice.status==='paid'&&
   invoice.amount_paid===invoice.total&&invoice.amount_remaining===0&&
   invoice.total>0;
  if(invoice.status==='paid'&&!paid)throw Error('QA_INVOICE_COMPENSATION_UNCONFIRMED');
- if(invoice.id===order.stripe_invoice_id&&invoice.total!==order.amount_cents)
+ if((invoice.id===order.stripe_invoice_id||invoice.billing_reason==='subscription_create')&&invoice.total!==order.amount_cents)
   throw Error('QA_INITIAL_INVOICE_AMOUNT_MISMATCH');
  if(!['draft','open','paid','void','uncollectible'].includes(invoice.status))
   throw Error('QA_INVOICE_STATE_UNKNOWN');
@@ -90,6 +90,23 @@ export function verifiedQaPixSession(
  return {status:session.payment_status==='paid'?'paid':
    session.status==='expired'?'expired':session.payment_status||'unpaid',
    paid:session.payment_status==='paid',amount:session.amount_total};
+}
+export function verifiedQaCardCheckoutSession(
+ session:Record<string,any>,order:Record<string,any>,
+):Readonly<{status:string;paid:boolean;amount:number;customerId:string|null;subscriptionId:string|null;invoiceId:string|null}>{
+ if(session.livemode!==false||session.id!==order.stripe_checkout_session_id||order.environment!=='test'||
+  order.method!=='card'||session.mode!=='subscription'||session.currency!=='brl'||
+  session.amount_total!==order.amount_cents||session.metadata?.oryneo_qa_isolated!=='true'||
+  session.metadata?.oryneo_billing_environment!=='test'||session.metadata?.oryneo_order_id!==order.id||
+  session.metadata?.oryneo_payment_method!=='card'||!['credit','debit'].includes(session.metadata?.oryneo_card_funding)||
+  session.metadata?.oryneo_card_funding!==order.selection?.card_funding||
+  !Array.isArray(session.payment_method_types)||!session.payment_method_types.includes('card'))
+  throw Error('QA_CARD_CHECKOUT_PROVIDER_MISMATCH');
+ return {status:session.payment_status==='paid'?'paid':session.status==='expired'?'expired':session.payment_status||'unpaid',
+  paid:session.payment_status==='paid',amount:session.amount_total,
+  customerId:typeof session.customer==='string'?session.customer:null,
+  subscriptionId:typeof session.subscription==='string'?session.subscription:null,
+  invoiceId:typeof session.invoice==='string'?session.invoice:null};
 }
 const encoder=new TextEncoder();
 function secureEqual(a:Uint8Array,b:Uint8Array){

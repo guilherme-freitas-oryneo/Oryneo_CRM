@@ -92,7 +92,7 @@ describe('PaymentPageView', () => {
     const user=userEvent.setup();
     const onPay=vi.fn();
     render(<PaymentPageView order={{...order,payment_method:'boleto'}} paymentSlot={<div>Boleto Stripe</div>} onPay={onPay} payLabel="Abrir boleto seguro"/>);
-    expect(screen.getByText(/pagamento individual de cada fatura/i)).toBeInTheDocument();
+    expect(screen.getByText(/novas faturas Boleto recorrentes serão enviadas por e-mail/i)).toBeInTheDocument();
     expect(screen.getByRole('region',{name:'Forma de pagamento: Boleto bancário'})).toBeInTheDocument();
     const button=screen.getByRole('button',{name:'Abrir boleto seguro'});
     expect(button).toBeDisabled();

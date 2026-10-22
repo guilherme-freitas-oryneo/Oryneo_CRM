@@ -17,7 +17,7 @@ Preparar um percurso comercial coerente, desde plano/adicionais e seleção de p
 - O cliente envia seleção lógica, nunca preço, total ou Price ID autoritativo. Servidor resolve catálogo, método elegível, moeda, intervalo, modo Stripe e total antes de persistir ou abrir pagamento.
 - Confirmação de pagamento vem de webhook Stripe assinado e estado Stripe reconciliado. Retorno ao browser, boleto emitido, Pix pendente, invoice aberta ou subscription ativa não liberam implantação.
 - Eventos são registrados/reconciliados de forma idempotente e monotônica; eventos duplicados ou fora de ordem não repetem e-mail/provisionamento nem rebaixam estado pago.
-- Pix é avulso/prepago pelo período claramente informado, sem renovação automática. Boleto informa vencimento e compensação; cada fatura só é paga quando a prova Stripe/bancária confere. Cartão recorrente usa Stripe Billing.
+- Pix de renovação é criado manualmente no CRM por competência, como cobrança de pagamento único; não há Pix Automático. Boleto também pode ser emitido como cobrança única e futuras renovações são geradas pela equipe no CRM. Cartão de crédito/débito segue assinatura Stripe; o tipo escolhido é aplicado como restrição server-side e a compatibilidade do emissor é informada.
 - Tráfego tem três meses iniciais e recorrência trimestral separada do plano mensal/anual; nenhum total, data ou intervalo será anunciado até confirmar no TEST a assinatura de intervalo misto e as faturas geradas.
 - Não habilitar cálculo automático de impostos sem verificar o cadastro fiscal aplicável. Confirmar obrigações de nota/ISS e tributação com contador; Stripe Tax só coleta em jurisdição com registro ativo.
 - Emails de QA ficam em caixa de teste/transport fake. Email comercial só pode sair por outbox idempotente, com consentimento aplicável e transição válida.
@@ -37,10 +37,10 @@ Preservar logo, nomenclatura, tons e linguagem existentes da ORYNEO; revisar mar
 Validar as 24 combinações existentes (3 planos × 2 ciclos × quatro estados de adicionais) com valores inteiros em centavos e catálogo TEST/LIVE separado. Para cada método, definir cobertura e faturamento no contrato:
 
 - Cartão: plano com cobrança mensal/anual via assinatura; adicionais únicos; tráfego com período inicial e linha trimestral separada, com invoices por item/ciclo conforme comportamento Stripe verificado.
-- Boleto: assinatura/invoices `send_invoice`, pagamento manual por período; processar cada invoice e renovar os itens em seus próprios ciclos. Um boleto aberto nunca libera serviço.
-- Pix: Checkout de pagamento único para o período indicado, sem renovação automática; informar claramente nova compra/aceite para renovar.
+- Boleto: Checkout de pagamento único na compra e nova cobrança individual por competência criada pelo CRM; confirmar somente após webhook assinado e liquidação Stripe. Um boleto aberto nunca libera serviço.
+- Pix: para renovação, a equipe emite uma nova Checkout Session de pagamento único no CRM; não há débito ou geração automática.
 
-Stripe documenta intervalos mistos no mesmo subscription com billing mode `flexible` e versão recente, mas a aplicação só os libera depois de testar fatura inicial, fatura mensal/anual do plano, fatura trimestral de tráfego, cancelamento e eventos por item em TEST.
+Cartão usa billing mode `flexible` e mantém a cobrança do plano e o período trimestral de tráfego separados. Boleto/Pix de renovação não tentam representar assinaturas: cada competência é uma obrigação avulsa reconciliada por evento assinado.
 
 ### Webhooks, estados e gatilhos
 
