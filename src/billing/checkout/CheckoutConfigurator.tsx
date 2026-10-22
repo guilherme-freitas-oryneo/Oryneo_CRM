@@ -26,10 +26,11 @@ const additions = {
 } as const;
 const money = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 const digits = (value: string) => value.replace(/\D/g, '');
+const formatTaxId = (value: string) => { const id=digits(value).slice(0,14); if(id.length<=11) return id.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2'); return id.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2'); };
 const validTaxId = (value: string) => {
   const id = digits(value);
   if (![11, 14].includes(id.length) || /^([0-9])\1+$/.test(id)) return false;
-  const calc = (base: string) => { let sum = 0; let weight = base.length - 7; for (const char of base) { sum += Number(char) * weight--; if (weight < 2) weight = 9; } const rest = sum % 11; return rest < 2 ? 0 : 11 - rest; };
+  const calc = (base: string) => { let sum = 0; let weight = base.length === 9 ? 10 : base.length - 7; for (const char of base) { sum += Number(char) * weight--; if (weight < 2) weight = 9; } const rest = sum % 11; return rest < 2 ? 0 : 11 - rest; };
   if (id.length === 11) return calc(id.slice(0, 9)) === Number(id[9]) && calc(id.slice(0, 10)) === Number(id[10]);
   return calc(id.slice(0, 12)) === Number(id[12]) && calc(id.slice(0, 13)) === Number(id[13]);
 };
@@ -101,7 +102,7 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
       <label>Nome completo<input aria-label="Nome completo" autoComplete="name" value={customerName} onChange={event => setCustomerName(event.target.value)}/></label>
       <label>E-mail corporativo<input aria-label="E-mail corporativo" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)}/></label>
       <label>Empresa<input aria-label="Empresa" autoComplete="organization" value={company} onChange={event => setCompany(event.target.value)}/></label>
-      <label>CPF ou CNPJ<input aria-label="CPF ou CNPJ" inputMode="numeric" autoComplete="off" value={taxId} onChange={event => setTaxId(event.target.value)} onBlur={() => taxId && !validTaxId(taxId)}/>{taxId && !validTaxId(taxId) && <small className="checkout-field-error">Digite um CPF ou CNPJ válido para continuar.</small>}</label>
+      <label>CPF ou CNPJ<input aria-label="CPF ou CNPJ" inputMode="numeric" autoComplete="off" placeholder="000.000.000-00 ou 00.000.000/0000-00" value={taxId} onChange={event => setTaxId(formatTaxId(event.target.value))} onBlur={() => taxId && !validTaxId(taxId)}/>{taxId && !validTaxId(taxId) && <small className="checkout-field-error">Digite um CPF ou CNPJ válido para continuar.</small>}</label>
     </fieldset>
     <aside className="checkout-quote" aria-live="polite"><div><span>Plano {plan} · {cycle === 'annual' ? 'Anual' : 'Mensal'}</span><strong>{money(quote.planAmount)}</strong></div><div><span>Implantação</span><strong>{money(quote.setup)}</strong></div>{quote.selectedAddons.map(item => <div key={item.key}><span>{item.label}<small>{item.detail}</small></span><strong>{money(item.price)}</strong></div>)}<div className="checkout-total"><span>Total de hoje</span><strong>{money(quote.total)}</strong></div>{addons.includes('traffic') && <p>Gestão de tráfego: {money(additions.traffic.price)} a cada 3 meses após o período inicial. Verba de mídia não está incluída.</p>}</aside>
     {error && <p className="checkout-error" role="alert">{error}</p>}
