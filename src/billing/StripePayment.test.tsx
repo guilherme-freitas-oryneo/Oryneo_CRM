@@ -12,7 +12,8 @@ vi.mock('../data', () => ({ supabase: { functions: { invoke: mocks.invoke } } })
 vi.mock('@stripe/stripe-js',()=>({loadStripe:vi.fn(()=>Promise.resolve({}))}));
 vi.mock('@stripe/react-stripe-js/checkout', () => ({
   useCheckoutElements: () => mocks.checkout(),
-  PaymentElement: () => <div>Campos Stripe</div>,
+  // The real Stripe Element signals onReady asynchronously, after rendering.
+  PaymentElement: ({onReady}: {onReady?:()=>void}) => <div>Campos Stripe{onReady&&<button type="button" onClick={onReady}>Simular Stripe pronta</button>}</div>,
   CheckoutElementsProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -46,12 +47,44 @@ describe('StripePayment', () => {
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
     mocks.invoke.mockResolvedValueOnce({data:{ok:true},error:null}).mockResolvedValue({data:{order:{status:'awaiting_payment'}},error:null});
     render(<StripePayment order={{...order,payment_method:'pix'}}/>);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.getByText(/Conectando à Stripe para gerar seu Pix/)).toBeInTheDocument();
+    const user=userEvent.setup();
+    await user.click(screen.getByRole('button',{name:'Simular Stripe pronta'}));
     await waitFor(()=>expect(confirm).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
-    expect(screen.getByText('Campos Stripe')).toBeInTheDocument();
+    expect(screen.getByText('Campos Stripe').closest('.pay-pix-stripe-host')).toHaveClass('is-ready');
     expect(await screen.findByText(/Escaneie o QR Code ou copie o Pix abaixo/)).toBeInTheDocument();
     expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('não revela o placeholder Stripe antes de receber confirmação do Pix',async()=>{
+    const confirm=vi.fn().mockResolvedValueOnce({type:'error',error:{type:'validation_error',code:'payment_method_unavailable',message:'Não foi possível criar o Pix.'}});
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
+    mocks.invoke.mockResolvedValue({data:{ok:true},error:null});
+    render(<StripePayment order={{...order,payment_method:'pix'}}/>);
+    expect(screen.getByText('Campos Stripe').closest('.pay-pix-stripe-host')).toHaveClass('is-preparing');
+    expect(screen.queryByText(/Escaneie o QR Code ou copie o Pix abaixo/)).not.toBeInTheDocument();
+    expect(confirm).not.toHaveBeenCalled();
+    const user=userEvent.setup();
+    await user.click(screen.getByRole('button',{name:'Simular Stripe pronta'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível criar o Pix.');
+    expect(screen.getByText('Campos Stripe').closest('.pay-pix-stripe-host')).toHaveClass('is-preparing');
+    expect(screen.getByRole('button',{name:'Tentar gerar Pix novamente'})).toBeEnabled();
+    expect(screen.queryByText(/Escaneie o QR Code ou copie o Pix abaixo/)).not.toBeInTheDocument();
+  });
+
+  it('o Pix é confirmado uma vez mesmo que a Stripe dispare onReady repetidamente',async()=>{
+    const confirm=vi.fn().mockResolvedValue({type:'success'});
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
+    mocks.invoke.mockResolvedValueOnce({data:{ok:true},error:null}).mockResolvedValue({data:{order:{status:'awaiting_payment'}},error:null});
+    render(<StripePayment order={{...order,payment_method:'pix'}}/>);
+    const user=userEvent.setup();
+    const ready=screen.getByRole('button',{name:'Simular Stripe pronta'});
+    await user.click(ready);
+    await user.click(ready);
+    await waitFor(()=>expect(confirm).toHaveBeenCalledTimes(1));
   });
 
   it('não chama a Stripe se o aceite não puder ser registrado', async () => {
