@@ -46,6 +46,22 @@ describe('PaymentPageView', () => {
     expect(screen.queryByText('Pagamento indisponível.')).not.toBeInTheDocument();
   });
 
+  it('permite selecionar Pix em pedido assistido e envia escolha ao backend',async()=>{
+    const user=userEvent.setup();
+    invoke.mockImplementation(async (_fn: string, args: {body:{action:string}})=>{
+      if(args.body.action==='read')return {data:{order:{...order,payment_method:undefined,card_funding:null},client_secret:null,publishable_key:null},error:null};
+      if(args.body.action==='set_checkout_method')return {data:{ok:true,payment_method:'pix',client_secret:null,publishable_key:null},error:null};
+      return {data:{ok:true},error:null};
+    });
+    window.history.pushState({},'', '/pagar/?token='+'t'.repeat(48));
+    render(<PaymentPage/>);
+    await screen.findByRole('heading',{name:'Como você vai pagar?'});
+    await user.click(screen.getByRole('radio',{name:/Pix/}));
+    expect(screen.getByText(/Não há renovação automática/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button',{name:'Continuar'}));
+    await waitFor(()=>expect(invoke).toHaveBeenCalledWith('billing-public',expect.objectContaining({body:expect.objectContaining({action:'set_checkout_method',payment_method:'pix'})})));
+  });
+
   it('mostra o acompanhamento de implantação apenas após pagamento confirmado',()=>{
     const url='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/implantacao/?token=token-seguro';
     const {rerender}=render(<PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} portalUrl={url}/>);
