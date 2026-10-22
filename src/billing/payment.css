@@ -110,3 +110,9 @@
 .pay-boleto-guidance strong{display:block;color:#263449;font-size:13px;line-height:1.5}
 .pay-boleto-guidance p{margin:9px 0 0;color:#566377;font-size:12px;line-height:1.7}
 @media(max-width:600px){.pay-boleto-guidance{padding:14px}}
+
+/* Card brand is detected by Stripe's secure Payment Element, not local PAN inspection. */
+.pay-card-brands{margin:0 0 16px;padding:15px 17px;background:#f8faff;border:1px solid #e0e8f4;border-radius:12px}
+.pay-card-brands-heading{display:flex;align-items:center;gap:8px;color:#263c63;font-size:13px}
+.pay-card-brands p{font-size:12px;line-height:1.65;color:#52627b;margin:8px 0 0}
+@media(max-width:600px){.pay-card-brands{padding:13px 14px}}
