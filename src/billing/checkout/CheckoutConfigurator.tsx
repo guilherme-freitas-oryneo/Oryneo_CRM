@@ -77,6 +77,7 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
   };
 
   return <div className="checkout-configurator">
+    <div className="checkout-main-flow">
     <div className="checkout-config-head">
       <small>CONDIÇÕES COMERCIAIS</small><h1>Revise sua contratação.</h1>
       <p>Confira os dados e aceite as condições comerciais. Depois, siga direto para o pagamento seguro.</p>
@@ -106,10 +107,13 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
       <label>Empresa<input aria-label="Empresa" autoComplete="organization" value={company} onChange={event => setCompany(event.target.value)}/></label>
       <label>CPF ou CNPJ<input aria-label="CPF ou CNPJ" inputMode="numeric" autoComplete="off" placeholder="000.000.000-00 ou 00.000.000/0000-00" value={taxId} onChange={event => setTaxId(formatTaxId(event.target.value))} onBlur={() => taxId && !validTaxId(taxId)}/>{taxId && !validTaxId(taxId) && <small className="checkout-field-error">Digite um CPF ou CNPJ válido para continuar.</small>}</label>
     </fieldset>
+    </div>
+    <div className="checkout-side-flow">
     <aside className="checkout-quote" aria-live="polite"><div><span>Plano {plan} · {cycle === 'annual' ? 'Anual' : 'Mensal'}</span><strong>{money(quote.planAmount)}</strong></div><div><span>Implantação</span><strong>{money(quote.setup)}</strong></div>{quote.selectedAddons.map(item => <div key={item.key}><span>{item.label}<small>{item.detail}</small></span><strong>{money(item.price)}</strong></div>)}<div className="checkout-total"><span>Total de hoje</span><strong>{money(quote.total)}</strong></div>{addons.includes('traffic') && <p>Gestão de tráfego: {money(additions.traffic.price)} a cada 3 meses após o período inicial. Verba de mídia não está incluída.</p>}</aside>
     <div className="checkout-consent"><label><input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} /><span>Li e aceito os termos e as condições comerciais deste pedido.</span></label><TermsDialog label="Ler termos completos" /></div>
     {error && <p className="checkout-error" role="alert">{error}</p>}
     <button className="pay-submit" type="button" disabled={!valid || !termsAccepted || busy} onClick={submit}><LockKeyhole size={17}/>{busy ? 'Preparando pagamento…' : paymentMethod==='pix'?`Continuar para o Pix · ${money(quote.total)}`:`Continuar para o pagamento · ${money(quote.total)}`}</button>
     <p className="checkout-secure"><Check size={14}/> {paymentMethod==='pix'?'Pix à vista. A renovação é gerada pela equipe ORYNEO no CRM.':paymentMethod==='card'?`Cartão de ${cardFunding==='credit'?'crédito':'débito'} com cobrança conforme a periodicidade do plano.`:'Boleto recorrente enviado por e-mail; cada fatura é paga manualmente.'}</p>
+    </div>
   </div>;
 }
