@@ -108,6 +108,19 @@ describe('PaymentPageView', () => {
     expect(screen.queryByText('Pagamento confirmado')).not.toBeInTheDocument();
   });
 
+  it('mantém resumo e aceite em cartão sem exigir dados sensíveis fora da Stripe', async ()=>{
+    const user=userEvent.setup();
+    const onPay=vi.fn();
+    render(<PaymentPageView order={{...order,payment_method:'card',card_funding:'credit'}} paymentSlot={<div>Stripe Payment Element</div>} onPay={onPay}/>);
+    expect(screen.getByRole('region',{name:'Forma de pagamento: Cartão de crédito'})).toBeInTheDocument();
+    expect(screen.getByText('Stripe Payment Element')).toBeInTheDocument();
+    expect(screen.getByText('R$ 3.279,80')).toBeInTheDocument();
+    const pay=screen.getByRole('button',{name:/Pagar R\\$\\s*3\\.279,80 agora/});
+    expect(pay).toBeDisabled();
+    await user.click(screen.getByRole('checkbox'));
+    expect(pay).toBeEnabled();
+  });
+
   it('Pix avulso não promete renovação automática',()=>{
     render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code Pix</div>} onPay={()=>undefined}/>);
     expect(screen.getByText(/não renova automaticamente/i)).toBeInTheDocument();
