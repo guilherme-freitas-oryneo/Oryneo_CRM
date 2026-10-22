@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { PaymentPage, PaymentPageView, type PublicBillingOrder } from './PaymentPage';
+import { BoletoPayment, PaymentPage, PaymentPageView, type PublicBillingOrder } from './PaymentPage';
 
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('../data', () => ({ supabase: { functions: { invoke } } }));
@@ -100,6 +100,14 @@ describe('PaymentPageView', () => {
     await user.click(button);
     expect(onPay).toHaveBeenCalledOnce();
   });
+  it('boleto mostra instruções sem afirmar que a fatura foi paga',()=>{
+    render(<BoletoPayment order={{...order,payment_method:'boleto'}} invoiceUrl="https://invoice.stripe.com/example"/>);
+    expect(screen.getByText(/Seu boleto está disponível na fatura segura/i)).toBeInTheDocument();
+    expect(screen.getByText(/código de barras e o vencimento/i)).toBeInTheDocument();
+    expect(screen.getByText(/depende da confirmação financeira/i)).toBeInTheDocument();
+    expect(screen.queryByText('Pagamento confirmado')).not.toBeInTheDocument();
+  });
+
   it('Pix avulso não promete renovação automática',()=>{
     render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code Pix</div>} onPay={()=>undefined}/>);
     expect(screen.getByText(/não renova automaticamente/i)).toBeInTheDocument();
