@@ -116,3 +116,30 @@
 .pay-card-brands-heading{display:flex;align-items:center;gap:8px;color:#263c63;font-size:13px}
 .pay-card-brands p{font-size:12px;line-height:1.65;color:#52627b;margin:8px 0 0}
 @media(max-width:600px){.pay-card-brands{padding:13px 14px}}
+
+
+/* Checkout payment selection — progressive Pix disclosure, responsive and accessible. */
+.checkout-section-intro{margin:0 0 20px;color:#596273;font-size:13px;line-height:1.65;max-width:58ch}
+.checkout-payment-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.checkout-payment-options>label{min-width:0;display:flex;align-items:flex-start;gap:12px;padding:19px 16px;border:1px solid #dfe3ea;border-radius:14px;background:#fff;cursor:pointer;transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease}
+.checkout-payment-options>label:hover{border-color:#a6b0c8}
+.checkout-payment-options>label.selected,.checkout-payment-options>label:has(input:checked){border-color:var(--oryneo-indigo);background:#f6f7ff;box-shadow:0 0 0 2px #4f6bff16}
+.checkout-payment-options>label:focus-within{outline:3px solid #9eabff;outline-offset:2px}
+.checkout-payment-options input{flex:0 0 auto;width:18px;height:18px;margin:3px 0 0;accent-color:var(--oryneo-cta)}
+.checkout-option-icon{flex:0 0 auto;color:#58647a;margin-top:1px}
+.checkout-payment-options>label.selected .checkout-option-icon{color:var(--oryneo-cta)}
+.checkout-payment-options>label>span{min-width:0;display:block}
+.checkout-payment-options strong{display:block;color:#232a35;font-size:14px;line-height:1.5}
+.checkout-payment-options small{display:block;margin-top:5px;color:#667080;font-size:12px;line-height:1.6}
+.checkout-option-tag{display:inline-block;vertical-align:middle;margin-left:5px;padding:3px 7px;border-radius:5px;background:#e3f4ee;color:#176451;font-size:10px;font-style:normal;font-weight:700;letter-spacing:.02em}
+.checkout-pix-context{margin-top:16px;padding:20px 22px;border:1px solid #cde7dd;border-radius:15px;background:#f3faf7}
+.checkout-pix-context-heading{display:flex;align-items:center;gap:10px;color:#155e4e}
+.checkout-pix-context-heading strong{font-size:15px}
+.checkout-pix-context>p{margin:12px 0 17px;color:#365b51;font-size:13px;line-height:1.7}
+.checkout-pix-context-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.checkout-pix-context-steps span{display:flex;align-items:center;gap:8px;color:#294c43;font-size:11px;line-height:1.45}
+.checkout-pix-context-steps b{display:grid;place-items:center;flex:0 0 27px;height:27px;border-radius:50%;background:#dcefe7;color:#176451;font-size:10px}
+.checkout-pix-context>small{display:flex;align-items:flex-start;gap:8px;margin-top:17px;color:#42675c;font-size:11px;line-height:1.6}
+.checkout-pix-context>small svg{flex:0 0 auto;margin-top:1px}
+@media(max-width:760px){.checkout-payment-options{grid-template-columns:1fr}.checkout-payment-options>label{padding:17px 15px}.checkout-pix-context{padding:17px 16px}.checkout-pix-context-steps{grid-template-columns:1fr;gap:10px}}
+@media(prefers-reduced-motion:reduce){.checkout-payment-options>label{transition:none}}
