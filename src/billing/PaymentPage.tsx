@@ -5,6 +5,7 @@ import { CheckoutElementsProvider, PaymentElement, useCheckoutElements } from '@
 import { supabase } from '../data';
 import './payment.css';
 import { TermsDialog } from '../legal/TermsDialog';
+import { paymentAsset } from './checkout/payment-assets';
 
 export type PublicBillingItem = {
   key: string;
@@ -43,10 +44,9 @@ const paymentMethods = {
   boleto: { label: 'Boleto bancário', Icon: Barcode },
 } as const;
 
-// Official Banco Central Pix asset; preserve the brand artwork without recreating its geometry.
-const PIX_OFFICIAL_LOGO = 'https://www.bcb.gov.br/content/estabilidadefinanceira/piximg/logo_pix.png';
+// Previously approved transparent Pix artwork, bundled locally to avoid dependency on an external image host.
 function PixBrand({ className = '' }: { className?: string }) {
-  return <img className={`pay-pix-brand ${className}`} src={PIX_OFFICIAL_LOGO} alt="Pix" loading="eager" decoding="async" />;
+  return <img className={`pay-pix-brand ${className}`} src={paymentAsset.pix} alt="Pix" loading="eager" decoding="async" />;
 }
 
 const offboardingLink = () => {
@@ -97,13 +97,13 @@ export function PaymentPageView({ order, paymentSlot, onPay, onRefresh, busy = f
     <div className="pay-shell pay-layout">
       <section className="pay-card pay-form-card">
         <div className={`pay-method-badge${order.payment_method === 'pix' ? ' pay-method-badge-pix' : ''}`} role="region" aria-label={`Forma de pagamento: ${methodLabel}`}>
-          <span className="pay-method-mark" aria-hidden="true">{order.payment_method === 'pix' ? <PixBrand/> : <method.Icon size={19}/>}</span>
+          <span className="pay-method-mark" aria-hidden="true">{order.payment_method === 'pix' ? <PixBrand/> : order.payment_method==='boleto' ? <img className="pay-boleto-brand" src={paymentAsset.boleto} alt=""/> : <method.Icon size={19}/>}</span>
           <span className="pay-method-copy"><small>FORMA DE PAGAMENTO</small><strong>{methodLabel}</strong></span>
         </div>
         <div className="pay-intro">
           <small>{order.payment_method === 'pix' ? 'PAGAMENTO INSTANTÂNEO' : 'PAGAMENTO'}</small>
-          <h1>{order.payment_method === 'pix' ? 'Conclua seu pagamento com Pix.' : 'Finalize sua contratação.'}</h1>
-          <p>Olá, {order.customer_name}. Revise os dados acordados e conclua com segurança. O escopo não pode ser alterado nesta etapa.</p>
+          <h1>{order.payment_method === 'pix' ? 'Pague com Pix.' : 'Finalize sua contratação.'}</h1>
+          <p>{order.payment_method === 'pix' ? 'Escaneie o QR Code ou copie o código para pagar no aplicativo do seu banco.' : `Olá, ${order.customer_name}. Confira o pagamento acordado e conclua com segurança.`}</p>
         </div>
         <div className="pay-form-body">
 
@@ -265,7 +265,7 @@ export function BoletoPayment({order,invoiceUrl}:{order:PublicBillingOrder;invoi
   }
  };
   const slot=<div className="pay-element">
-  <div className="pay-element-head"><Barcode size={17}/><span>Boleto bancário</span><small>Fatura Stripe disponível</small></div>
+  <div className="pay-element-head"><img className="pay-boleto-brand-inline" src={paymentAsset.boleto} alt=""/><span>Boleto bancário</span><small>Fatura Stripe disponível</small></div>
   <div className="pay-boleto-guidance" aria-label="Orientações para pagamento do boleto">
     <strong>Seu boleto está disponível na fatura segura</strong>
     <p>Abra a fatura emitida pela Stripe para consultar o documento, o código de barras e o vencimento. Confira os dados antes de pagar.</p>
@@ -358,15 +358,14 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
       <span>{order.payment_method==='pix'?'Pagamento via Pix':order.payment_method==='boleto'?'Boleto bancário':`Cartão de ${order.card_funding==='debit'?'débito':'crédito'}`}</span>
       <small>Campos seguros da Stripe</small>
     </div>
-    {order.payment_method==='card' && <div className="pay-card-brands" role="note" aria-label="Identificação de bandeira do cartão">
-      <div className="pay-card-brands-heading"><ShieldCheck size={16}/><strong>Identificação segura do cartão</strong></div>
-      <p>A bandeira é identificada automaticamente nos campos protegidos da Stripe enquanto você digita. Visa e Mastercard são as bandeiras previstas para este checkout.</p>
-      <p>Os dados do cartão são inseridos diretamente na Stripe; a ORYNEO não recebe nem armazena o número completo.</p>
+    {order.payment_method==='card' && <div className="pay-card-brands pay-card-brands-compact" role="note" aria-label="Bandeiras de cartão">
+      <span className="pay-brands-art" aria-hidden="true"><img src={paymentAsset.visa} alt=""/><img src={paymentAsset.mastercard} alt=""/></span>
+      <span>Visa, Mastercard e outras bandeiras compatíveis. Identificação realizada pela Stripe.</span>
     </div>}
     {completion==='awaiting_pix' && <div className="pay-pix-guidance" role="status" aria-live="polite"><strong>{pixStatus==='processing'?'Aguardando confirmação financeira':'Escaneie o QR Code ou copie o Pix abaixo'}</strong>{pollingError&&<p>Não foi possível consultar o status agora. Evite pagar novamente.</p>}</div>}
 
     {pixLookupError&&completion==='awaiting_pix'&&<p className="pay-inline-error" role="status">O servidor ainda não retornou um status verificável. O código Pix continua abaixo; não realize outro pagamento.</p>}
-    {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
+    {result.type==='loading'?(order.payment_method==='pix'?<div className="pay-qr-preparing" role="status"><span className="pay-spinner" aria-hidden="true"/> Preparando seu QR Code e Pix Copia e Cola…</div>:<PaymentSkeleton/>):result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
     {error&&<p className="pay-inline-error" role="alert">{error}</p>}
     {order.payment_method==='pix'&&error&&<button type="button" className="pay-retry" disabled={busy} onClick={()=>void pay()}>Tentar gerar Pix novamente</button>}
   </div>;
