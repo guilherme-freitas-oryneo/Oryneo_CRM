@@ -3,7 +3,16 @@ import { CalendarClock, CheckCircle2, Clock3, Mail, RefreshCw, ShieldAlert } fro
 import { supabase } from '../data';
 import './automation-status.css';
 
-type JobType = 'lead_received_email' | 'implementation_started_email';
+type JobType =
+  | 'lead_received_email'
+  | 'implementation_started_email'
+  | 'payment_link_email'
+  | 'payment_reminder_email'
+  | 'payment_confirmed_email'
+  | 'renewal_failed_email'
+  | 'pix_due_email'
+  | 'assisted_payment_reminder_email'
+  | 'financial_review_required';
 type JobState = 'scheduled' | 'running' | 'sent' | 'failed' | 'reconciliation' | 'suppressed' | 'cancelled' | 'dead';
 export type AutomationJob = {
   id: string;
@@ -42,8 +51,19 @@ export function automationLabel(job: Pick<AutomationJob,'state'|'due_at'|'comple
 
 const titles: Record<JobType,string> = {
   lead_received_email:'Confirmação de solicitação',
-  implementation_started_email:'Início da implantação'
+  implementation_started_email:'Início da implantação',
+  payment_link_email:'Cobrança pronta para envio',
+  payment_reminder_email:'Lembrete de pagamento',
+  payment_confirmed_email:'Pagamento confirmado',
+  renewal_failed_email:'Falha na renovação',
+  pix_due_email:'Cobrança Pix disponível',
+  assisted_payment_reminder_email:'Lembrete de pagamento',
+  financial_review_required:'Revisão financeira necessária',
 };
+
+export function automationTitle(jobType: JobType): string {
+  return titles[jobType] || 'Comunicação ORYNEO';
+}
 
 export function AutomationStatus({ dealId }: { dealId:string }) {
   const [jobs,setJobs] = useState<AutomationJob[]>([]);
@@ -87,7 +107,7 @@ export function AutomationStatus({ dealId }: { dealId:string }) {
            {job.state==='sent'?<CheckCircle2 size={17}/>:job.state==='failed'||job.state==='dead'||job.state==='reconciliation'?<RefreshCw size={17}/>:job.state==='scheduled'?<Clock3 size={17}/>:<Mail size={17}/>}
          </div>
          <div className="oryneo-automation-copy">
-           <strong>{titles[job.job_type]||'Comunicação ORYNEO'}</strong>
+           <strong>{automationTitle(job.job_type)}</strong>
            <span aria-live="off">{automationLabel(job,now)}</span>
            <small>Previsão: {formatDate(job.due_at)}{job.attempts>0?' · Tentativa '+job.attempts:''}</small>
          </div>

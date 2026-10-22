@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { buildBillingSelection, resolveStripeBillingPrices } from '../_shared/billing/catalog.ts';
 import { parseDirectCheckoutInput } from '../_shared/billing/direct-checkout.ts';
+import { applyCardFundingRestriction } from '../_shared/billing/assisted-checkout.ts';
 import { getBillingEnvironmentConfig } from '../_shared/billing/environment.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -30,7 +31,7 @@ Deno.serve(async req => {
     const fingerprint = await sha256(`${input.customer_email}:${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`);
     const orderPayload = {
       reference: reference(), catalog_version: selection.catalogVersion, traffic_renewal_price_id: selection.trafficRenewalPriceId,
-      selection: {plan:selection.plan,cycle:selection.cycle,addons:input.addons},
+      selection: {plan:selection.plan,cycle:selection.cycle,addons:input.addons,payment_method:input.payment_method,card_funding:input.payment_method==='card'?input.card_funding:null},
       items: selection.items.map(({stripePriceId,...item}) => ({key:item.key,label:item.label,detail:item.detail,amount_cents:item.amountCents})),
       amount_total: selection.amountTotal, customer_name:input.customer_name, customer_email:input.customer_email, company:input.company,
     };
@@ -39,15 +40,33 @@ Deno.serve(async req => {
     const {data:createdRaw,error:creationError} = await db.rpc('crm_create_direct_checkout',{p_request_id:input.request_id,p_fingerprint:fingerprint,p_token_hash:tokenHash,p_deal_data:dealPayload,p_order:orderPayload,p_environment:environment}).single();
     const created = createdRaw as CreatedCheckout | null;
     if (creationError || !created?.order_id) { console.error('direct checkout storage failed',{code:creationError?.code}); return respond({error:'Não foi possível preparar o pedido agora. Nenhuma cobrança foi realizada.'},503); }
+    const {data:storedOrder,error:storedError}=await db.from('crm_billing_orders').select('selection,amount_total,customer_email,billing_environment,status').eq('id',created.order_id).maybeSingle();
+    const storedSelection=storedOrder?.selection as {plan?:string;cycle?:string;addons?:string[];payment_method?:string;card_funding?:string|null}|undefined;
+    if(storedError||!storedOrder||storedOrder.billing_environment!==environment||storedOrder.status!=='awaiting_payment'||storedOrder.amount_total!==selection.amountTotal||storedOrder.customer_email!==input.customer_email||storedSelection?.plan!==selection.plan||storedSelection.cycle!==selection.cycle||storedSelection.payment_method!==input.payment_method||(input.payment_method==='card'&&storedSelection.card_funding!==input.card_funding)||JSON.stringify([...(storedSelection.addons||[])].sort())!==JSON.stringify([...input.addons].sort()))
+      return respond({error:'A seleção deste pedido mudou. Reinicie o checkout para preparar um novo pedido.'},409);
     let sessionId = created.stripe_checkout_session_id as string | null;
     if (!sessionId) {
       const form = new URLSearchParams();
-      form.set('mode','subscription');form.set('ui_mode','elements');form.set('customer_email',input.customer_email);form.set('integration_identifier',identifier());form.set('locale','pt-BR');form.set('billing_address_collection','required');
+      form.set('ui_mode','elements');form.set('customer_email',input.customer_email);form.set('integration_identifier',identifier());form.set('locale','pt-BR');form.set('billing_address_collection','required');
       form.set('return_url',`${origin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(input.payment_token)}&retorno=1`);
       form.set('metadata[oryneo_order_id]',created.order_id);form.set('metadata[oryneo_billing_environment]',environment);
-      form.set('subscription_data[metadata][oryneo_order_id]',created.order_id);form.set('subscription_data[billing_mode][type]','flexible');
-      if (selection.trafficRenewalPriceId) form.set('metadata[oryneo_traffic_renewal_price]',selection.trafficRenewalPriceId);
-      selection.stripePriceIds.forEach((price,index) => {form.set(`line_items[${index}][price]`,price);form.set(`line_items[${index}][quantity]`,'1')});
+      if(input.payment_method==='card'){
+        form.set('mode','subscription');
+        form.set('subscription_data[metadata][oryneo_order_id]',created.order_id);form.set('subscription_data[billing_mode][type]','flexible');
+        applyCardFundingRestriction(form,input.card_funding);
+        if (selection.trafficRenewalPriceId) form.set('metadata[oryneo_traffic_renewal_price]',selection.trafficRenewalPriceId);
+        selection.stripePriceIds.forEach((price,index) => {form.set(`line_items[${index}][price]`,price);form.set(`line_items[${index}][quantity]`,'1')});
+      }else if(input.payment_method==='boleto'){
+        form.set('mode','payment');form.set('allowed_payment_method_types[0]','boleto');form.set('customer_creation','always');
+        form.set('line_items[0][price_data][currency]','brl');form.set('line_items[0][price_data][unit_amount]',String(selection.amountTotal));
+        form.set('line_items[0][price_data][product_data][name]',`Contratação ORYNEO ${selection.plan} · ${input.company}`);form.set('line_items[0][quantity]','1');
+        form.set('payment_intent_data[metadata][oryneo_order_id]',created.order_id);form.set('payment_intent_data[metadata][oryneo_billing_environment]',environment);
+      }else{
+        form.set('mode','payment');form.set('allowed_payment_method_types[0]','pix');
+        form.set('line_items[0][price_data][currency]','brl');form.set('line_items[0][price_data][unit_amount]',String(selection.amountTotal));
+        form.set('line_items[0][price_data][product_data][name]',`Contratação ORYNEO ${selection.plan} · ${input.company}`);form.set('line_items[0][quantity]','1');
+        form.set('payment_intent_data[metadata][oryneo_order_id]',created.order_id);form.set('payment_intent_data[metadata][oryneo_billing_environment]',environment);
+      }
       const stripe = await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{Authorization:`Bearer ${config.secretKey}`,'Stripe-Version':'2026-08-26.dahlia','Idempotency-Key':`oryneo-direct-${created.order_id}`,'Content-Type':'application/x-www-form-urlencoded'},body:form});
       const session = await stripe.json();
       if (!stripe.ok || !session?.id || session.livemode !== (environment==='live')) return respond({error:'O Stripe não conseguiu preparar o pagamento neste ambiente.'},502);

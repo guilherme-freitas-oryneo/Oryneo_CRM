@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { StripePayment, type PublicBillingOrder } from './PaymentPage';
+import { PaymentPage, StripePayment, type PublicBillingOrder } from './PaymentPage';
 
 const mocks = vi.hoisted(() => ({
   checkout: vi.fn(),
@@ -9,9 +9,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../data', () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
+vi.mock('@stripe/stripe-js',()=>({loadStripe:vi.fn(()=>Promise.resolve({}))}));
 vi.mock('@stripe/react-stripe-js/checkout', () => ({
   useCheckoutElements: () => mocks.checkout(),
-  BillingAddressElement: () => <div aria-label="Endereço de cobrança Stripe" />,
   PaymentElement: () => <div>Campos Stripe</div>,
   CheckoutElementsProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -31,7 +31,7 @@ const order: PublicBillingOrder = {
 async function consentAndPay() {
   const user = userEvent.setup();
   await user.click(screen.getByRole('checkbox'));
-  await user.click(screen.getByRole('button', { name: /^Pagar/ }));
+  await user.click(screen.getByRole('button', { name: /Pagar R\$\s*1\.739,80 agora/ }));
 }
 
 describe('StripePayment', () => {
@@ -51,20 +51,13 @@ describe('StripePayment', () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
-  it('coleta o endereço de cobrança exigido pela Checkout Session', () => {
-    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm:vi.fn()}});
-    render(<StripePayment order={order}/>);
-
-    expect(screen.getByLabelText('Endereço de cobrança Stripe')).toBeInTheDocument();
-  });
-
   it('mostra uma exceção retornada pela Stripe e permite tentar novamente', async () => {
     const confirm = vi.fn().mockRejectedValueOnce(new Error('Não foi possível processar o cartão.'));
     mocks.checkout.mockReturnValue({ type: 'success', checkout: { canConfirm: true, confirm } });
     render(<StripePayment order={order} />);
     await consentAndPay();
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível processar o cartão.');
-    await waitFor(() => expect(screen.getByRole('button', {name:/^Pagar/})).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', {name:/Pagar R\$\s*1\.739,80 agora/})).toBeEnabled());
     expect(confirm).toHaveBeenCalledTimes(1);
   });
 
@@ -74,7 +67,7 @@ describe('StripePayment', () => {
     render(<StripePayment order={order} />);
     await consentAndPay();
     expect(await screen.findByRole('alert')).toHaveTextContent('Cartão recusado.');
-    await waitFor(() => expect(screen.getByRole('button', {name:/^Pagar/})).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', {name:/Pagar R\$\s*1\.739,80 agora/})).toBeEnabled());
   });
 
   it('não anuncia pagamento como confirmado apenas pelo resultado do navegador', async () => {
@@ -85,17 +78,6 @@ describe('StripePayment', () => {
     await consentAndPay();
     expect(await screen.findByRole('heading', {name:'Estamos confirmando seu pagamento.'})).toBeInTheDocument();
     expect(screen.queryByRole('heading', {name:'Pagamento confirmado.'})).not.toBeInTheDocument();
-  });
-
-  it('usa a URL de retorno já configurada na Checkout Session', async () => {
-    const confirm = vi.fn().mockResolvedValueOnce({ type: 'success' });
-    mocks.checkout.mockReturnValue({ type:'success', checkout:{canConfirm:true,confirm} });
-    mocks.invoke.mockResolvedValueOnce({data:{ok:true},error:null}).mockResolvedValue({ data:{order:{status:'awaiting_payment'}},error:null });
-    render(<StripePayment order={order}/>);
-
-    await consentAndPay();
-
-    expect(confirm).toHaveBeenCalledWith();
   });
 
   it('só exibe confirmação depois de validação server-side', async () => {
@@ -115,4 +97,36 @@ describe('StripePayment', () => {
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole('alert')).toHaveTextContent('Confira os dados do cartão.');
   });
+});
+
+describe('seleção de crédito/débito no Checkout',()=>{
+ beforeEach(()=>{
+  vi.clearAllMocks();window.history.replaceState({},'', '/pagar/?token=token-de-teste');
+ });
+ it('persiste a escolha do comprador no servidor antes de carregar o formulário de pagamento',async()=>{
+  const user=userEvent.setup();
+  mocks.checkout.mockReturnValue({type:'success',checkout:{confirm:vi.fn()}});
+  mocks.invoke.mockResolvedValueOnce({data:{order:{...order,payment_method:'card',card_funding:null}},error:null})
+   .mockResolvedValueOnce({data:{ok:true,client_secret:'cs_test_secret',publishable_key:'pk_test_key'},error:null});
+  render(<PaymentPage/>);
+  await user.click(await screen.findByRole('radio',{name:/Cartão de débito/}));
+  await user.click(screen.getByRole('button',{name:'Continuar'}));
+  await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'card',card_funding:'debit'}}));
+  expect(await screen.findAllByText('Cartão de débito')).toHaveLength(2);
+  expect(await screen.findByText('Campos Stripe')).toBeInTheDocument();
+ });
+ it('permite escolher faturas Boleto recorrentes sem criar assinatura de cartão',async()=>{
+  const user=userEvent.setup();mocks.checkout.mockReturnValue({type:'success',checkout:{confirm:vi.fn()}});
+  mocks.invoke.mockResolvedValueOnce({data:{order:{...order,card_funding:null}},error:null})
+   .mockResolvedValueOnce({data:{ok:true,recorded:true},error:null})
+   .mockResolvedValueOnce({data:{ok:true,invoice_url:'https://invoice.stripe.com/test_invoice'},error:null});
+  render(<PaymentPage/>);
+  await user.click(await screen.findByRole('radio',{name:/Boleto recorrente/}));
+  await user.click(screen.getByRole('checkbox',{name:/Aceito as condições comerciais e as faturas recorrentes/}));
+  await user.click(screen.getByRole('button',{name:'Continuar'}));
+  await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'boleto',card_funding:undefined}}));
+  expect(await screen.findAllByText('Boleto bancário')).toHaveLength(2);
+  expect(await screen.findByRole('button',{name:/Abrir boleto seguro/})).toBeInTheDocument();
+  expect(screen.queryByText('Campos Stripe')).not.toBeInTheDocument();
+ });
 });

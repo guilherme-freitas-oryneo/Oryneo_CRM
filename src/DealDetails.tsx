@@ -3,6 +3,7 @@ import {X,Building2,UserRound,Mail,Phone,MapPin,Users,Clock3,History,FileText,Ch
 import {supabase,mutate,money,errorText,type DealRow,type StageRow,type CompanyProfile,type Quote,type NextAction,type CrmEvent} from './data';
 import './details.css';
 import {ProposalAction} from './billing/ProposalAction';
+import {BillingCenter} from './billing/BillingCenter';
 import {AutomationStatus} from './automation/AutomationStatus';
 import {DeliveryManager} from './delivery/DeliveryManager';
 import {LandingReviewManager} from './landingReview/LandingReviewManager';
@@ -28,7 +29,7 @@ function ContactLine({label,value,highlight=false}:{label:string;value?:string;h
 }
 function Stat({label,value}:{label:string;value?:string|null}){if(!value)return null;return <div className="cd-stat"><span>{label}</span><strong>{value}</strong></div>}
 export function DealDetails({row,stages,onClose,onEdit,onResend,onChanged}:{row:DealRow;stages:StageRow[];onClose:()=>void;onEdit:()=>void;onResend:()=>void;onChanged:()=>Promise<void>}){
- const [tab,setTab]=useState<'overview'|'history'|'proposal'>('overview');
+ const [tab,setTab]=useState<'overview'|'history'|'proposal'|'billing'>('overview');
  const [company,setCompany]=useState<CompanyProfile|null>(null);
  const [events,setEvents]=useState<CrmEvent[]>([]);
  const [loading,setLoading]=useState(true);
@@ -98,7 +99,7 @@ export function DealDetails({row,stages,onClose,onEdit,onResend,onChanged}:{row:
     <section className="cd-financial"><div className="cd-financial-top"><span>VALOR EM NEGOCIAÇÃO</span><strong>{money(data.value_cents||0)}</strong><small>Seleção comercial apresentada pelo lead</small></div>
     {quote&&<div className="cd-price-lines"><div><span>Assinatura {quote.cycle==='annual'?'anual':'mensal'}</span><b>{money(quote.period_cents)}</b></div><div><span>Implantação</span><b>{money(quote.setup_cents)}</b></div>{quote.addons?.map(a=><div key={a.key}><span>{a.label}{a.key==='traffic'?' · compromisso trimestral':''}</span><b>{money(a.upfront_cents)}</b></div>)}</div>}
     <button className="cd-link" onClick={()=>setTab('proposal')}>Conferir proposta comercial <ChevronDown size={15}/></button></section>
-    <div className="cd-tabs" role="tablist" aria-label="Seções da oportunidade">{([['overview','Visão geral'],['history','Histórico'],['proposal','Proposta']] as const).map(([key,label])=><button key={key} role="tab" aria-selected={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{label}{key==='history'&&events.length>0&&<span>{events.length}</span>}</button>)}</div>
+    <div className="cd-tabs" role="tablist" aria-label="Seções da oportunidade">{([['overview','Visão geral'],['history','Histórico'],['proposal','Proposta'],['billing','Cobranças']] as const).map(([key,label])=><button key={key} role="tab" aria-selected={tab===key} className={tab===key?'active':''} onClick={()=>setTab(key)}>{label}{key==='history'&&events.length>0&&<span>{events.length}</span>}</button>)}</div>
     {error&&<p role="alert" className="cd-error">{error}</p>}{notice&&<p role="status" className="cd-success">{notice}</p>}
     {tab==='overview'&&<div className="cd-content">
       {(data.form_submission?.team_size||data.form_submission?.acquisition_channel||(data.form_submission?.acquisition_channels||[]).length||(data.form_submission?.goals||[]).length||data.form_submission?.intent)&&<section className="cd-diagnosis" aria-label="Diagnóstico inicial do lead">
@@ -131,6 +132,7 @@ export function DealDetails({row,stages,onClose,onEdit,onResend,onChanged}:{row:
       <section><h3 className="cd-section-title"><CalendarClock size={17}/>Próxima ação comercial</h3><div className="cd-action-summary"><strong>{next.title}</strong><span>{next.done?'Concluída':'Pendente'}{next.due_at?' · '+date(next.due_at):' · Prazo a definir'}</span><button onClick={()=>setTab('history')}>Gerenciar ação</button></div></section>
       
      </div>}
+    {tab==='billing'&&<div className="cd-content"><BillingCenter dealId={row.id}/></div>}
     {tab==='history'&&<div className="cd-content">
       <section className="cd-action-editor"><h3 className="cd-section-title"><CalendarClock size={17}/>Próxima ação</h3><label>O que precisa acontecer?<input value={actionTitle} onChange={e=>setActionTitle(e.target.value)} maxLength={160}/></label><label>Prazo, se já definido<input type="datetime-local" value={actionDue} onChange={e=>setActionDue(e.target.value)}/></label><label className="cd-check"><input type="checkbox" checked={actionDone} onChange={e=>setActionDone(e.target.checked)}/>Marcar como concluída</label><button className="cd-primary" disabled={busy||!actionTitle.trim()} onClick={submitAction}><Check size={16}/>Salvar próxima ação</button></section>
       <section><h3 className="cd-section-title"><MessageSquareText size={17}/>Registrar anotação</h3><textarea value={note} maxLength={3000} onChange={e=>setNote(e.target.value)} placeholder="O que foi conversado? Registre contexto, objeções e próximos passos." rows={4}/><button className="cd-primary" disabled={busy||!note.trim()} onClick={submitNote}><Send size={15}/>Salvar nota</button></section>

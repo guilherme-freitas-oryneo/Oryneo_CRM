@@ -57,6 +57,13 @@ jobs:
           grep -q "/Oryneo_CRM/assets/" dist/index.html
           grep -q "/Oryneo_CRM/oryneo-y.svg" dist/index.html
 
+      - name: Preservar subpasta privada de homologação
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: pages-snapshot
+          fetch-depth: 1
+
       - name: Publicar apenas o frontend compilado na branch gh-pages
         shell: bash
         env:
@@ -64,6 +71,10 @@ jobs:
         run: |
           set -euo pipefail
           touch dist/.nojekyll
+          if [[ -d pages-snapshot/qa/pr-46 ]]; then
+            mkdir -p dist/qa/pr-46
+            cp -a pages-snapshot/qa/pr-46/. dist/qa/pr-46/
+          fi
           cd dist
           git init --initial-branch=gh-pages
           git config user.name "github-actions[bot]"

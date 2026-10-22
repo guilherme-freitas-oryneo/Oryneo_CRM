@@ -12,3 +12,13 @@ Deno.test('checkout direto recusa token, identidade ou seleção inválidos ante
   assert.throws(() => parseDirectCheckoutInput({ ...input, customer_email: 'invalido' }));
   assert.throws(() => parseDirectCheckoutInput({ ...input, addons: ['admin-access'] }));
 });
+
+Deno.test('checkout defaults to card for existing clients and validates noncard intent',()=>{
+ assert.equal(parseDirectCheckoutInput(input).payment_method,'card');
+ assert.equal(parseDirectCheckoutInput(input).card_funding,'credit');
+ assert.equal(parseDirectCheckoutInput({...input,payment_method:'boleto'}).payment_method,'boleto');
+ assert.equal(parseDirectCheckoutInput({...input,card_funding:'debit'}).card_funding,'debit');
+ assert.throws(()=>parseDirectCheckoutInput({...input,card_funding:'cash'}));
+ assert.equal(parseDirectCheckoutInput({...input,payment_method:'pix'}).payment_method,'pix');
+ assert.throws(()=>parseDirectCheckoutInput({...input,payment_method:'bank_transfer'}));
+});

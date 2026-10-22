@@ -63,6 +63,12 @@ for (const [name, engine, viewport] of browsers) {
     const footerColor = await page.locator('.login-form footer').evaluate(el => getComputedStyle(el).color);
     assert.ok(contrast(footerColor, 'rgb(255, 255, 255)') >= 4.5, 'texto do rodapé deve ter contraste AA sobre branco');
     const metrics = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth }));
+    if(metrics.width > metrics.viewport + 1){
+      const offenders=await page.evaluate(()=>[...document.querySelectorAll('body *')]
+        .map(el=>({tag:el.tagName,cls:typeof el.className==='string'?el.className.slice(0,90):'',right:Math.round(el.getBoundingClientRect().right),width:Math.round(el.getBoundingClientRect().width)}))
+        .filter(item=>item.right>innerWidth+2).sort((a,b)=>b.right-a.right).slice(0,8));
+      console.error('Overflow elements:',JSON.stringify(offenders));
+    }
     assert.ok(metrics.width <= metrics.viewport + 1, `overflow horizontal: ${JSON.stringify(metrics)}`);
     const button = await page.getByRole('button', { name: 'Entrar no CRM' }).boundingBox();
     if (name !== 'chromium-zoom200') assert.ok(button && button.y + button.height <= viewport.height, 'ação principal fora do primeiro viewport');

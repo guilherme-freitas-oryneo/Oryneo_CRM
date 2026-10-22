@@ -10,7 +10,7 @@ type Order = {
  status:string; paid_at:string|null; stripe_customer_id:string|null; stripe_subscription_id:string|null;
  stripe_traffic_subscription_id:string|null; stripe_traffic_renewal_price_id:string|null; amount_total:number;
  items:Array<{key:string;label:string;detail:string;amount_cents:number}>;
- selection:{plan:string;cycle:string;addons:string[]};
+ selection:{plan:string;cycle:string;addons:string[];payment_method?:'card'|'boleto'|'pix'};
 };
 
 const STRIPE_VERSION = '2026-08-26.dahlia';
@@ -41,6 +41,12 @@ export function threeMonthsAfter(iso:string):number{
 export async function getPaidOrder(db:Db,sessionId:string):Promise<Order|null>{
  const {data,error}=await db.from('crm_billing_orders').select('*')
     .eq('stripe_checkout_session_id',sessionId).maybeSingle();
+ if(error)throw Error('ORDER_LOOKUP');
+ return data?.status==='paid'?data as Order:null;
+}
+
+export async function getPaidOrderById(db:Db,orderId:string):Promise<Order|null>{
+ const {data,error}=await db.from('crm_billing_orders').select('*').eq('id',orderId).maybeSingle();
  if(error)throw Error('ORDER_LOOKUP');
  return data?.status==='paid'?data as Order:null;
 }
@@ -131,6 +137,7 @@ export function welcomeMarkup(order:Order):{subject:string;text:string;html:stri
  const recurring=subscriptionLine?.amount_cents||0;
  const hasTraffic=(order.selection.addons||[]).includes('traffic');
  const hasLanding=(order.selection.addons||[]).includes('landing-page');
+ const paymentNote=order.selection.payment_method==='pix'?'Pagamento inicial por Pix avulso. Não há renovação automática: cada período futuro exige uma nova cobrança.':order.selection.payment_method==='boleto'?'Assinatura por boleto recorrente. Uma nova fatura chega por e-mail a cada período e precisa ser paga manualmente.':'';
  const subject='Boas-vindas à ORYNEO, '+firstname+' — contratação confirmada';
  const lines=order.items.map(x=>x.label+' ('+x.detail+'): '+format(x.amount_cents)).join('\n');
  const text='Olá, '+firstname+'.\n\n'+
@@ -139,6 +146,7 @@ export function welcomeMarkup(order:Order):{subject:string;text:string;html:stri
  'Plano '+plan+' '+interval+': '+format(recurring)+(interval==='anual'?' por ano':' por mês')+'.\n'+
  (hasTraffic?'Tráfego: R$ 2.969,70 por trimestre. O primeiro trimestre foi pago na contratação; os próximos são cobrados trimestralmente. Verba de mídia paga à parte.\n':'')+
  (hasLanding?'Landing page incluída como projeto de cobrança única.\n':'')+
+ (paymentNote?paymentNote+'\n':'')+
  '\nPróximos passos:\n1. Registro da contratação.\n2. Organização das informações para implantação.\n3. Orientações sobre alinhamentos e acessos conforme o escopo.\n\n'+
  'Em caso de dúvidas, responda a este e-mail.\nEquipe ORYNEO\nCrescimento em sistema.\n'+
  'Esta mensagem é transacional. Não solicitamos senhas ou dados completos de cartão.';
@@ -165,6 +173,7 @@ export function welcomeMarkup(order:Order):{subject:string;text:string;html:stri
  '<p style="background:#eef0ff;padding:15px;border-radius:8px;color:#3e479d"><span>Total inicial</span><strong style="float:right">'+esc(format(order.amount_total))+'</strong></p>'+
  '<p style="font-size:12px;color:#777f8f;line-height:1.6">Assinatura do plano: '+esc(format(recurring))+(interval==='anual'?' por ano':' por mês')+'. Condições detalhadas na proposta.</p>'+
  extra+
+ (paymentNote?'<p style="font-size:12px;color:#5c6475;line-height:1.7">'+esc(paymentNote)+'</p>':'')+
  '<h2 style="margin-top:34px;font-size:20px">O que acontece agora?</h2>'+
  '<p style="color:#656f7f;font-size:14px;line-height:1.85"><strong>01.</strong> Contratação registrada.<br><strong>02.</strong> Preparação e alinhamento da implantação.<br><strong>03.</strong> Próximas instruções para a equipe.</p>'+
  '<p style="color:#656f7f;font-size:14px;line-height:1.75;margin-top:27px">Dúvidas? Basta responder a esta mensagem.<br><strong>Equipe ORYNEO</strong> · Crescimento em sistema.</p>'+

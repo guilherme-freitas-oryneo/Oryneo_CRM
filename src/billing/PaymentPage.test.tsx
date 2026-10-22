@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { paymentProfileDisclosure, PaymentPage, PaymentPageView, type PublicBillingOrder } from './PaymentPage';
+import { PaymentPage, PaymentPageView, type PublicBillingOrder } from './PaymentPage';
 
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('../data', () => ({ supabase: { functions: { invoke } } }));
@@ -24,21 +24,6 @@ const order: PublicBillingOrder = {
 };
 
 describe('PaymentPageView', () => {
-  it('explica a recorrência conforme o perfil de pagamento', () => {
-    expect(paymentProfileDisclosure({ ...order, payment_profile: 'card_auto' })).toEqual({
-      title: 'Cartão — renovação automática',
-      detail: 'Os próximos pagamentos seguem a recorrência descrita no pedido.',
-    });
-    expect(paymentProfileDisclosure({ ...order, payment_profile: 'pix_assisted' })).toEqual({
-      title: 'Pix — você confirma cada vencimento no banco',
-      detail: 'Enviaremos uma nova cobrança Pix a cada ciclo; não há débito automático.',
-    });
-    expect(paymentProfileDisclosure({ ...order, payment_profile: 'boleto_assisted' })).toEqual({
-      title: 'Boleto — a compensação pode levar alguns dias',
-      detail: 'Enviaremos uma nova cobrança a cada ciclo e confirmaremos a compensação antes de liberar a próxima etapa.',
-    });
-  });
-
   it('mostra indisponibilidade temporária sem rotular o pagamento como recusado', async () => {
     invoke.mockResolvedValue({ data: null, error: new Error('Edge Function returned a non-2xx status code') });
     window.history.pushState({}, '', '/pagar/?token=' + 't'.repeat(48));
@@ -65,19 +50,21 @@ describe('PaymentPageView', () => {
     render(<PaymentPageView order={{ ...order, status: 'processing' }} paymentSlot={null} onPay={() => undefined} onRefresh={onRefresh} />);
     expect(screen.getByRole('heading', { name: 'Estamos confirmando seu pagamento.' })).toBeInTheDocument();
     expect(screen.getByText('Em confirmação')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Pagar/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Confirmar pagamento' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Verificar status' }));
     expect(onRefresh).toHaveBeenCalledOnce();
   });
 
   it('expõe total, composição e recorrência antes do pagamento', () => {
-    render(<PaymentPageView order={order} paymentSlot={<div>Pagamento seguro</div>} onPay={() => undefined} />);
+    const {container}=render(<PaymentPageView order={order} paymentSlot={<div>Pagamento seguro</div>} onPay={() => undefined} />);
     expect(screen.getByRole('heading', { name: 'Finalize sua contratação.' })).toBeInTheDocument();
     expect(screen.getByText('R$ 3.279,80')).toBeInTheDocument();
     expect(screen.getByText('R$ 1.099,90 por mês')).toBeInTheDocument();
-    expect(screen.getByRole('complementary', { name: 'Resumo do pedido' })).toBeInTheDocument();
-    expect(screen.getByText('Cartão — renovação automática')).toBeInTheDocument();
     expect(screen.getByText(/Ambiente de homologação/)).toBeInTheDocument();
+    expect(screen.getByRole('complementary',{name:'Resumo do pedido'})).toBeInTheDocument();
+    expect(container.querySelector('.pay-glow')).toBeNull();
+    expect(screen.getByRole('region',{name:'Forma de pagamento: Cartão'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:/Pagar R\$\s*3\.279,80 agora/})).toBeDisabled();
     expect(screen.getByRole('link', { name: 'Privacidade' })).toHaveAttribute('href', 'https://guilherme-freitas-oryneo.github.io/Oryneo_Landing_Page/privacidade.html');
     expect(screen.getByRole('link', { name: 'Suporte' })).toHaveAttribute('href', 'mailto:contato@oryneo.com.br');
   });
@@ -85,7 +72,7 @@ describe('PaymentPageView', () => {
   it('só libera a confirmação após o aceite explícito', async () => {
     const user = userEvent.setup();
     render(<PaymentPageView order={order} paymentSlot={<div>Pagamento seguro</div>} onPay={() => undefined} />);
-    const button = screen.getByRole('button', { name: /^Pagar .*3.279,80 com cartão$/ });
+    const button = screen.getByRole('button', { name: /Pagar R\$\s*3\.279,80 agora/ });
     expect(button).toBeDisabled();
     await user.click(screen.getByRole('checkbox'));
     expect(button).toBeEnabled();
@@ -99,6 +86,25 @@ describe('PaymentPageView', () => {
     expect(screen.getByText(/Valor trimestral/)).toBeInTheDocument();
     expect(screen.getByText(/R\$ 2.969,70 a cada 3 meses/)).toBeInTheDocument();
     expect(screen.getByText(/Verba de mídia paga separadamente/)).toBeInTheDocument();
+  });
+
+  it('boleto exige aceite antes de abrir a fatura e esclarece liquidação assíncrona',async()=>{
+    const user=userEvent.setup();
+    const onPay=vi.fn();
+    render(<PaymentPageView order={{...order,payment_method:'boleto'}} paymentSlot={<div>Boleto Stripe</div>} onPay={onPay} payLabel="Abrir boleto seguro"/>);
+    expect(screen.getByText(/novas faturas Boleto recorrentes serão enviadas por e-mail/i)).toBeInTheDocument();
+    expect(screen.getByRole('region',{name:'Forma de pagamento: Boleto bancário'})).toBeInTheDocument();
+    const button=screen.getByRole('button',{name:'Abrir boleto seguro'});
+    expect(button).toBeDisabled();
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(button);
+    expect(onPay).toHaveBeenCalledOnce();
+  });
+  it('Pix avulso não promete renovação automática',()=>{
+    render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code Pix</div>} onPay={()=>undefined}/>);
+    expect(screen.getByText(/não renova automaticamente/i)).toBeInTheDocument();
+    expect(screen.getByRole('region',{name:'Forma de pagamento: Pix'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:/Pagar R\$\s*3\.279,80 com Pix/})).toBeDisabled();
   });
 
 });

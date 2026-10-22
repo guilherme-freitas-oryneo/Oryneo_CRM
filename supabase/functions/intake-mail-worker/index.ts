@@ -5,6 +5,7 @@ import { intakeConfirmationStateForError, processIntakeConfirmationJobs, type In
 import type { MailCredentials } from '../_shared/mail/sync.ts';
 import { ImapClient, SmtpClient } from '../_shared/mail/transport.ts';
 import { createIntakeMailWorkerHandler } from './handler.ts';
+import { parseAutomationEmailType } from '../_shared/mail/automation-email.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -106,7 +107,7 @@ const confirmationDependencies: IntakeConfirmationDependencies = {
     if (result.error) throw new Error('INTAKE_CONFIRMATION_DB');
     return (result.data ?? []).map((row: { request_id: string; deal_id: string; data: Record<string, unknown> }) => ({
       requestId: row.request_id, dealId: row.deal_id, data: row.data,
-      jobType: row.data._automation_job_type === 'implementation_started_email' ? 'implementation_started_email' : 'lead_received_email',
+      jobType: parseAutomationEmailType(row.data._automation_job_type),
     }));
   },
   async send(input) {
