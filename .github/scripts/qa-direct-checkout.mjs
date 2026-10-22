@@ -31,6 +31,13 @@ for (const [name, engine, viewport] of [
     assert.equal(await page.getByRole('radio').count(), 4, 'As quatro opções são meios de pagamento; plano e ciclo permanecem bloqueados');
     await page.getByRole('radio', { name: /Pix/ }).check();
     assert.equal(await page.getByText('Seu pagamento via Pix').count(), 0, 'Não apresentar etapa explicativa redundante do Pix');
+    const marks=page.locator('.checkout-payment-art img');
+    assert.equal(await marks.count(),6,'Visa/Mastercard em ambos os cartões, Pix e boleto');
+    const logoReady=await marks.evaluateAll(images=>images.every(img=>img instanceof HTMLImageElement && img.complete && img.naturalWidth>0 && img.src.startsWith('data:image/png;base64,')));
+    assert.equal(logoReady,true,'os quatro símbolos aprovados devem carregar localmente');
+    const maxCardHeight=await page.locator('.checkout-payment-options>label').evaluateAll(items=>Math.max(...items.map(item=>item.getBoundingClientRect().height)));
+    assert.ok(maxCardHeight<=96,`cards altos demais: ${maxCardHeight}px`);
+    assert.equal(await page.getByText('Seu pagamento via Pix').count(),0);
     await page.getByRole('checkbox', { name: /Landing page de conversão/i }).check();
     await page.getByRole('checkbox', { name: /Gestão de tráfego pago/i }).check();
     await page.getByLabel('Nome completo').fill('Cliente de Homologação');
