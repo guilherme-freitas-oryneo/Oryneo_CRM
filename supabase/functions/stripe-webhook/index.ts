@@ -7,6 +7,7 @@ import {runPaidOrderPostpayment} from '../_shared/billing/postpayment.ts';
 import {billingEnvironmentMatchesLivemode,getBillingEnvironmentConfig,parseBillingEnvironment} from '../_shared/billing/environment.ts';
 import { verifiedWebhookEnvironment } from '../_shared/billing/webhook-environment.ts';
 import { classifyAssistedPaymentEvent } from '../_shared/billing/assisted-payment-webhook.ts';
+import {sendSystemTransactionalEmail,deterministicMailUuid} from '../_shared/mail/system-transactional.ts';
 declare const EdgeRuntime:{waitUntil(p:Promise<unknown>):void};
 
 const db = createClient(
@@ -90,7 +91,7 @@ Deno.serve(async (req: Request) => {
     'checkout.session.async_payment_failed',
     'checkout.session.expired',
   ]);
-  const invoiceEvents=new Set(['invoice.paid','invoice.payment_failed']);
+  const invoiceEvents=new Set(['invoice.finalized','invoice.paid','invoice.payment_failed']);
   const subscriptionEvents=new Set(['customer.subscription.updated','customer.subscription.deleted']);
   if(!checkoutEvents.has(event.type)&&!invoiceEvents.has(event.type)&&!subscriptionEvents.has(event.type))
     return json({received:true,ignored:true});
@@ -202,9 +203,20 @@ Deno.serve(async (req: Request) => {
       console.error('Stripe paid invoice snapshot inconsistent',{event_id:event.id,invoice_id:source.id});
       return json({error:'Invoice payment status mismatch'},422);
     }
-    if(invoiceSubscription&&source.billing_reason==='subscription_create'){
+    if(event.type==='invoice.finalized'){
+      if(!invoiceSubscription||source.collection_method!=='send_invoice'||source.status!=='open'||typeof source.hosted_invoice_url!=='string'||!/^https:\/\//i.test(source.hosted_invoice_url))return json({received:true,ignored:true});
+      const {data:order,error:orderError}=await db.from('crm_billing_orders').select('id,billing_environment,selection,customer_name,customer_email,stripe_checkout_session_id').eq('stripe_subscription_id',invoiceSubscription).maybeSingle();
+      if(orderError)return json({error:'Invoice order lookup unavailable'},503);
+      if(!order||order.selection?.payment_method!=='boleto'||order.stripe_checkout_session_id)return json({received:true,ignored:true});
+      if((order.billing_environment==='live')!==livemode||source.currency!=='brl')return json({error:'Invoice environment/currency mismatch'},422);
+      const config=getBillingEnvironmentConfig(environment,name=>Deno.env.get(name));const verified=await fetch('https://api.stripe.com/v1/invoices/'+encodeURIComponent(source.id),{headers:{Authorization:'Bearer '+config.secretKey,'Stripe-Version':'2026-08-26.dahlia'}});if(!verified.ok)return json({error:'Invoice verification unavailable'},503);const invoice=await verified.json();if(invoice.livemode!==livemode||invoice.status!=='open'||invoice.collection_method!=='send_invoice'||invoice.hosted_invoice_url!==source.hosted_invoice_url||Number(invoice.amount_due)!==Number(source.amount_due))return json({error:'Invoice snapshot mismatch'},422);
+      const recipient=livemode?order.customer_email:null;const email=String(order.customer_name||'cliente').split(' ')[0];const renderedData={firstName:email,company:order.customer_name||'sua empresa',email:recipient||'',plan:order.selection?.plan,cycle:order.selection?.cycle,orderReference:order.id,amountCents:Number(invoice.amount_due),deadline:invoice.due_date?new Date(invoice.due_date*1000).toLocaleDateString('pt-BR'):'',actionUrl:invoice.hosted_invoice_url};
+      await sendSystemTransactionalEmail(db,{idempotencyKey:await deterministicMailUuid('stripe:'+invoice.id+':payment_link'),template:'payment_link',data:renderedData,recipient,recipientName:livemode?order.customer_name:'Homologação ORYNEO'});
+      return json({received:true,email_sent:true,test_recipient:!livemode});
+    }
+    if(invoiceSubscription&&source.billing_reason==='subscription_create'&&event.type!=='invoice.finalized'){
       const {data:linked,error:linkError}=await db.from('crm_billing_orders')
-        .select('id,billing_environment,selection,stripe_checkout_session_id')
+        .select('id,billing_environment,selection,stripe_checkout_session_id,customer_name,customer_email')
         .eq('stripe_subscription_id',invoiceSubscription).maybeSingle();
       if(linkError)return json({error:'Invoice order lookup unavailable'},503);
       let boletoOrder=linked?.selection?.payment_method==='boleto'&&!linked.stripe_checkout_session_id;
@@ -240,8 +252,11 @@ Deno.serve(async (req: Request) => {
           console.error('Boleto initial settlement pending review',{code:receiptError?.code,reason:receipt?.reason});
           return json({error:'Boleto invoice reconciliation pending'},503);
         }
-        if(event.type==='invoice.payment_failed')
-          return json({received:true,duplicate:!!receipt.duplicate,initial_boleto:true,failed:true});
+        if(event.type==='invoice.payment_failed'){
+          const recipient=livemode?linked.customer_email:null;const data={firstName:String(linked.customer_name||'cliente').split(' ')[0],company:linked.customer_name||'sua empresa',email:recipient||'',plan:linked.selection?.plan,cycle:linked.selection?.cycle,orderReference:linked.id,amountCents:Number(source.amount_due||0),actionUrl:typeof source.hosted_invoice_url==='string'?source.hosted_invoice_url:undefined};
+          await sendSystemTransactionalEmail(db,{idempotencyKey:await deterministicMailUuid('stripe:'+source.id+':payment_failed'),template:'payment_failed',data,recipient,recipientName:livemode?linked.customer_name:'Homologação ORYNEO'});
+          return json({received:true,duplicate:!!receipt.duplicate,initial_boleto:true,failed:true,email_sent:true});
+        }
         // Retry postpayment even for a duplicate event; email and addon claims are idempotent.
         {
           try{
@@ -271,6 +286,11 @@ Deno.serve(async (req: Request) => {
       p_livemode:livemode,
     });
     if(error||!result?.ok)return json({error:'Invoice reconciliation unavailable'},503);
+    if(!result.unlinked&&invoiceSubscription&&event.type!=='invoice.finalized'&&(source.billing_reason!=='subscription_create'||event.type==='invoice.payment_failed')){
+      const {data:order, error:mailOrderError}=await db.from('crm_billing_orders').select('id,selection,customer_name,customer_email').eq('stripe_subscription_id',invoiceSubscription).maybeSingle();
+      if(mailOrderError)return json({error:'Invoice email context unavailable'},503);
+      if(order){const paid=event.type==='invoice.paid';const recipient=livemode?order.customer_email:null;const tpl=paid?'renewal_paid':(source.billing_reason==='subscription_create'?'payment_failed':'renewal_failed');const data={firstName:String(order.customer_name||'cliente').split(' ')[0],company:order.customer_name||'sua empresa',email:recipient||'',plan:order.selection?.plan,cycle:order.selection?.cycle,orderReference:order.id,amountCents:Number(source.amount_paid??source.amount_due??0),actionUrl:typeof source.hosted_invoice_url==='string'?source.hosted_invoice_url:undefined};await sendSystemTransactionalEmail(db,{idempotencyKey:await deterministicMailUuid('stripe:'+source.id+':'+tpl),template:tpl,data,recipient,recipientName:livemode?order.customer_name:'Homologação ORYNEO'});}
+    }
     return json({received:true,unlinked:!!result.unlinked,duplicate:!!result.duplicate});
   }
 

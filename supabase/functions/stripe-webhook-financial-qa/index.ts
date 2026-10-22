@@ -1,13 +1,14 @@
 /**
  * ORYNEO Financial QA Stripe TEST webhook (separate from production webhook).
  * Stripe signature + server-side GET are required before any state transition.
- * This endpoint NEVER sends e-mail, provisions a CRM account or touches LIVE.
+ * QA transactional messages go only to the active internal CRM mailbox; LIVE is rejected.
  */
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 import {
  QA_CHECKOUT_EVENTS,QA_INVOICE_EVENTS,stripeInvoiceSubscription,
  qaOrderLinkPending,qaWebhookLinkDisposition,verifiedStripeInvoicePaymentProof,verifiedQaInvoice,verifiedQaPixSession,verifiedQaCardCheckoutSession,verifyQaStripeSignature,
 } from '../_shared/billing/financial-qa-webhook-policy.ts';
+import {sendSystemTransactionalEmail,deterministicMailUuid} from '../_shared/mail/system-transactional.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
  auth:{persistSession:false,autoRefreshToken:false},
@@ -159,8 +160,10 @@ async function handleInvoice(event:EventShape,key:string|null){
   p_amount_cents:state.amount,p_billing_reason:state.billingReason,p_paid:state.paid,
  });
  if(error||!data?.ok)throw Error('QA_BOLETO_RECONCILIATION_FAILED');
+ const template=event.type==='invoice.finalized'?'payment_link':state.paid?(state.billingReason==='subscription_create'?null:'renewal_paid'):(state.billingReason==='subscription_create'?'payment_failed':'renewal_failed');
+ if(template){const invoiceUrl=typeof invoice.hosted_invoice_url==='string'&&/^https:\/\//i.test(invoice.hosted_invoice_url)?invoice.hosted_invoice_url:undefined;if(template==='payment_link'&&!invoiceUrl)throw Error('QA_INVOICE_LINK_UNAVAILABLE');const emailData={firstName:String(order.customer_name||'equipe ORYNEO').split(' ')[0],company:order.customer_name||'Homologação ORYNEO',email:'',plan:order.selection?.plan,cycle:order.selection?.cycle,orderReference:order.id,amountCents:state.amount,actionUrl:invoiceUrl};await sendSystemTransactionalEmail(db,{idempotencyKey:await deterministicMailUuid('qa:'+state.invoiceId+':'+template),template,data:emailData,recipientName:'Homologação ORYNEO'});}
  return response({received:true,method,order_state:data.order_state,
-  invoice_state:data.invoice_state,duplicate:data.duplicate===true});
+  invoice_state:data.invoice_state,duplicate:data.duplicate===true,email_sent:!!template,test_recipient:!!template});
 }
 Deno.serve(async(req:Request)=>{
  if(req.method!=='POST')return response({error:'Method not allowed'},405);
