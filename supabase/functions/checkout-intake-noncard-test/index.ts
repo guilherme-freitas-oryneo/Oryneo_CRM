@@ -6,7 +6,7 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 import {parseDirectCheckoutInput} from '../_shared/billing/direct-checkout.ts';
 import {buildBillingSelection,resolveStripeBillingPrices} from '../_shared/billing/catalog.ts';
-import {getBillingEnvironmentConfig} from '../_shared/billing/environment.ts';
+import {getQaTestEnvironment} from '../_shared/billing/qa-test-environment.ts';
 import {checkStripeMethodAvailability} from '../_shared/billing/stripe-method-availability.ts';
 import {createStripeBoletoSubscription,createStripePixCheckout,finalizeStripeBoletoInvoice} from '../_shared/billing/stripe-noncard-service.ts';
 import {buildFinancialQaCardCheckoutForm} from '../_shared/billing/financial-qa-checkout.ts';
@@ -146,10 +146,7 @@ Deno.serve(async(req:Request)=>{
  try{
   const raw=await req.json();
   const action=raw?.action||'create';
-  // Reject the legacy fallback: TEST-only QA must use the sandbox's own
-  // sk_test and pk_test pair, never credentials for a different account.
-  const config=getBillingEnvironmentConfig('test',name=>
-   name==='STRIPE_SECRET_KEY'||name==='STRIPE_PUBLISHABLE_KEY'?undefined:Deno.env.get(name));
+  const config=getQaTestEnvironment(name=>Deno.env.get(name));
 
   if(action==='read'||action==='reconcile'){
    const order=await loadOrder(raw?.order_id,user.id);

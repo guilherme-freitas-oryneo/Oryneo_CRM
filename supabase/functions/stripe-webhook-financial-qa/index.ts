@@ -9,6 +9,7 @@ import {
  qaOrderLinkPending,qaWebhookLinkDisposition,qaInvoiceEmailTemplate,verifiedStripeInvoicePaymentProof,verifiedQaInvoice,verifiedQaPixSession,verifiedQaCardCheckoutSession,verifyQaStripeSignature,
 } from '../_shared/billing/financial-qa-webhook-policy.ts';
 import {sendSystemTransactionalEmail,deterministicMailUuid} from '../_shared/mail/system-transactional.ts';
+import {getQaTestSecret} from '../_shared/billing/qa-test-environment.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
  auth:{persistSession:false,autoRefreshToken:false},
@@ -187,8 +188,7 @@ Deno.serve(async(req:Request)=>{
  if(!event.data?.object?.id)return response({error:'Missing Stripe source'},400);
  // Never use the legacy STRIPE_SECRET_KEY: it can belong to a different
  // Stripe testmode account. This QA endpoint targets an isolated TEST account.
- const secretKey=Deno.env.get('STRIPE_TEST_SECRET_KEY');
- const testKey=secretKey&&/^(?:sk|rk)_test_/.test(secretKey)?secretKey:null;
+ const testKey=(()=>{try{return getQaTestSecret(name=>Deno.env.get(name))}catch{return null}})();
  try{
   if(QA_CHECKOUT_EVENTS.has(event.type)){
    const sessionId=event.data?.object?.id;
