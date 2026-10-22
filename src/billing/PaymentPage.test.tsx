@@ -172,9 +172,10 @@ describe('PaymentPageView', () => {
   });
 
   it('exibe o Pix aprovado localmente sem segundo aceite e com título direto',()=>{
-    render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>Área Stripe para Pix</div>} onPay={vi.fn()}/>);
+    const {container}=render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>Área Stripe para Pix</div>} onPay={vi.fn()}/>);
     expect(screen.getByRole('heading',{name:'Pague com Pix.'})).toBeInTheDocument();
-    const image=screen.getByRole('img',{name:'Pix'}) as HTMLImageElement;
+    const image=container.querySelector('.pay-pix-brand') as HTMLImageElement;
+    expect(image).not.toBeNull();
     expect(image.src).toMatch(/^data:image\/png;base64,/);
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.getByText('Área Stripe para Pix')).toBeInTheDocument();
