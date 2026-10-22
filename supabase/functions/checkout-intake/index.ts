@@ -48,7 +48,6 @@ Deno.serve(async req => {
     if (!sessionId) {
       const form = new URLSearchParams();
       form.set('ui_mode','elements');form.set('customer_email',input.customer_email);form.set('integration_identifier',identifier());form.set('locale','pt-BR');
-      if(input.payment_method!=='pix') form.set('billing_address_collection','required');
       form.set('return_url',`${origin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(input.payment_token)}&retorno=1`);
       form.set('metadata[oryneo_order_id]',created.order_id);form.set('metadata[oryneo_billing_environment]',environment);
       if(input.payment_method==='card'){
