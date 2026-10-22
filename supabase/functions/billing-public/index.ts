@@ -38,7 +38,7 @@ Deno.serve(async req=>{
   if(method==='card'&&body.card_funding!=='credit'&&body.card_funding!=='debit')return respond({error:'Escolha crédito ou débito.'},400);
   if(order.status!=='awaiting_payment'||(order.commercial_consent_at&&order.selection?.payment_method!==method))return respond({error:'A forma de pagamento deste pedido não pode mais ser alterada.'},409);
   if(method==='pix'){
-   if(order.commercial_consent_at&&order.selection?.payment_method!=='pix')return respond({error:'O meio de pagamento já foi aceito e não pode ser alterado.'},409);
+   if(!order.commercial_consent_at)return respond({error:'Aceite as condições comerciais antes de preparar o Pix.'},409);
    let prices:Awaited<ReturnType<typeof resolveStripeBillingPrices>>,selection:ReturnType<typeof buildBillingSelection>;
    try{prices=await resolveStripeBillingPrices(config);selection=buildBillingSelection({plan:order.selection.plan,cycle:order.selection.cycle,addons:order.selection.addons||[]},prices)}catch{return respond({error:'Não foi possível validar o catálogo do pedido.'},503)}
    if(selection.amountTotal!==order.amount_total)return respond({error:'O valor do pedido diverge do catálogo aceito.'},409);
