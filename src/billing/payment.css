@@ -191,3 +191,35 @@
 @media(max-width:800px){.pay-layout{grid-template-columns:1fr;gap:11px;padding-top:12px}.pay-summary{order:0;position:static;padding:16px}.pay-method-badge{padding:10px 16px}.pay-intro{padding:16px}.pay-form-body{padding:14px 15px 19px}.pay-element{padding:11px}.pay-intro h1{font-size:23px}.pay-summary-head>span{padding:5px 7px}}
 @media(max-width:390px){.pay-card-brands-compact{align-items:flex-start;flex-direction:column;gap:7px}.pay-method-copy strong{font-size:12px}.pay-element-head{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.pay-spinner{animation:none}}
+
+
+/* Pix must never expose Stripe's pre-confirmation QR placeholder as a finished code.
+ * Keep PaymentElement mounted at full width for Stripe, but visually conceal it
+ * until checkout.confirm() returns the pending Pix instructions. */
+.pay-element-pix{position:relative;min-width:0}
+.pay-pix-stripe-host{width:100%;min-width:0}
+.pay-pix-stripe-host.is-preparing{position:absolute;left:0;right:0;top:0;opacity:0;pointer-events:none;z-index:-1}
+.pay-pix-stripe-host.is-ready{position:relative;opacity:1;pointer-events:auto;z-index:auto}
+.pay-element-pix .pay-qr-preparing{min-height:180px;display:flex;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#475569;font-size:14px}
+.pay-element-pix .pay-inline-error{margin:16px 0 8px}
+.pay-element-pix .pay-retry{min-height:44px;border-radius:9px;border:1px solid #4357e8;background:#fff;color:#4357e8;font-weight:600;padding:10px 16px;cursor:pointer}
+.pay-element-pix .pay-retry:focus-visible{outline:3px solid #4f6bff99;outline-offset:3px}
+
+
+/* Read-only Pix presentation: QR image and Copia e Cola are fetched from the
+   verified Stripe PaymentIntent. No client-side generation or confirmation. */
+.pay-pix-generated{display:flex;flex-direction:column;align-items:center;gap:16px;padding:25px 20px 22px;background:#fff;border:1px solid #dee7e4;border-radius:13px;min-width:0}
+.pay-pix-generated-top{align-self:stretch;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:700;color:#0f1115}
+.pay-pix-generated-top .pay-pix-brand{width:76px;max-height:32px;object-fit:contain}
+.pay-pix-qr-image{display:block;max-width:100%;width:248px;height:auto;aspect-ratio:1/1;object-fit:contain;border-radius:7px}
+.pay-pix-expiration{color:#52606f;font-size:12px;margin:0;text-align:center}
+.pay-pix-copy-label{font-size:13px;font-weight:700;color:#0f1115;align-self:flex-start}
+.pay-pix-copy-row{display:flex;width:100%;min-width:0;gap:8px}
+.pay-pix-copy-row input{flex:1;min-width:0;border:1px solid #cfd7e0;border-radius:9px;background:#f8f7f4;padding:11px 12px;color:#323a46;font:12px ui-monospace,SFMono-Regular,Consolas,monospace}
+.pay-pix-copy-row button{flex:none;cursor:pointer;border:0;border-radius:9px;padding:11px 16px;background:#4357e8;color:white;font-weight:700;font-size:12px;min-height:44px}
+.pay-pix-copy-row button:focus-visible{outline:3px solid #4f6bff88;outline-offset:3px}
+.pay-pix-waiting{font-size:12px;text-align:center;color:#536174;margin:3px 0 0;line-height:1.5}
+.pay-pix-copy-error{color:#9a3412;font-size:12px;align-self:flex-start}
+.pay-pix-expired{padding:25px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;color:#854d0e;border:1px solid #fcd34d;border-radius:12px;background:#fffbeb}
+.pay-pix-image-fallback{font-size:13px;text-align:center;color:#4b5563}
+@media(max-width:600px){.pay-pix-generated{padding:21px 14px;gap:14px}.pay-pix-copy-row{flex-direction:column}.pay-pix-copy-row input{width:100%;min-height:46px}.pay-pix-copy-row button{width:100%}}

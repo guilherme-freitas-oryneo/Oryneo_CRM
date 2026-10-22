@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { BoletoPayment, PaymentPage, PaymentPageView, type PublicBillingOrder } from './PaymentPage';
+import { BoletoPayment, PaymentPage, PaymentPageView, PixPayment, type PublicBillingOrder } from './PaymentPage';
 
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('../data', () => ({ supabase: { functions: { invoke } } }));
@@ -22,6 +22,36 @@ const order: PublicBillingOrder = {
   expires_at: '2026-10-14T12:00:00Z',
   test_mode: true,
 };
+
+describe('Pix apresentado a partir da cobrança já criada na Stripe',()=>{
+  const qr={status:'ready' as const,copy_paste:'00020101021226890014br.gov.bcb.pix520400005303986',
+    qr_code_url:'https://qr.stripe.com/test_oryneo.png',expires_at:'2030-10-22T15:00:00Z'};
+  it('mostra imediatamente QR e Copia e Cola existentes sem segunda confirmação',async()=>{
+    invoke.mockResolvedValue({data:{order:{...order,payment_method:'pix'},pix:qr,client_secret:null,publishable_key:null},error:null});
+    window.history.replaceState({},'', '/pagar/?token='+'t'.repeat(48));
+    render(<PaymentPage/>);
+    expect(await screen.findByRole('heading',{name:'Pague com Pix.'})).toBeInTheDocument();
+    expect(screen.getByRole('region',{name:'QR Code e Pix Copia e Cola'})).toBeInTheDocument();
+    expect(screen.getByAltText('QR Code Pix deste pedido, gerado pela Stripe')).toHaveAttribute('src',qr.qr_code_url);
+    expect(screen.getByRole('textbox',{name:'Código Pix Copia e Cola'})).toHaveValue(qr.copy_paste);
+    expect(screen.getByRole('button',{name:'Copiar código'})).toBeInTheDocument();
+    expect(screen.queryByText(/Um código QR será exibido/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Pagamento não concluído/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+  it('bloqueia QR e botão de copiar depois da expiração',()=>{
+    render(<PixPayment order={{...order,payment_method:'pix'}} pix={{...qr,expires_at:'2025-01-01T00:00:00Z'}}/>);
+    expect(screen.getByText('Este Pix expirou.')).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Copiar código'})).not.toBeInTheDocument();
+    expect(screen.queryByAltText('QR Code Pix deste pedido, gerado pela Stripe')).not.toBeInTheDocument();
+  });
+  it('em conciliação não expõe outro código de pagamento',()=>{
+    render(<PixPayment order={{...order,payment_method:'pix'}} pix={{status:'processing'}}/>);
+    expect(screen.getByRole('heading',{name:'Estamos confirmando seu pagamento.'})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Copiar código'})).not.toBeInTheDocument();
+  });
+});
 
 describe('PaymentPageView', () => {
   it('mostra indisponibilidade temporária sem rotular o pagamento como recusado', async () => {
