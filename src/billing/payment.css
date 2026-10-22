@@ -153,3 +153,41 @@
 .pay-items>div>span{min-width:0;overflow-wrap:anywhere}
 .pay-items>div>strong{font-variant-numeric:tabular-nums}
 @media(max-width:600px){.funding-picker{padding:22px 18px}.pay-shell{width:calc(100% - 24px)}.pay-summary{padding:18px}.pay-items>div{gap:10px}.pay-items>div>strong{white-space:normal;text-align:right}.pay-pix-instructions ol{padding-left:19px}}
+
+/* Payment page · dense layout and locally bundled user-approved payment marks. */
+.pay-layout{grid-template-columns:minmax(0,1fr) 345px;gap:21px;padding-block:24px 18px}
+.pay-method-badge{padding:11px 24px;gap:10px}
+.pay-method-mark{width:50px;height:37px;border-radius:8px}
+.pay-method-badge-pix .pay-method-mark{width:76px;min-width:76px}
+.pay-pix-brand{width:66px;height:26px;object-fit:contain}
+.pay-pix-brand-inline{width:61px;height:24px}
+.pay-boleto-brand{width:44px;height:18px;object-fit:contain}
+.pay-boleto-brand-inline{width:68px;height:22px;object-fit:contain;flex-shrink:0}
+.pay-intro{padding:20px 24px 16px}
+.pay-intro h1{font-size:clamp(22px,2.5vw,27px);margin:7px 0 8px;letter-spacing:-.04em}
+.pay-intro p{font-size:12px;line-height:1.55}
+.pay-form-body{padding:17px 24px 23px}
+.pay-element{padding:13px;border-radius:10px}
+.pay-element-head{gap:10px;margin-bottom:13px;flex-wrap:wrap}
+.pay-element-head small{margin-left:auto;font-size:10px}
+.pay-pix-guidance{padding:10px 13px;margin-bottom:12px}
+.pay-pix-guidance strong{font-size:12px}
+.pay-summary{top:14px;padding:18px}
+.pay-summary-kicker{margin-bottom:9px}
+.pay-summary-head{padding-bottom:12px}
+.pay-summary-head h2{font-size:14px;margin-top:4px}
+.pay-items>div{padding:9px 0}
+.pay-total{padding:13px 0 10px}
+.pay-total strong{font-size:23px}
+.pay-recurring{padding:10px;font-size:10px}
+.pay-help{margin-top:12px;padding-top:11px}
+.pay-card-brands-compact{display:flex;align-items:center;gap:11px;justify-content:space-between;padding:9px 11px;margin:0 0 12px;border-radius:8px}
+.pay-card-brands-compact>span:last-child{color:#596273;font-size:10px;line-height:1.4}
+.pay-brands-art{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.pay-brands-art img:first-child{width:41px;height:auto}
+.pay-brands-art img:last-child{width:30px;height:auto}
+.pay-qr-preparing{display:flex;align-items:center;gap:12px;min-height:140px;justify-content:center;color:#596273;font-size:12px;line-height:1.5;text-align:center}
+.pay-spinner{width:18px;height:18px;border:2px solid #d7dbe8;border-top-color:#4357E8;border-radius:50%;animation:pay-spin .8s linear infinite;flex-shrink:0}
+@media(max-width:800px){.pay-layout{grid-template-columns:1fr;gap:11px;padding-top:12px}.pay-summary{order:0;position:static;padding:16px}.pay-method-badge{padding:10px 16px}.pay-intro{padding:16px}.pay-form-body{padding:14px 15px 19px}.pay-element{padding:11px}.pay-intro h1{font-size:23px}.pay-summary-head>span{padding:5px 7px}}
+@media(max-width:390px){.pay-card-brands-compact{align-items:flex-start;flex-direction:column;gap:7px}.pay-method-copy strong{font-size:12px}.pay-element-head{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.pay-spinner{animation:none}}
