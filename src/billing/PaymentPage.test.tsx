@@ -121,6 +121,22 @@ describe('PaymentPageView', () => {
     expect(pay).toBeEnabled();
   });
 
+  it('Pix em processamento preserva acompanhamento sem disponibilizar nova cobrança', async () => {
+    const user=userEvent.setup();
+    const onRefresh=vi.fn();
+    render(<PaymentPageView order={{...order,payment_method:'pix',status:'processing'}} paymentSlot={<div>QR Code Pix</div>} onPay={vi.fn()} onRefresh={onRefresh}/>);
+    expect(screen.getByRole('heading',{name:'Estamos confirmando seu pagamento.'})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button',{name:'Verificar status'}));
+    expect(onRefresh).toHaveBeenCalledOnce();
+  });
+
+  it('Pix expirado não disponibiliza nova cobrança pelo pedido original', () => {
+    render(<PaymentPageView order={{...order,payment_method:'pix',status:'expired'}} paymentSlot={null} onPay={vi.fn()}/>);
+    expect(screen.getByRole('heading',{name:'Este link expirou.'})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
+  });
+
   it('Pix avulso não promete renovação automática',()=>{
     render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code Pix</div>} onPay={()=>undefined}/>);
     expect(screen.getByText(/não renova automaticamente/i)).toBeInTheDocument();
