@@ -335,7 +335,7 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
       if(confirmation.type==='error'){
         // Do not expose an unconfirmed Stripe PaymentElement QR placeholder.
         // Logging only the error classification avoids exposing client secrets.
-        console.warn('oryneo.checkout.confirm.error',{type:confirmation.error.type,code:confirmation.error.code});
+        console.warn('oryneo.checkout.confirm.error',{code:confirmation.error.code});
         setError(confirmation.error.message||(order.payment_method==='pix'?'O Pix ainda não pôde ser gerado. Tente novamente.':'Confira os dados de pagamento e tente novamente.'));
         return;
       }
@@ -375,7 +375,7 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
     {pixLookupError&&completion==='awaiting_pix'&&<p className="pay-inline-error" role="status">O servidor ainda não retornou um status verificável. O código Pix continua abaixo; não realize outro pagamento.</p>}
     {result.type==='loading'?(order.payment_method==='pix'?<div className="pay-qr-preparing" role="status"><span className="pay-spinner" aria-hidden="true"/> Preparando seu QR Code e Pix Copia e Cola…</div>:<PaymentSkeleton/>):result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:order.payment_method==='pix'?<>
       <div className={`pay-pix-stripe-host${completion==='awaiting_pix'?' is-ready':' is-preparing'}`} aria-hidden={completion!=='awaiting_pix'}>
-        <PaymentElement onReady={()=>setPixElementReady(true)} onLoaderror={()=>setError('A área segura do Pix não carregou. Atualize a página e tente novamente.')} />
+        <PaymentElement onReady={()=>setPixElementReady(true)} onLoadError={()=>setError('A área segura do Pix não carregou. Atualize a página e tente novamente.')} />
       </div>
       {completion==='idle'&&!error&&<div className="pay-qr-preparing" role="status" aria-live="polite"><span className="pay-spinner" aria-hidden="true"/>{pixElementReady?'Gerando o QR Code e o Pix Copia e Cola…':'Conectando à Stripe para gerar seu Pix…'}</div>}
     </>:<PaymentElement/>}
