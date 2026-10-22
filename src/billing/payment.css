@@ -85,3 +85,14 @@
 @media(max-width:390px){.pay-header-inner>div{font-size:0}.pay-header-inner>div svg{width:20px;height:20px}.pay-summary-head{display:block}.pay-summary-head>span{display:inline-block;margin-top:12px}.pay-field-row{grid-template-columns:1fr}.pay-consent span{display:block}.pay-consent svg{display:none}}
 @media(prefers-reduced-motion:reduce){.pay-page *{animation-duration:.01ms!important;transition:none!important}}
 .funding-picker{width:min(520px,100%);padding:32px}.funding-picker>img{width:112px;margin-bottom:26px}.funding-picker>small{display:block;color:#6373d9;font-size:10px;font-weight:750;letter-spacing:.14em}.funding-picker h1{font-size:25px;margin:7px 0}.funding-picker>p{font-size:12px;color:#758091;line-height:1.7}.funding-picker fieldset{border:0;border-top:1px solid #e7eaf0;padding:19px 0 0;margin:22px 0}.funding-picker legend{font-size:11px;font-weight:700;color:#57657a;padding-right:8px}.funding-picker label{display:flex;align-items:flex-start;gap:12px;border:1px solid #e0e5ed;border-radius:9px;padding:14px;margin:9px 0;cursor:pointer}.funding-picker label:has(input:checked){border-color:#7285ff;background:#f7f8ff}.funding-picker input{accent-color:#5269ff;margin-top:2px}.funding-picker label span{display:flex;flex-direction:column;gap:5px}.funding-picker label strong{font-size:12px;color:#303743}.funding-picker label small{font-size:10px;line-height:1.55;color:#7e8590}.funding-picker .pay-test-note{font-size:10px;text-align:center}
+
+/* Pix stage 1: presentation only; Stripe owns QR and payment confirmation. */
+.pay-method-badge-pix{background:linear-gradient(110deg,#f2fbf9,#fff);border-bottom:1px solid #d8ece8}
+.pay-method-badge-pix .pay-method-mark{background:#d9f5ed;color:#126c60}
+.pay-pix-guidance{padding:16px 18px;margin-bottom:20px;border:1px solid #d7eae5;border-radius:12px;background:#f5fbf9}
+.pay-pix-guidance strong{font-size:13px;color:#155c51}
+.pay-pix-guidance p,.pay-pix-note{font-size:12px;line-height:1.7;color:#49635d;margin:8px 0 0}
+.pay-element-pix{border-color:#d7eae5}
+.pay-element-pix .pay-element-head svg{color:#168371}
+.pay-pix-note{margin:0 0 14px}
+@media(max-width:800px){.pay-pix-guidance{padding:14px}}
