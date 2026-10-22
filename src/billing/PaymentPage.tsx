@@ -337,6 +337,11 @@ export function StripePayment({order}:{order:PublicBillingOrder}){
       <span>{order.payment_method==='pix'?'Pagamento via Pix':order.payment_method==='boleto'?'Boleto bancário':`Cartão de ${order.card_funding==='debit'?'débito':'crédito'}`}</span>
       <small>Campos seguros da Stripe</small>
     </div>
+    {order.payment_method==='card' && <div className="pay-card-brands" role="note" aria-label="Identificação de bandeira do cartão">
+      <div className="pay-card-brands-heading"><ShieldCheck size={16}/><strong>Identificação segura do cartão</strong></div>
+      <p>A bandeira é identificada automaticamente nos campos protegidos da Stripe enquanto você digita. Visa e Mastercard são as bandeiras previstas para este checkout.</p>
+      <p>Os dados do cartão são inseridos diretamente na Stripe; a ORYNEO não recebe nem armazena o número completo.</p>
+    </div>}
     {order.payment_method==='pix' && <div className="pay-pix-instructions"><p className="pay-pix-note">O QR Code e o Pix Copia e Cola são disponibilizados pelo Stripe após a confirmação desta etapa. Utilize exclusivamente o código exibido na área segura de pagamento.</p><ol><li>Confirme o pagamento para gerar as instruções.</li><li>Abra o aplicativo do seu banco e escolha pagar com Pix.</li><li>Escaneie o QR Code ou use o Pix Copia e Cola fornecido pelo Stripe.</li><li>Confira o valor e aguarde a confirmação do pagamento.</li></ol></div>}
     {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement/>}
     {error&&<p className="pay-inline-error" role="alert">{error}</p>}
