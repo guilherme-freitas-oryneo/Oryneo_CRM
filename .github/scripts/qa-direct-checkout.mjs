@@ -29,13 +29,15 @@ for (const [name, engine, viewport] of [
     assert.match(await selection.innerText(), /ORYNEO Scale/);
     assert.match(await selection.innerText(), /Anual/);
     assert.equal(await page.getByRole('radio').count(), 4, 'As quatro opções são meios de pagamento; plano e ciclo permanecem bloqueados');
+    await page.getByRole('radio', { name: /Pix/ }).check();
+    await page.getByText('Seu pagamento via Pix').waitFor();
     await page.getByRole('checkbox', { name: /Landing page de conversão/i }).check();
     await page.getByRole('checkbox', { name: /Gestão de tráfego pago/i }).check();
     await page.getByLabel('Nome completo').fill('Cliente de Homologação');
     await page.getByLabel('E-mail corporativo').fill('cliente.qa@example.invalid');
     await page.getByLabel('Empresa').fill('Oryneo QA Controlado');
     await page.getByLabel('CPF ou CNPJ').fill('52998224725');
-    const action = page.getByRole('button', { name: /Pagar R\$/ });
+    const action = page.getByRole('button', { name: /Continuar com Pix/ });
     const checkoutResponse = page.waitForResponse(response => response.url() === supabase && response.request().method() === 'POST');
     const returnedToCheckout = page.waitForURL(`${root}#checkout-qa-controlado`);
     await action.click();
@@ -46,6 +48,7 @@ for (const [name, engine, viewport] of [
     assert.deepEqual(checkoutRequest.addons, ['landing-page', 'traffic']);
     assert.equal(checkoutRequest.customer_email, 'cliente.qa@example.invalid');
     assert.equal(checkoutRequest.tax_id, '52998224725');
+    assert.equal(checkoutRequest.payment_method, 'pix');
     assert.match(checkoutRequest.request_id, /^[0-9a-f-]{36}$/i);
     assert.match(checkoutRequest.payment_token, /^[A-Za-z0-9_-]{43}$/);
     const stored = await page.evaluate(() => sessionStorage.getItem('oryneo.direct-checkout.request'));
