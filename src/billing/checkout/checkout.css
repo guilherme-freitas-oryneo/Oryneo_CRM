@@ -48,3 +48,16 @@
  .checkout-consent{align-items:flex-start;flex-direction:column}
  .checkout-choice{padding-top:18px}
 }
+
+/* Desktop review is an intentional two-column layout, not an oversized mobile form. */
+.checkout-configurator{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:34px;align-items:start}
+.checkout-main-flow{display:grid;gap:24px;min-width:0}
+.checkout-side-flow{display:flex;flex-direction:column;gap:16px;min-width:0;position:sticky;top:20px}
+.checkout-side-flow .checkout-quote{flex:none}
+.checkout-side-flow .checkout-consent{padding:14px;flex-direction:column;align-items:stretch;gap:10px}
+.checkout-side-flow .checkout-consent .oryneo-terms-trigger{align-self:flex-start}
+.checkout-side-flow .pay-submit{margin:0;min-height:54px;font-size:13px;line-height:1.35;white-space:normal;padding:12px}
+.checkout-side-flow .checkout-secure{line-height:1.6}
+.checkout-main-flow .checkout-contact{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:940px){.checkout-configurator{grid-template-columns:minmax(0,1fr);gap:25px}.checkout-side-flow{position:static}.checkout-side-flow .checkout-consent{flex-direction:row;align-items:center;justify-content:space-between}}
+@media(max-width:640px){.checkout-main-flow .checkout-contact{grid-template-columns:1fr}.checkout-side-flow .checkout-consent{flex-direction:column;align-items:flex-start}.checkout-quote{padding:7px 18px}}
