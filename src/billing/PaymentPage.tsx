@@ -232,7 +232,7 @@ export function PaymentPage() {
     return <CheckoutMethodPicker order={order} onContinue={chooseCheckout} busy={fundingBusy} error={fundingError}/>;
   if(order.status==='awaiting_payment'&&order.payment_method==='boleto'&&invoiceUrl)
     return <BoletoPayment order={order} invoiceUrl={invoiceUrl}/>;
-  if(order.status==='awaiting_payment'&&!checkout)return <PaymentPageView order={{...order,status:'payment_failed'}} paymentSlot={null} onPay={()=>undefined}/>;
+  if(order.status==='awaiting_payment'&&!checkout)return <main className="pay-page pay-center"><div className="pay-error"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><h1>Não foi possível carregar o pagamento agora.</h1><p>A sessão segura ainda não está disponível. Isso não significa que seu pagamento foi recusado ou confirmado. Consulte novamente antes de tentar outra cobrança.</p><button className="pay-submit" type="button" onClick={()=>window.location.reload()}>Consultar novamente</button></div></main>;
   if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={order.status==='paid'?deliveryLink():''} accountUrl={order.status==='paid'?offboardingLink():''}/>;
   return <CheckoutElementsProvider stripe={stripePromise} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#5269ff',colorText:'#242931',colorBackground:'#ffffff',borderRadius:'9px',fontFamily:'DM Sans, sans-serif'}}}}}>
     <StripePayment order={order}/>
