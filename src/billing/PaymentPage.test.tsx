@@ -115,7 +115,7 @@ describe('PaymentPageView', () => {
     expect(screen.getByRole('region',{name:'Forma de pagamento: Cartão de crédito'})).toBeInTheDocument();
     expect(screen.getByText('Stripe Payment Element')).toBeInTheDocument();
     expect(screen.getByText('R$ 3.279,80')).toBeInTheDocument();
-    const pay=screen.getByRole('button',{name:/Pagar R\\$\\s*3\\.279,80 agora/});
+    const pay=screen.getByRole('button',{name:/Pagar R\$\s*3\.279,80 agora/});
     expect(pay).toBeDisabled();
     await user.click(screen.getByRole('checkbox'));
     expect(pay).toBeEnabled();
