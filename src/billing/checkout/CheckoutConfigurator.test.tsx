@@ -93,7 +93,8 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');
     await user.type(screen.getByLabelText('CPF ou CNPJ'),'52998224725');
-    await user.click(screen.getByRole('button',{name:/Pagar R\$/}));
+    await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
+    await user.click(screen.getByRole('button',{name:/Continuar para o pagamento/}));
     expect(onContinue).toHaveBeenCalledWith({
       plan:'Growth',cycle:'annual',addons:['landing-page'],
       payment_method:'card',card_funding:'credit',
@@ -110,7 +111,8 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');
     await user.type(screen.getByLabelText('CPF ou CNPJ'),'52998224725');
-    await user.click(screen.getByRole('button',{name:/Pagar R\$/}));
+    await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
+    await user.click(screen.getByRole('button',{name:/Continuar para o pagamento/}));
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({payment_method:'card',card_funding:'debit'}));
   });
 
@@ -123,7 +125,8 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');
     await user.type(screen.getByLabelText('CPF ou CNPJ'),'52998224725');
-    await user.click(screen.getByRole('button',{name:/Pagar R\$/}));
+    await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
+    await user.click(screen.getByRole('button',{name:/Continuar para o pagamento/}));
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({payment_method:'boleto'}));
   });
 });
