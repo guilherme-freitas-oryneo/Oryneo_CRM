@@ -171,6 +171,15 @@ describe('PaymentPageView', () => {
     expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
   });
 
+  it('exibe o Pix aprovado localmente sem segundo aceite e com título direto',()=>{
+    render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>Área Stripe para Pix</div>} onPay={vi.fn()}/>);
+    expect(screen.getByRole('heading',{name:'Pague com Pix.'})).toBeInTheDocument();
+    const image=screen.getByRole('img',{name:'Pix'}) as HTMLImageElement;
+    expect(image.src).toMatch(/^data:image\/png;base64,/);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getByText('Área Stripe para Pix')).toBeInTheDocument();
+  });
+
   it('Pix orienta QR Code e copia e cola sem afirmar liquidação antecipada',()=>{
     render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>Stripe PaymentElement</div>} onPay={()=>undefined}/>);
     expect(screen.queryByText(/Stripe apresenta as instruções/i)).not.toBeInTheDocument();
