@@ -9,23 +9,24 @@ describe('CheckoutConfigurator', () => {
     const onContinue = vi.fn();
     render(<CheckoutConfigurator onContinue={onContinue}/>);
 
-    expect(screen.getByText(/1\.739,80/)).toBeInTheDocument();
+    expect(screen.getAllByText(/1\.739,80/).length).toBeGreaterThan(0);
     expect(screen.getByRole('region', { name: 'Plano e periodicidade selecionados' })).toHaveTextContent('ORYNEO Start');
-    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
     await user.click(screen.getByRole('checkbox', { name: /Landing page de conversão/i }));
-    expect(screen.getByText(/2\.629,70/)).toBeInTheDocument();
+    expect(screen.getAllByText(/2\.629,70/).length).toBeGreaterThan(0);
 
-    const button = screen.getByRole('button', { name: 'Continuar para o pagamento' });
+    const button = screen.getByRole('button', { name: /Pagar R\$/ });
     expect(button).toBeDisabled();
     await user.type(screen.getByLabelText('Nome completo'), 'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'), 'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'), 'Acme Comércio');
+    await user.type(screen.getByLabelText('CPF ou CNPJ'), '52998224725');
     expect(button).toBeEnabled();
     await user.click(button);
     expect(onContinue).toHaveBeenCalledWith({
       plan: 'Start', cycle: 'monthly', addons: ['landing-page'],
       payment_method:'card',card_funding:'credit',
-      customer_name: 'Marina Costa', customer_email: 'marina@acme.example', company: 'Acme Comércio',
+      customer_name: 'Marina Costa', customer_email: 'marina@acme.example', company: 'Acme Comércio', tax_id:'52998224725',
     });
   });
 
@@ -64,7 +65,7 @@ describe('seleção vinda da landing page', () => {
     const locked = screen.getByRole('region',{name:'Plano e periodicidade selecionados'});
     expect(locked).toHaveTextContent('ORYNEO Scale');
     expect(locked).toHaveTextContent('Anual');
-    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
     expect(screen.getByRole('checkbox',{name:/Landing page de conversão/i})).toBeChecked();
     expect(screen.getByRole('checkbox',{name:/Gestão de tráfego pago/i})).toBeChecked();
     expect(screen.getByText(/21\.692,42/)).toBeInTheDocument();
@@ -82,18 +83,19 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     const onContinue = vi.fn();
     const user = userEvent.setup();
     render(<CheckoutConfigurator onContinue={onContinue}/>);
-    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
     expect(screen.getByRole('region',{name:'Plano e periodicidade selecionados'})).toHaveTextContent('ORYNEO Growth');
     expect(screen.getByRole('link',{name:'página de planos'})).toHaveAttribute('href','https://oryneo.com.br/');
     await user.click(screen.getByRole('checkbox',{name:/Landing page de conversão/i}));
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');
-    await user.click(screen.getByRole('button',{name:'Continuar para o pagamento'}));
+    await user.type(screen.getByLabelText('CPF ou CNPJ'),'52998224725');
+    await user.click(screen.getByRole('button',{name:/Pagar R\$/}));
     expect(onContinue).toHaveBeenCalledWith({
       plan:'Growth',cycle:'annual',addons:['landing-page'],
       payment_method:'card',card_funding:'credit',
-      customer_name:'Marina Costa',customer_email:'marina@acme.example',company:'Acme',
+      customer_name:'Marina Costa',customer_email:'marina@acme.example',company:'Acme',tax_id:'52998224725',
     });
   });
 
@@ -105,7 +107,8 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');
-    await user.click(screen.getByRole('button',{name:'Continuar para o pagamento'}));
+    await user.type(screen.getByLabelText('CPF ou CNPJ'),'52998224725');
+    await user.click(screen.getByRole('button',{name:/Pagar R\$/}));
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({payment_method:'card',card_funding:'debit'}));
   });
 
@@ -117,7 +120,8 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');
-    await user.click(screen.getByRole('button',{name:'Continuar para o pagamento'}));
+    await user.type(screen.getByLabelText('CPF ou CNPJ'),'52998224725');
+    await user.click(screen.getByRole('button',{name:/Pagar R\$/}));
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({payment_method:'boleto'}));
   });
 });
