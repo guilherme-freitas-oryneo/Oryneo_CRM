@@ -181,9 +181,9 @@ describe('PaymentPageView', () => {
 
   it('Pix avulso não promete renovação automática',()=>{
     render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code Pix</div>} onPay={()=>undefined}/>);
-    expect(screen.getByText(/não renova automaticamente/i)).toBeInTheDocument();
     expect(screen.getByRole('region',{name:'Forma de pagamento: Pix'})).toBeInTheDocument();
-    expect(screen.getByRole('button',{name:/Pagar R\$\s*3\.279,80 com Pix/})).toBeDisabled();
+    expect(screen.getByText(/Cobrança avulsa gerada pelo CRM/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
   });
 
 });
