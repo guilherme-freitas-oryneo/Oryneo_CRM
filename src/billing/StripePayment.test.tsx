@@ -41,6 +41,19 @@ describe('StripePayment', () => {
     mocks.invoke.mockResolvedValue({data:{ok:true},error:null});
   });
 
+  it('abre o Pix após o aceite anterior, sem segundo clique nem novo checkbox',async()=>{
+    const confirm=vi.fn().mockResolvedValue({type:'success'});
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
+    mocks.invoke.mockResolvedValueOnce({data:{ok:true},error:null}).mockResolvedValue({data:{order:{status:'awaiting_payment'}},error:null});
+    render(<StripePayment order={{...order,payment_method:'pix'}}/>);
+    await waitFor(()=>expect(confirm).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
+    expect(screen.getByText('Campos Stripe')).toBeInTheDocument();
+    expect(await screen.findByText(/Escaneie o QR Code ou copie o Pix abaixo/)).toBeInTheDocument();
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
   it('não chama a Stripe se o aceite não puder ser registrado', async () => {
     const confirm=vi.fn();
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
