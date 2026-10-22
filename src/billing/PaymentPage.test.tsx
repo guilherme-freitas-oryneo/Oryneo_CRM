@@ -46,6 +46,13 @@ describe('PaymentPageView', () => {
     expect(screen.queryByText('Pagamento indisponível.')).not.toBeInTheDocument();
   });
 
+  it('não solicita segundo aceite ou botão de confirmação na tela Pix',()=>{
+    render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code e Pix Copia e Cola da Stripe</div>} onPay={vi.fn()}/>);
+    expect(screen.getByText('QR Code e Pix Copia e Cola da Stripe')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
+  });
+
   it('permite selecionar Pix em pedido assistido e envia escolha ao backend',async()=>{
     const user=userEvent.setup();
     invoke.mockImplementation(async (_fn: string, args: {body:{action:string}})=>{
@@ -58,6 +65,7 @@ describe('PaymentPageView', () => {
     await screen.findByRole('heading',{name:'Como você vai pagar?'});
     await user.click(screen.getByRole('radio',{name:/Pix/}));
     expect(screen.getByText(/Não há renovação automática/)).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
     await user.click(screen.getByRole('button',{name:'Continuar'}));
     await waitFor(()=>expect(invoke).toHaveBeenCalledWith('billing-public',expect.objectContaining({body:expect.objectContaining({action:'set_checkout_method',payment_method:'pix'})})));
   });
@@ -165,8 +173,8 @@ describe('PaymentPageView', () => {
 
   it('Pix orienta QR Code e copia e cola sem afirmar liquidação antecipada',()=>{
     render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>Stripe PaymentElement</div>} onPay={()=>undefined}/>);
-    expect(screen.getByText(/Stripe apresenta as instruções/i)).toBeInTheDocument();
-    expect(screen.getByText(/só confirmará a compra quando receber a confirmação financeira/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Stripe apresenta as instruções/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.getByText('Stripe PaymentElement')).toBeInTheDocument();
     expect(screen.queryByRole('heading',{name:'Pagamento confirmado.'})).not.toBeInTheDocument();
   });
