@@ -96,7 +96,7 @@
 .checkout-payment-options{gap:8px}
 .checkout-payment-options>label{min-height:66px;padding:9px 10px;border-radius:10px;gap:10px;display:flex;align-items:center}
 .checkout-payment-options>label input{margin:0;width:17px;height:17px}
-.checkout-payment-options>label>.checkout-payment-art{display:flex;align-items:center;justify-content:center;gap:5px;min-width:65px;width:65px;height:34px;flex-shrink:0}
+.checkout-payment-options>label>.checkout-payment-art{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;min-width:65px;width:65px;height:34px;flex-shrink:0}
 .checkout-payment-art img{display:block;object-fit:contain;max-width:100%;height:auto}
 .checkout-payment-art .checkout-pix{width:60px}
 .checkout-payment-art .checkout-boleto{width:65px}
