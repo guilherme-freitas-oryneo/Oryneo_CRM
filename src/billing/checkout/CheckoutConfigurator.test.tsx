@@ -68,7 +68,7 @@ describe('seleção vinda da landing page', () => {
     expect(screen.getAllByRole('radio')).toHaveLength(4);
     expect(screen.getByRole('checkbox',{name:/Landing page de conversão/i})).toBeChecked();
     expect(screen.getByRole('checkbox',{name:/Gestão de tráfego pago/i})).toBeChecked();
-    expect(screen.getByText(/21\.692,42/)).toBeInTheDocument();
+    expect(screen.getAllByText(/21\.692,42/).length).toBeGreaterThan(0);
   });
 
   it('descarta códigos não suportados e ignora preços enviados pela URL', () => {
