@@ -22,7 +22,7 @@ const createRows=()=>[
  sample('33333333-3333-4333-8333-333333333333','Segunda Empresa QA Ltda.',true)
 ];
 fs.mkdirSync('qa-results',{recursive:true});
-for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[webkit,'webkit']].filter(([,name])=>process.env.ORYNEO_SKIP_WEBKIT!=='1'||name!=='webkit')){
+for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[webkit,'webkit']].filter(([,name])=>process.env.ORYNEO_SKIP_WEBKIT !== '1'||name!=='webkit')){
  const browser=await engine.launch({headless:true});
  const mobile=name!=='chromium';
  const page=await browser.newPage({viewport:{width:mobile?390:1440,height:900},isMobile:mobile,hasTouch:mobile});

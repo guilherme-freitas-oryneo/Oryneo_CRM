@@ -6,11 +6,13 @@ const root = 'http://127.0.0.1:4173/Oryneo_CRM/contratar/';
 const supabase = 'https://ucikrafwfzamxvweuvgk.supabase.co/functions/v1/checkout-intake';
 mkdirSync('qa-results', { recursive: true });
 
-for (const [name, engine, viewport] of [
+const browsers = [
   ['checkout-desktop', chromium, { width: 1440, height: 960 }],
   ['checkout-mobile', chromium, { width: 390, height: 844 }],
   ['checkout-webkit', webkit, { width: 390, height: 844 }],
-]) {
+].filter(([name]) => process.env.ORYNEO_SKIP_WEBKIT !== '1' || name !== 'checkout-webkit');
+
+for (const [name, engine, viewport] of browsers) {
   const browser = await engine.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport, isMobile: viewport.width < 500, hasTouch: viewport.width < 500 });
@@ -23,22 +25,24 @@ for (const [name, engine, viewport] of [
     });
     const response = await page.goto(root + '?plan=Scale&cycle=annual', { waitUntil: 'domcontentloaded' });
     assert.equal(response.status(), 200);
-    await page.getByRole('heading', { name: 'Revise sua contratação.' }).waitFor();
+    await page.getByRole('heading', { name: 'Revise e conclua.' }).waitFor();
     assert.equal(await page.getByRole('button', { name: /Continuar para o pagamento/ }).isDisabled(), true);
     const selection=page.getByRole('region', { name: 'Plano e periodicidade selecionados' });
     assert.match(await selection.innerText(), /ORYNEO Scale/);
     assert.match(await selection.innerText(), /Anual/);
-    assert.equal(await page.getByRole('radio').count(), 4, 'As quatro opções são meios de pagamento; plano e ciclo permanecem bloqueados');
+    assert.equal(await page.locator('.checkout-payment-options input[type="radio"]').count(), 3, 'Cartão, boleto e Pix são as únicas formas de pagamento');
+    assert.equal(await page.getByRole('radiogroup', { name: 'Tipo do cartão' }).getByRole('radio').count(), 2, 'Crédito e débito aparecem condicionados ao cartão');
     await page.getByRole('radio', { name: /Pix/ }).check();
+    assert.equal(await page.getByRole('radiogroup', { name: 'Tipo do cartão' }).count(), 0, 'Crédito e débito somem fora do cartão');
     assert.equal(await page.getByText('Seu pagamento via Pix').count(), 0, 'Não apresentar etapa explicativa redundante do Pix');
     const marks=page.locator('.checkout-payment-art img');
-    assert.equal(await marks.count(),6,'Visa/Mastercard em ambos os cartões, Pix e boleto');
+    assert.equal(await marks.count(),4,'Visa, Mastercard, boleto e Pix aparecem uma vez cada');
     await page.waitForFunction(()=>[...document.querySelectorAll('.checkout-payment-art img')].every(img=>img.complete),null,{timeout:12000});
     const logoDetails=await marks.evaluateAll(images=>images.map(img=>({loaded:img.complete,width:img.naturalWidth,srcPrefix:img.src.slice(0,22)})));
     assert.ok(logoDetails.every(img=>img.loaded && img.width>0 && img.srcPrefix==='data:image/png;base64,'),`os símbolos aprovados precisam carregar: ${JSON.stringify(logoDetails)}`);
     const maxCardHeight=await page.locator('.checkout-payment-options>label').evaluateAll(items=>Math.max(...items.map(item=>item.getBoundingClientRect().height)));
     assert.ok(maxCardHeight<=96,`cards altos demais: ${maxCardHeight}px`);
-    console.log(`${name}: 6 imagens locais de pagamento válidas; cartão mais alto ${Math.round(maxCardHeight)}px`);
+    console.log(`${name}: 4 imagens locais de pagamento válidas; cartão mais alto ${Math.round(maxCardHeight)}px`);
     assert.equal(await page.getByText('Seu pagamento via Pix').count(),0);
     await page.getByRole('checkbox', { name: /Landing page de conversão/i }).check();
     await page.getByRole('checkbox', { name: /Gestão de tráfego pago/i }).check();
