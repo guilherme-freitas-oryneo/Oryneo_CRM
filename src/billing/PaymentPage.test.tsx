@@ -163,6 +163,14 @@ describe('PaymentPageView', () => {
     expect(screen.queryByRole('button',{name:/Pagar.*Pix/})).not.toBeInTheDocument();
   });
 
+  it('Pix orienta QR Code e copia e cola sem afirmar liquidação antecipada',()=>{
+    render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>Stripe PaymentElement</div>} onPay={()=>undefined}/>);
+    expect(screen.getByText(/Stripe apresenta as instruções/i)).toBeInTheDocument();
+    expect(screen.getByText(/só confirmará a compra quando receber a confirmação financeira/i)).toBeInTheDocument();
+    expect(screen.getByText('Stripe PaymentElement')).toBeInTheDocument();
+    expect(screen.queryByRole('heading',{name:'Pagamento confirmado.'})).not.toBeInTheDocument();
+  });
+
   it('Pix avulso não promete renovação automática',()=>{
     render(<PaymentPageView order={{...order,payment_method:'pix'}} paymentSlot={<div>QR Code Pix</div>} onPay={()=>undefined}/>);
     expect(screen.getByText(/não renova automaticamente/i)).toBeInTheDocument();
