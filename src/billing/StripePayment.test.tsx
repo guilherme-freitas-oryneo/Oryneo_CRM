@@ -48,7 +48,7 @@ describe('StripePayment', () => {
     const confirm=vi.fn().mockResolvedValue({type:'success'});
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
     mocks.invoke.mockResolvedValueOnce({data:{ok:true},error:null}).mockResolvedValue({data:{order:{status:'awaiting_payment'}},error:null});
-    render(<StripePayment order={{...order,payment_method:'pix'}}/>);
+    render(<StripePayment order={{...order,payment_method:'pix'}} onChoosePaymentMethod={vi.fn()}/>);
     expect(confirm).not.toHaveBeenCalled();
     expect(screen.getByText(/Conectando à Stripe para gerar seu Pix/)).toBeInTheDocument();
     const user=userEvent.setup();
@@ -65,15 +65,16 @@ describe('StripePayment', () => {
     const confirm=vi.fn().mockResolvedValueOnce({type:'error',error:{type:'validation_error',code:'payment_method_unavailable',message:'Não foi possível criar o Pix.'}});
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
     mocks.invoke.mockResolvedValue({data:{ok:true},error:null});
-    render(<StripePayment order={{...order,payment_method:'pix'}}/>);
+    render(<StripePayment order={{...order,payment_method:'pix'}} onChoosePaymentMethod={vi.fn()}/>);
     expect(screen.getByText('Campos Stripe').closest('.pay-pix-stripe-host')).toHaveClass('is-preparing');
     expect(screen.queryByText(/Escaneie o QR Code ou copie o Pix abaixo/)).not.toBeInTheDocument();
     expect(confirm).not.toHaveBeenCalled();
     const user=userEvent.setup();
     fireEvent.click(screen.getByRole('button',{name:'Simular Stripe pronta',hidden:true}));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível criar o Pix.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não conseguimos gerar este Pix. Nenhuma cobrança foi realizada. Tente novamente ou escolha outra forma de pagamento.');
     expect(screen.getByText('Campos Stripe').closest('.pay-pix-stripe-host')).toHaveClass('is-preparing');
     expect(screen.getByRole('button',{name:'Tentar gerar Pix novamente'})).toBeEnabled();
+    expect(screen.getByRole('button',{name:'Escolher outra forma de pagamento'})).toBeEnabled();
     expect(screen.queryByText(/Escaneie o QR Code ou copie o Pix abaixo/)).not.toBeInTheDocument();
   });
 
@@ -114,7 +115,7 @@ describe('StripePayment', () => {
     mocks.checkout.mockReturnValue({ type:'success', checkout:{canConfirm:true,confirm} });
     render(<StripePayment order={order} />);
     await consentAndPay();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Cartão recusado.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível concluir com este cartão. Confira os dados ou escolha outra forma de pagamento.');
     await waitFor(() => expect(screen.getByRole('button', {name:/Pagar R\$\s*1\.739,80 agora/})).toBeEnabled());
   });
 
@@ -143,7 +144,7 @@ describe('StripePayment', () => {
     render(<StripePayment order={order}/>);
     await consentAndPay();
     expect(confirm).toHaveBeenCalledTimes(1);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Confira os dados do cartão.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível concluir com este cartão. Confira os dados ou escolha outra forma de pagamento.');
   });
 
   it('identifica Visa pela Stripe e bloqueia bandeira fora de Visa ou Mastercard antes da confirmação', async () => {
@@ -179,7 +180,7 @@ describe('seleção de crédito/débito no Checkout',()=>{
   render(<PaymentPage/>);
   await user.click(await screen.findByRole('radio',{name:/Cartão de débito/}));
   await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
-  await user.click(screen.getByRole('button',{name:'Continuar'}));
+  await user.click(screen.getByRole('button',{name:'Continuar com esta opção'}));
   await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'card',card_funding:'debit'}}));
   expect((await screen.findAllByText('Cartão de débito')).length).toBeGreaterThanOrEqual(1);
   expect(await screen.findByText('Campos Stripe')).toBeInTheDocument();
@@ -190,9 +191,9 @@ describe('seleção de crédito/débito no Checkout',()=>{
    .mockResolvedValueOnce({data:{ok:true,recorded:true},error:null})
    .mockResolvedValueOnce({data:{ok:true,invoice_url:'https://invoice.stripe.com/test_invoice'},error:null});
   render(<PaymentPage/>);
-  await user.click(await screen.findByRole('radio',{name:/Boleto recorrente/}));
+  await user.click(await screen.findByRole('radio',{name:/Boleto bancário/}));
   await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
-  await user.click(screen.getByRole('button',{name:'Continuar'}));
+  await user.click(screen.getByRole('button',{name:'Continuar com esta opção'}));
   await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'boleto',card_funding:undefined}}));
   expect((await screen.findAllByText(/Boleto bancário/)).length).toBeGreaterThanOrEqual(1);
   expect(await screen.findByRole('button',{name:/Abrir boleto seguro/})).toBeInTheDocument();

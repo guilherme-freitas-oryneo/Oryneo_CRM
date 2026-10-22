@@ -81,14 +81,14 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
   return <div className="checkout-configurator">
     <div className="checkout-main-flow">
     <div className="checkout-config-head">
-      <small>CONDIÇÕES COMERCIAIS</small><h1>Revise sua contratação.</h1>
-      <p>Confira os dados e aceite as condições comerciais. Depois, siga direto para o pagamento seguro.</p>
+      <span>Contratação ORYNEO</span><h1>Revise e conclua.</h1>
+      <p>Plano, serviços e forma de pagamento em uma única revisão.</p>
     </div>
     <section className="checkout-choice checkout-locked-selection" aria-label="Plano e periodicidade selecionados">
-      <div className="checkout-locked-heading"><span>SELEÇÃO CONFIRMADA</span><LockKeyhole size={15} aria-hidden="true"/></div>
+      <div className="checkout-locked-heading"><span>Plano selecionado</span><LockKeyhole size={15} aria-hidden="true"/></div>
       <div className="checkout-locked-grid">
-        <div><small>PLANO</small><strong>ORYNEO {plan}</strong><span>{money(plans[plan][cycle])} {cycle === 'annual' ? 'por ano' : 'por mês'}</span></div>
-        <div><small>PERIODICIDADE</small><strong>{cycle === 'annual' ? 'Anual' : 'Mensal'}</strong><span>{cycle === 'annual' ? 'Pagamento anual antecipado' : 'Cobrança a cada mês'}</span></div>
+        <div><small>Plano</small><strong>ORYNEO {plan}</strong><span>{money(plans[plan][cycle])} {cycle === 'annual' ? 'por ano' : 'por mês'}</span></div>
+        <div><small>Periodicidade</small><strong>{cycle === 'annual' ? 'Anual' : 'Mensal'}</strong><span>{cycle === 'annual' ? 'Pagamento anual antecipado' : 'Cobrança a cada mês'}</span></div>
       </div>
 
     </section>
@@ -97,10 +97,10 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
         <input type="checkbox" checked={addons.includes(key)} onChange={() => toggle(key)}/><span><strong>{additions[key].label}</strong><small>{additions[key].detail}</small></span><b><Plus size={14}/>{money(additions[key].price)}</b>
       </label>)}
     </div></fieldset>
-    <fieldset className="checkout-choice checkout-funding"><legend>Como prefere pagar?</legend><p className="checkout-section-intro">Selecione a forma de pagamento. Em cartão, escolha crédito ou débito no próximo campo.</p><div className="checkout-payment-options">
+    <fieldset className="checkout-choice checkout-funding"><legend>Como você prefere pagar?</legend><p className="checkout-section-intro">Escolha uma opção. Crédito ou débito aparece somente ao selecionar cartão.</p><div className="checkout-payment-options">
       <label className={paymentMethod==='card'?'selected':''}><input aria-label="Cartão" type="radio" name="checkout-payment" checked={paymentMethod==='card'} onChange={()=>setPaymentMethod('card')}/><span className="checkout-payment-art checkout-card-art" aria-hidden="true"><img className="checkout-visa" src={paymentAsset.visa} alt=""/><img className="checkout-mastercard" src={paymentAsset.mastercard} alt=""/></span><span className="checkout-payment-copy"><strong>Cartão</strong><small>Visa e Mastercard. Você escolhe crédito ou débito a seguir.</small></span></label>
-      <label className={paymentMethod==='boleto'?'selected':''}><input type="radio" name="checkout-payment" checked={paymentMethod==='boleto'} onChange={()=>setPaymentMethod('boleto')}/><span className="checkout-payment-art" aria-hidden="true"><img className="checkout-boleto" src={paymentAsset.boleto} alt=""/></span><span className="checkout-payment-copy"><strong>Boleto bancário recorrente</strong><small>Fatura enviada por e-mail a cada período.</small></span></label>
-      <label className={paymentMethod==='pix'?'selected':''}><input type="radio" name="checkout-payment" checked={paymentMethod==='pix'} onChange={()=>setPaymentMethod('pix')}/><span className="checkout-payment-art" aria-hidden="true"><img className="checkout-pix" src={paymentAsset.pix} alt=""/></span><span className="checkout-payment-copy"><strong>Pix <em className="checkout-option-tag">À vista</em></strong><small>QR Code ou Pix Copia e Cola.</small></span></label>
+      <label className={paymentMethod==='boleto'?'selected':''}><input type="radio" name="checkout-payment" checked={paymentMethod==='boleto'} onChange={()=>setPaymentMethod('boleto')}/><span className="checkout-payment-art" aria-hidden="true"><img className="checkout-boleto" src={paymentAsset.boleto} alt=""/></span><span className="checkout-payment-copy"><strong>Boleto bancário</strong><small>Novo boleto por período; pagamento manual.</small></span></label>
+      <label className={paymentMethod==='pix'?'selected':''}><input type="radio" name="checkout-payment" checked={paymentMethod==='pix'} onChange={()=>setPaymentMethod('pix')}/><span className="checkout-payment-art" aria-hidden="true"><img className="checkout-pix" src={paymentAsset.pix} alt=""/></span><span className="checkout-payment-copy"><strong>Pix</strong><small>Pagamento único agora. Cada período futuro exige novo Pix.</small></span></label>
     </div>{paymentMethod==='card'&&<div className="checkout-card-funding" role="radiogroup" aria-label="Tipo do cartão"><span>Tipo do cartão</span><p>A Stripe confere a bandeira e o tipo do cartão com segurança antes do pagamento.</p><div><label className={cardFunding==='credit'?'selected':''}><input aria-label="Cartão de crédito" type="radio" name="checkout-card-funding" checked={cardFunding==='credit'} onChange={()=>setCardFunding('credit')}/><strong>Crédito</strong><small>Renovação conforme o período contratado.</small></label><label className={cardFunding==='debit'?'selected':''}><input aria-label="Cartão de débito" type="radio" name="checkout-card-funding" checked={cardFunding==='debit'} onChange={()=>setCardFunding('debit')}/><strong>Débito</strong><small>O emissor precisa permitir essa cobrança.</small></label></div></div>}</fieldset>
     <fieldset className="checkout-choice checkout-contact"><legend>Dados para o pedido</legend>
       <label>Nome completo<input aria-label="Nome completo" autoComplete="name" value={customerName} onChange={event => setCustomerName(event.target.value)}/></label>
@@ -108,6 +108,12 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
       <label>Empresa<input aria-label="Empresa" autoComplete="organization" value={company} onChange={event => setCompany(event.target.value)}/></label>
       <label>CPF ou CNPJ<input aria-label="CPF ou CNPJ" inputMode="numeric" autoComplete="off" placeholder="000.000.000-00 ou 00.000.000/0000-00" value={taxId} onChange={event => setTaxId(formatTaxId(event.target.value))} onBlur={() => taxId && !validTaxId(taxId)}/>{taxId && !validTaxId(taxId) && <small className="checkout-field-error">Digite um CPF ou CNPJ válido para continuar.</small>}</label>
     </fieldset>
+    </div>
+    <div className="checkout-mobile-total" aria-hidden="true"><span>Total para pagar agora</span><strong>{money(quote.total)}</strong></div>
+    <div className="checkout-mobile-terms">
+      <strong>Próximos períodos</strong>
+      <p>{paymentMethod==='pix'?'Cada período futuro exige um novo Pix.':paymentMethod==='boleto'?'Um novo boleto será enviado e pago manualmente.':'O cartão será cobrado conforme a periodicidade.'} <b>{money(quote.planAmount)} {cycle==='annual'?'por ano':'por mês'}</b></p>
+      {addons.includes('traffic')&&<p>Gestão de tráfego: <b>{money(additions.traffic.price)} a cada 3 meses</b> após o período inicial, independentemente do plano. Verba de mídia à parte.</p>}
     </div>
     <div className="checkout-side-flow">
     <OrderSummary
@@ -124,7 +130,7 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
     <div className="checkout-consent"><label><input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} /><span>Li e aceito os termos e as condições comerciais deste pedido.</span></label><TermsDialog label="Ler termos completos" /></div>
     {error && <p className="checkout-error" role="alert">{error}</p>}
     <button className="pay-submit" type="button" disabled={!valid || !termsAccepted || busy} onClick={submit}><LockKeyhole size={17}/>{busy ? 'Preparando pagamento…' : paymentMethod==='pix'?`Continuar para o Pix · ${money(quote.total)}`:`Continuar para o pagamento · ${money(quote.total)}`}</button>
-    <p className="checkout-secure"><Check size={14}/> {paymentMethod==='pix'?'Pix à vista. A renovação é gerada pela equipe ORYNEO no CRM.':paymentMethod==='card'?`Cartão de ${cardFunding==='credit'?'crédito':'débito'} com cobrança conforme a periodicidade do plano.`:'Boleto recorrente enviado por e-mail; cada fatura é paga manualmente.'}</p>
+    <p className="checkout-secure"><Check size={14}/> {paymentMethod==='pix'?'Pix pago uma vez. Nada será debitado automaticamente.':paymentMethod==='card'?`Cartão de ${cardFunding==='credit'?'crédito':'débito'} com cobrança conforme a periodicidade do plano.`:'Um novo boleto será enviado a cada período; o pagamento é manual.'}</p>
     </div>
   </div>;
 }
