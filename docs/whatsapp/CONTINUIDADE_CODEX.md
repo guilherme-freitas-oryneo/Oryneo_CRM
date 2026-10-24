@@ -34,7 +34,7 @@ Status se refere à missão de WhatsApp oficial, não ao CRM inteiro. `NÃO VERI
 | 09 Direção visual | PARCIAL | README oficial Brand Kit v1.1 lido no Drive; `03-DESIGN-DIRECTION.md` | Conferir assets concretos e testar UI quando implementada. Landing fora de escopo. |
 | 10 Componentes | NÃO INICIADO | Ação de lead abre aba `wa.me`; nenhuma thread/composer | Especificar e implementar com backend real, estados de erro e acesso. |
 | 11 Responsividade/acessibilidade/performance | NÃO VERIFICÁVEL | Suíte atual não cobre inbox WhatsApp | Medir e testar após existir interface. |
-| 12 Benchmarking | NÃO INICIADO | Nenhum benchmark WhatsApp versionado encontrado | Pesquisar fontes atuais e registrar decisões específicas para a interface. |
+| 12 Benchmarking | PARCIAL | `04-BENCHMARK.md`: seis fontes oficiais consultadas em 2026-10-24, com padrões e trade-offs | Falta inspeção visual/screenshot e matriz completa de elementos de UI antes de implementação. |
 | 13 Segurança/LGPD | PARCIAL | RLS habilitada nas tabelas públicas existentes; nenhum webhook Meta | Auditar policies e projetar assinatura, isolamento, retenção e consentimento antes de expor rota. |
 | 14 Estratégia de implementação | PARCIAL | Branch isolada criada após auditoria; suíte baseline verde | Registrar ADR, implementar atrás de flag, manter PR/CI rastreáveis. |
 | 15 Matriz de testes | PARCIAL | 255 testes baseline; 18 testes novos de política/status/assinatura; suíte 273/273 e build local em 2026-10-24 | Faltam RLS, integração, UI e E2E real; os testes novos não comprovam proteção em runtime. |
