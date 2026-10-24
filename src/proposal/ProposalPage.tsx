@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {Printer} from 'lucide-react';
 import { TermsDialog } from '../legal/TermsDialog';
 import {supabase} from '../data';
 import './proposal.css';
@@ -10,6 +11,11 @@ export type ProposalSnapshot={
  recurring:{label:string;amount_cents:number;interval_label:string};
  traffic_renewal_amount_cents:number|null;traffic_renewal_interval:string;
  media_budget_included:boolean;notice:string;
+ presentation?:{
+  schema:'oryneo.proposal-presentation.v1';primary_goal:string;
+  items:Array<{key:'platform'|'implementation'|'landing-page'|'traffic';eyebrow:string;title:string;summary:string;bullets:string[];commercial_detail:string}>;
+  journey:Array<{key:'acceptance'|'payment'|'implementation'|'additional-services';title:string;description:string}>;
+ };
 };
 export type PublicProposal={
  version:number;status:string;company:string;customer_name:string;contact_email:string;
@@ -30,11 +36,28 @@ export function ProposalView({proposal,onAccept,busy=false,error=''}:{
   <header><img src="../oryneo-wordmark-mono-reverse.png" alt="ORYNEO"/><span>Proposta comercial individual · versão {proposal.version}</span></header>
   <main className="proposal-wrap">
    <div className="proposal-top"><small>PROPOSTA INDIVIDUAL · ORYNEO</small><h1>Uma proposta feita para {proposal.company}.</h1>
-    <p>Revise as condições abaixo antes de aceitar. Esta proposta é individual, com prazo e versão definidos.</p></div>
+    <p>Revise as condições abaixo antes de aceitar. Esta proposta é individual, com prazo e versão definidos.</p>
+    <button className="proposal-print-action" type="button" onClick={()=>window.print()}><Printer size={17}/>Imprimir ou salvar em PDF</button>
+   </div>
    <article className="proposal-card">
     <h2>Plano {s.plan} · {s.cycle==='annual'?'Anual':'Mensal'}</h2>
     <p>Destinatário: {proposal.customer_name} · {proposal.contact_email}</p>
     <p>Versão {proposal.version} · Validade até {date(proposal.expires_at)}</p>
+    {s.presentation?.schema==='oryneo.proposal-presentation.v1'&&<>
+     {s.presentation.primary_goal&&<section className="proposal-priority" aria-label="Prioridade informada"><small>PRIORIDADE INFORMADA</small><strong>{s.presentation.primary_goal}</strong></section>}
+     <section className="proposal-deliverables" aria-labelledby="proposal-deliverables-title">
+      <div className="proposal-section-heading"><small>ESCOPO MATERIALIZADO</small><h2 id="proposal-deliverables-title">O que está incluído</h2><p>Cada bloco abaixo corresponde a um item desta versão.</p></div>
+      <div className="proposal-deliverable-grid">{s.presentation.items.map(item=><article className={`proposal-deliverable proposal-deliverable-${item.key}`} key={item.key}>
+       <small>{item.eyebrow}</small><h3>{item.title}</h3><strong>{item.commercial_detail}</strong><p>{item.summary}</p>
+       <ul>{item.bullets.map((bullet,index)=><li key={index}>{bullet}</li>)}</ul>
+      </article>)}</div>
+     </section>
+     <section className="proposal-journey" aria-labelledby="proposal-journey-title">
+      <div className="proposal-section-heading"><small>PRÓXIMOS PASSOS</small><h2 id="proposal-journey-title">Como a contratação ganha forma</h2></div>
+      <ol>{s.presentation.journey.map((step,index)=><li key={step.key}><span>{String(index+1).padStart(2,'0')}</span><div><strong>{step.title}</strong><p>{step.description}</p></div></li>)}</ol>
+     </section>
+    </>}
+    <section className="proposal-investment" aria-labelledby="proposal-investment-title"><div className="proposal-section-heading"><small>CONDIÇÕES COMERCIAIS</small><h2 id="proposal-investment-title">Composição do investimento</h2></div>
     <table><thead><tr><th scope="col">Composição da contratação</th><th scope="col">Valor inicial</th></tr></thead>
      <tbody>{s.items.map((item)=><tr key={item.key}><td><strong>{item.label}</strong><div>{item.detail}</div></td>
       <td>{money(item.amount_cents)}</td></tr>)}</tbody>
@@ -46,6 +69,7 @@ export function ProposalView({proposal,onAccept,busy=false,error=''}:{
      <p>{s.notice}</p>
      <p>O pagamento será oferecido em uma etapa separada, após o registro do aceite. Nenhum valor é cobrado nesta página.</p>
     </div>
+    </section>
     {accepted?<div className="proposal-state proposal-success" role="status">
      <h3>Aceite registrado.</h3><p>Esta versão foi aceita em {proposal.accepted_at?date(proposal.accepted_at):'data registrada no sistema'}.</p><p>A equipe ORYNEO encaminhará o link de pagamento quando o pedido estiver preparado.</p>
     </div>:!canAccept?<div className="proposal-state" role="status">
