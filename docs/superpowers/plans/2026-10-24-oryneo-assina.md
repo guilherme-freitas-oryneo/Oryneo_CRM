@@ -1,4 +1,6 @@
-# ORYNEO Assina — plano de implementação
+# ORYNEO Assina — plano substituído
+
+> **Não executar.** O escopo foi simplificado por decisão comercial em 24 de outubro de 2026. A implementação vigente preserva somente um aceite eletrônico rastreável dentro do fluxo de pagamento. Consulte [2026-10-24-payment-acceptance-polish.md](./2026-10-24-payment-acceptance-polish.md).
 
 **Objetivo:** substituir o aceite comercial básico por assinatura eletrônica com identidade por OTP, pacote contratual imutável, trilha de auditoria, comprovante e verificação.
 

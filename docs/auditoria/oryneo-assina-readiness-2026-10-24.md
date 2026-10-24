@@ -1,4 +1,6 @@
-# ORYNEO Assina — auditoria final de prontidão
+# ORYNEO Assina — auditoria histórica de prontidão
+
+> **Escopo substituído em 24 de outubro de 2026.** A decisão comercial posterior foi manter um aceite eletrônico simples no fluxo de pagamento, sem produto de assinatura, OTP, assinatura manuscrita ou certificado visual. O plano vigente está em [payment-flow-ui-consent-2026-10-24.md](./payment-flow-ui-consent-2026-10-24.md).
 
 **Data:** 24 de outubro de 2026  
 **Escopo:** proposta comercial, aceite atual e evolução para assinatura eletrônica própria  
