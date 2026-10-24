@@ -16,3 +16,14 @@ Deno.test('link de cobrança reutiliza o modelo transacional existente e só inc
  const unsafe=renderTransactionalEmail('payment_link',{firstName:'Ana',company:'Empresa',email:'ana@example.com',actionUrl:'javascript:alert(1)'});
  assert(!unsafe.html.includes('javascript:'));
 });
+Deno.test('proposta enviada apresenta o link da versão emitida e orientação comercial direta',()=>{
+ const email=renderTransactionalEmail('proposal_sent',{
+  firstName:'Ana',company:'Aurora',email:'ana@example.com',orderReference:'PROPOSTA-3',amountCents:12500,
+  actionUrl:'https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/proposta/?token=seguro',
+  whatsappUrl:'https://wa.me/5521974510932'
+ });
+ assertEquals(email.subject,'Sua proposta ORYNEO está pronta · PROPOSTA-3');
+ assert(email.text.includes('A proposta para Aurora está disponível para sua conferência.'));
+ assert(email.text.includes('Ver proposta: https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/proposta/?token=seguro'));
+ assert(email.text.includes('AJUSTAR A PROPOSTA? FALE NO WHATSAPP: https://wa.me/5521974510932'));
+});

@@ -1,5 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 import {buildBillingQuote} from '../_shared/billing/catalog.ts';
+import {deterministicMailUuid,sendSystemTransactionalEmail} from '../_shared/mail/system-transactional.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
  auth:{persistSession:false,autoRefreshToken:false}
@@ -61,6 +62,17 @@ Deno.serve(async(req:Request)=>{
  });
  if(issueError||!result?.ok){console.error('Proposal issue failed',{code:issueError?.code,reason:result?.reason});
   return response({error:'Não foi possível registrar a proposta versionada.'},503)}
- return response({ok:true,version:result.version,proposal_id:result.id,
-  url:destination+'?token='+encodeURIComponent(publicToken)});
+ const proposalUrl=destination+'?token='+encodeURIComponent(publicToken);
+ let emailSent=false;
+ try{
+  await sendSystemTransactionalEmail(db,{
+   idempotencyKey:await deterministicMailUuid('proposal:'+result.id+':sent'),
+   template:'proposal_sent',recipient:email,recipientName:name,
+   data:{firstName:name.split(/\s+/)[0],company,email,plan:computed.plan,cycle:computed.cycle,
+    orderReference:'PROPOSTA-'+String(result.version),amountCents:computed.amountTotal,
+    actionUrl:proposalUrl,whatsappUrl:'https://wa.me/5521974510932'}
+  });
+  emailSent=true;
+ }catch(error){console.error('Proposal email delivery needs review',{proposal_id:result.id,code:error instanceof Error?error.message:'unknown'})}
+ return response({ok:true,version:result.version,proposal_id:result.id,url:proposalUrl,email_sent:emailSent});
 });

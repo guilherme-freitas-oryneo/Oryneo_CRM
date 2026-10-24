@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useState} from 'react';
-import {X,Building2,UserRound,Mail,Phone,MapPin,Users,Clock3,History,FileText,Check,CalendarClock,MessageSquareText,Send,ChevronDown,Edit3,ShieldCheck,RefreshCw,Plus} from 'lucide-react';
+import {X,Building2,UserRound,Phone,MapPin,Users,Clock3,History,FileText,Check,CalendarClock,MessageSquareText,Send,ChevronDown,Edit3,ShieldCheck,RefreshCw,Plus} from 'lucide-react';
 import {supabase,mutate,money,errorText,type DealRow,type StageRow,type CompanyProfile,type Quote,type NextAction,type CrmEvent} from './data';
 import './details.css';
 import {ProposalAction} from './billing/ProposalAction';
@@ -28,7 +28,7 @@ function ContactLine({label,value,highlight=false}:{label:string;value?:string;h
  return <div className={'cd-contact '+(highlight?'cd-contact-primary':'')}><div className="cd-contact-head"><span>{label}</span>{highlight&&<small>Informado no formulário</small>}</div><strong>{value}</strong></div>;
 }
 function Stat({label,value}:{label:string;value?:string|null}){if(!value)return null;return <div className="cd-stat"><span>{label}</span><strong>{value}</strong></div>}
-export function DealDetails({row,stages,onClose,onEdit,onResend,onChanged}:{row:DealRow;stages:StageRow[];onClose:()=>void;onEdit:()=>void;onResend:()=>void;onChanged:()=>Promise<void>}){
+export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;stages:StageRow[];onClose:()=>void;onEdit:()=>void;onChanged:()=>Promise<void>}){
  const [tab,setTab]=useState<'overview'|'history'|'proposal'|'billing'>('overview');
  const [company,setCompany]=useState<CompanyProfile|null>(null);
  const [events,setEvents]=useState<CrmEvent[]>([]);
@@ -128,7 +128,6 @@ export function DealDetails({row,stages,onClose,onEdit,onResend,onChanged}:{row:
       {fullAddress&&<section><h3 className="cd-section-title"><MapPin size={17}/>Endereço da empresa</h3><div className="cd-address"><MapPin size={18}/><p>{fullAddress}</p><button onClick={()=>void navigator.clipboard.writeText(fullAddress).then(()=>setNotice('Endereço copiado.')).catch(()=>setError('Não foi possível copiar o endereço.'))}>Copiar</button></div></section>}
       {!!qsa.length&&<section><h3 className="cd-section-title"><Users size={17}/>Quadro societário <span>{qsa.length}</span></h3><div className="cd-partners">{qsa.map((s,i)=><div className="cd-partner" key={i}><div className="cd-person-avatar">{initials(s.name)}</div><div><strong>{s.name}</strong><span>{s.qualification||'Integrante do quadro societário'}</span></div></div>)}</div></section>}
       <AutomationStatus dealId={row.id}/>
-      {data.first_contact&&<section><h3 className="cd-section-title"><Mail size={17}/>Primeiro contato</h3><div className="cd-action-summary cd-first-contact"><strong>E-mail enviado</strong><span>{date(data.first_contact.sent_at)}</span><button type="button" onClick={onResend}>Revisar e reenviar</button></div></section>}
       <section><h3 className="cd-section-title"><CalendarClock size={17}/>Próxima ação comercial</h3><div className="cd-action-summary"><strong>{next.title}</strong><span>{next.done?'Concluída':'Pendente'}{next.due_at?' · '+date(next.due_at):' · Prazo a definir'}</span><button onClick={()=>setTab('history')}>Gerenciar ação</button></div></section>
       
      </div>}

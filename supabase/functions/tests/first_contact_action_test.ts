@@ -172,22 +172,19 @@ Deno.test('contratação sem plano continua bloqueada no servidor', async () => 
   assertEquals(fake.sent.length, 0);
 });
 
-Deno.test('mail-api autoriza a ação autenticada e traduz erros de primeiro contato', async () => {
+Deno.test('mail-api não oferece mais envio de primeiro contato por e-mail', async () => {
   let invoked = false;
   const handler = createMailApiHandler({
     authenticate: () => Promise.resolve('user-1'),
     isMember: () => Promise.resolve(true),
-    execute: () => {
-      invoked = true;
-      return Promise.reject(new Error('FIRST_CONTACT_STAGE: detalhe privado'));
-    },
+    execute: () => { invoked = true; return Promise.resolve({}); },
   });
   const response = await handler(new Request('https://example.test/mail-api', {
     method: 'POST',
     headers: { authorization: 'Bearer jwt' },
     body: JSON.stringify({ action: 'send-first-contact', dealId: DEAL_ID, mailboxId: MAILBOX_ID, idempotencyKey: KEY }),
   }));
-  assertEquals(invoked, true);
-  assertEquals(response.status, 409);
-  assertEquals(await response.json(), { ok: false, error: 'FIRST_CONTACT_STAGE' });
+  assertEquals(invoked, false);
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), { ok: false, error: 'INVALID_ACTION' });
 });
