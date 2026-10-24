@@ -14,6 +14,7 @@ Data da auditoria: 2026-10-24 UTC. Branch: `feat/whatsapp-forensic-resumption-20
 - Após adicionar apenas funções puras de política e status, `npx vitest run src/whatsapp/policy.test.ts` passou (14 testes), `npm test -- --run` passou (42 arquivos, 269 testes) e `npm run build -- --base=/Oryneo_CRM/` passou. Nenhum desses testes exercitou Cloud API, banco ou um envio real.
 - Após adicionar verificação pura de GET challenge e HMAC de POST sobre bytes brutos, `src/whatsapp/webhookVerification.test.ts` passou (4 testes), a suíte passou com 273/273 em 43 arquivos e o build passou. Ainda não há rota HTTP, secret configurado, persistência de eventos nem deploy do webhook.
 - O rebranding da landing page está fora de escopo e não foi modificado.
+- Após OAuth feito pelo titular, o conector Meta desta conversa listou `ORYNEO | CRM e Marketing` (Business ID `1098665735949825`). Perfil incompleto e verificação empresarial ainda não aprovada. Nenhum app WhatsApp administrado por esta conexão, nenhuma conta de produção listada e número comercial não encontrado no escopo acessível. Isso não prova ausência em contas fora deste acesso. O Codex CLI cloud segue `Not logged in`; `00-META-MCP-AUDIT.md` separa os dois contextos.
 - Brand Kit oficial v1.1 foi localizado e seu README lido no Drive ORYNEO; `03-DESIGN-DIRECTION.md` registra as restrições de logos e tipografia. A auditoria de policies mostrou que `crm_members` contém somente `user_id`, sem equipe/carteira; `01-AS-IS-CRM.md` detalha o impacto para o futuro módulo.
 
 ## Matriz de progresso do prompt mestre (00–21)
@@ -25,9 +26,9 @@ Status se refere à missão de WhatsApp oficial, não ao CRM inteiro. `NÃO VERI
 | 00 Ordem e resultado | PARCIAL | CRM React/Supabase em `main`; ação `wa.me` existente | Central oficial ainda não existe; preservar fluxos existentes e construir incrementalmente. |
 | 01 Parâmetros de negócio | COMPROVADO E TESTADO | Número e marca constam no prompt; CTA `wa.me` em código | Titularidade Meta não verificada; não associar número sem leitura da conta. |
 | 02 Continuidade | PARCIAL | Esta auditoria, branch isolada, testes baseline | Prosseguir por lotes e registrar commits/testes. |
-| 03 MCP Meta | BLOQUEADO | Servidor cadastrado, `Not logged in` no CLI; sem ferramentas `whatsapp_biz_*` | Titular deve concluir OAuth legítimo neste contexto; depois ler businesses, accounts e phones. |
+| 03 MCP Meta | PARCIAL | Conector desta conversa autenticado, ferramentas `whatsapp_biz_*` e leitura de negócio bem-sucedida; CLI cloud ainda `Not logged in` | Confirmar app/permissões no portfólio e autenticar CLI somente se ele for usado como cliente operacional. |
 | 04 Forense CRM/Supabase | PARCIAL | GitHub `main` 62e05be; Supabase ativo: 31 tabelas, 44 migrations, 21 functions; testes 255/255 | Falta baseline em navegador autenticado, inspeção de RLS detalhada, logs e eventual material local do escritório. |
-| 05 Provider/coexistência | BLOQUEADO | Não há Meta account/phone consultados; código só tem `wa.me` | Elegibilidade e coexistência do número dependem da leitura Meta; manter transporte atual intacto. |
+| 05 Provider/coexistência | BLOQUEADO | Meta não encontrou o número comercial no escopo acessível; nenhum app administrado nesta conexão; código só tem `wa.me` | Conferir titularidade do app/número no Business Manager antes de decidir migração/coexistência; manter canal atual intacto. |
 | 06 Modelo de dados | PARCIAL | ADR de contrato em `02-ARCHITECTURE-ADR.md`; Supabase public sem tabelas WhatsApp | Falta schema, RLS, migrations e persistência; revisar identidade CRM antes de migrar. |
 | 07 API/webhooks | PARCIAL | Verificador puro GET/HMAC em `supabase/functions/_shared/whatsapp/webhookVerification.ts`, testado localmente; remoto sem função WhatsApp | Falta handler HTTP, inbox durável, dedupe, retry, autorização, secret e deploy; não configurar webhook Meta agora. |
 | 08 SDR/governança | PARCIAL | Política pura em `supabase/functions/_shared/whatsapp/policy.ts`, com teste local; `crm_automation_jobs` é de e-mail | Ainda não há lock persistente nem chamada da política em worker; não há garantia operacional de bloqueio. |
@@ -38,7 +39,7 @@ Status se refere à missão de WhatsApp oficial, não ao CRM inteiro. `NÃO VERI
 | 13 Segurança/LGPD | PARCIAL | RLS habilitada nas tabelas públicas existentes; nenhum webhook Meta | Auditar policies e projetar assinatura, isolamento, retenção e consentimento antes de expor rota. |
 | 14 Estratégia de implementação | PARCIAL | Branch isolada criada após auditoria; suíte baseline verde | Registrar ADR, implementar atrás de flag, manter PR/CI rastreáveis. |
 | 15 Matriz de testes | PARCIAL | 255 testes baseline; 18 testes novos de política/status/assinatura; suíte 273/273 e build local em 2026-10-24 | Faltam RLS, integração, UI e E2E real; os testes novos não comprovam proteção em runtime. |
-| 16 Homologação do número | BLOQUEADO | Sem OAuth Meta e sem leitura de ativos | Confirmar titularidade/elegibilidade; não registrar, migrar ou desvincular número agora. |
+| 16 Homologação do número | BLOQUEADO | Leitura Meta não encontrou `+5521974510932` no escopo acessível; perfil empresarial incompleto | Conferir ativo em WhatsApp Manager e titularidade; não registrar, migrar ou desvincular agora. |
 | 17 Aceite de produto | NÃO INICIADO | Nenhum fluxo Cloud API observado ponta a ponta | Homologar somente com envio/recebimento autorizados e evidência de produção. |
 | 18 Entregáveis | PARCIAL | Este checkpoint e baseline remoto | Completar documentação, código, evidências e runbook nos lotes correspondentes. |
 | 19 Lotes autônomos | PARCIAL | Reconstrução concluída no ambiente atual; baseline executado | Seguir tarefas independentes, validar e fazer commits pequenos. |
@@ -48,11 +49,11 @@ Status se refere à missão de WhatsApp oficial, não ao CRM inteiro. `NÃO VERI
 ## Ordem de retomada
 
 1. Reconciliar eventual patch do escritório quando disponibilizado. Não criar app, WABA, webhook, migração nem número redundante.
-2. Concluir OAuth do MCP oficial e consultar, somente leitura, negócios, contas, número, templates e webhooks. Sem isso, a decisão de migração/coexistência permanece bloqueada.
+2. Completar perfil empresarial Meta; confirmar app WhatsApp administrado e localização/titularidade do número. Repetir leituras MCP após isso. A decisão de migração/coexistência permanece bloqueada.
 3. Inventariar identidade CRM, policies e fluxos de automação; definir ADR de provider e contrato de eventos compatível com o esquema real.
 4. Implementar e testar backend de staging e estado persistente atrás de flag, seguido de UI e regressões. Não publicar produção nem enviar mensagens reais sem dados autorizados.
 5. Homologar ponta a ponta com número próprio/autorizado, revisar PR/CI e executar rollout controlado apenas quando os gates de segurança e titularidade estiverem completos.
 
 ## Próxima sessão
 
-Conferir `git log` desta branch e este arquivo; buscar patch do escritório se houver; consultar `codex mcp list` e executar as leituras Meta após OAuth. A política pura ainda deve ser conectada, com leitura transacional do estado, à rota real de emissão. Não inferir progresso a partir de uma branch ou arquivo sem teste e sem recurso remoto correspondente.
+Conferir `git log` desta branch e este arquivo; buscar patch do escritório se houver; repetir `whatsapp_biz_businesses`, contas e busca direta do número após ajustes no Business Manager. A política pura ainda deve ser conectada, com leitura transacional do estado, à rota real de emissão. Não inferir progresso a partir de uma branch ou arquivo sem teste e sem recurso remoto correspondente.
