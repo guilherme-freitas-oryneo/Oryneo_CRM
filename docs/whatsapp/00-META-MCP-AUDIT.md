@@ -29,4 +29,8 @@ Após o proprietário salvar os detalhes empresariais, `whatsapp_biz_businesses`
 
 O primeiro item pendente agora é **Developer app**: `apps_on_business:0` sob administração desta conexão. O único número existente no escopo do negócio é de teste; o número comercial não está cadastrado no escopo acessível. Não foram criados app, conta, número, token ou webhook nesta etapa. Com o perfil completo, a próxima intervenção técnica é criar ou obter administração de um app Meta com WhatsApp Business Messaging e vinculá-lo ao portfólio `1098665735949825`. O MCP atual não oferece criação de app; um navegador autenticado controlável não está disponível neste ambiente.
 
+## App Oryneo_01 visto pelo titular
+
+Capturas do titular mostram **Oryneo_01** na seção de apps do Business Suite e a atribuição “Gerenciar app” habilitada para seu usuário. Uma captura mostra configurações de publicidade de aplicativos; nenhuma mostra o caso de uso/produto WhatsApp nem o App ID. Ao reconsultar `whatsapp_biz_businesses` e `whatsapp_biz_onboarding_status` após essas capturas, o conector WhatsApp ainda reporta `apps_on_business:0` e ausência de app WhatsApp administrado no portfólio. Conclusão limitada: existe um app visível no Business Suite, mas sua aptidão para WhatsApp não está comprovada; não criar duplicata antes de checar o App ID e o caso de uso. O painel Meta Developers mostrou uma exigência de confirmação de conta por atividade incomum e depois uma página em branco no navegador móvel; essa etapa pertence à conta pessoal do titular e não pode ser concluída pelo MCP.
+
 O MCP é administrativo. A leitura comprova acesso ao portfólio nesta conversa, mas não confirma a Página pública do Facebook, a elegibilidade do número, envio/recebimento da Cloud API nem saúde do CRM.
