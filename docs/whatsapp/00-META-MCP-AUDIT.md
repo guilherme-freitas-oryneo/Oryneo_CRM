@@ -23,4 +23,10 @@ Nova leitura `whatsapp_biz_businesses`: o portfólio `1098665735949825` segue co
 
 Assim, a autorização para criar app existe, mas a capacidade técnica e o desafio de identidade faltam. O passo mínimo do titular é concluir o método de verificação no app do Facebook ou em computador com a mesma conta; em seguida abrir o perfil empresarial e a lista de apps. Não adicionar o número comercial antes de haver app administrado e perfil completo. Repetir o inventário Meta após a ação; se o app recente continuar inacessível, criar novo app no painel Meta Developers com caso de uso WhatsApp Business Messaging e vinculá-lo a este portfólio, sem duplicar contas/números.
 
+## Perfil empresarial concluído
+
+Após o proprietário salvar os detalhes empresariais, `whatsapp_biz_businesses` passou a retornar `profile_complete:true`; `whatsapp_biz_onboarding_status` marcou **Business profile: done** e indicou que razão social, endereço e website foram preenchidos. Isso não equivale à verificação empresarial: `business_verified:false` permanece. O telefone informado no campo de contato empresarial não registra um número para Cloud API.
+
+O primeiro item pendente agora é **Developer app**: `apps_on_business:0` sob administração desta conexão. O único número existente no escopo do negócio é de teste; o número comercial não está cadastrado no escopo acessível. Não foram criados app, conta, número, token ou webhook nesta etapa. Com o perfil completo, a próxima intervenção técnica é criar ou obter administração de um app Meta com WhatsApp Business Messaging e vinculá-lo ao portfólio `1098665735949825`. O MCP atual não oferece criação de app; um navegador autenticado controlável não está disponível neste ambiente.
+
 O MCP é administrativo. A leitura comprova acesso ao portfólio nesta conversa, mas não confirma a Página pública do Facebook, a elegibilidade do número, envio/recebimento da Cloud API nem saúde do CRM.
