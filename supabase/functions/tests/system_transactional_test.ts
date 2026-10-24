@@ -18,12 +18,35 @@ Deno.test('link de cobrança reutiliza o modelo transacional existente e só inc
 });
 Deno.test('proposta enviada apresenta o link da versão emitida e orientação comercial direta',()=>{
  const email=renderTransactionalEmail('proposal_sent',{
-  firstName:'Ana',company:'Aurora',email:'ana@example.com',orderReference:'PROPOSTA-3',amountCents:12500,
+  firstName:'Ana',company:'Aurora',email:'ana@example.com',orderReference:'PROPOSTA-3',amountCents:12500,plan:'Growth',cycle:'monthly',
   actionUrl:'https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/proposta/?token=seguro',
-  whatsappUrl:'https://wa.me/5521974510932'
+  whatsappUrl:'https://wa.me/5521974510932',
+  proposalPresentation:{
+   schema:'oryneo.proposal-presentation.v1',primary_goal:'Organizar contatos e negociações no CRM',
+   items:[
+    {key:'platform',eyebrow:'PLATAFORMA CRM',title:'Plano Growth',summary:'Estrutura para apoiar a prioridade informada.',bullets:['Pipeline comercial por etapa.','Até 10 usuários no plano contratado.'],commercial_detail:'Assinatura mensal · até 10 usuários'},
+    {key:'implementation',eyebrow:'COLOCAÇÃO EM OPERAÇÃO',title:'Implantação',summary:'Preparação inicial do ambiente.',bullets:['Configuração inicial do ambiente.'],commercial_detail:'Cobrança única'},
+   ],journey:[]
+  }
  });
- assertEquals(email.subject,'Sua proposta ORYNEO está pronta · PROPOSTA-3');
- assert(email.text.includes('A proposta para Aurora está disponível para sua conferência.'));
+ assertEquals(email.subject,'Ana, sua proposta ORYNEO está pronta · PROPOSTA-3');
+ assert(email.text.includes('Prioridade informada: Organizar contatos e negociações no CRM'));
+ assert(email.text.includes('Plano Growth — Assinatura mensal · até 10 usuários'));
+ assert(email.text.includes('Até 10 usuários no plano contratado.'));
+ assert(email.text.includes('Investimento inicial'));
+ assert(email.html.includes('O que está incluído nesta proposta'));
  assert(email.text.includes('Ver proposta: https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/proposta/?token=seguro'));
  assert(email.text.includes('AJUSTAR A PROPOSTA? FALE NO WHATSAPP: https://wa.me/5521974510932'));
+});
+
+Deno.test('proposta escapa conteúdo do lead e limita os cards recebidos',()=>{
+ const email=renderTransactionalEmail('proposal_sent',{
+  firstName:'Ana',company:'Aurora',email:'ana@example.com',actionUrl:'https://example.com/proposta',
+  proposalPresentation:{schema:'oryneo.proposal-presentation.v1',primary_goal:'<img src=x onerror=alert(1)>',journey:[],items:Array.from({length:8},(_,index)=>({
+   key:'platform',eyebrow:'ITEM',title:`Item ${index+1}`,summary:'<script>alert(1)</script>',bullets:['Entrega concreta'],commercial_detail:'Condição'
+  }))}
+ });
+ assert(!email.html.includes('<script>'));
+ assert(!email.html.includes('<img src=x'));
+ assertEquals((email.html.match(/data-proposal-item=/g)||[]).length,4);
 });

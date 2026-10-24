@@ -1,5 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 import {buildBillingQuote} from '../_shared/billing/catalog.ts';
+import {buildProposalPresentation} from '../_shared/billing/presentation.ts';
 import {deterministicMailUuid,sendSystemTransactionalEmail} from '../_shared/mail/system-transactional.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
@@ -43,6 +44,9 @@ Deno.serve(async(req:Request)=>{
  const company=String(data.company||data.title||'').trim();
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||name.length<2||company.length<2)
   return response({error:'Complete o contato, o e-mail e a empresa antes de enviar a proposta.'},422);
+ const submission=data.form_submission&&typeof data.form_submission==='object'&&!Array.isArray(data.form_submission)
+  ?data.form_submission as Record<string,unknown>:{};
+ const presentation=buildProposalPresentation(computed,typeof submission.primary_goal==='string'?submission.primary_goal:'');
  const snapshot={
   schema:'oryneo.proposal.v1',catalog_version:computed.catalogVersion,
   plan:computed.plan,cycle:computed.cycle,addons:[...new Set(selected)].sort(),
@@ -52,6 +56,7 @@ Deno.serve(async(req:Request)=>{
   traffic_renewal_amount_cents:selected.includes('traffic')?296970:null,
   traffic_renewal_interval:'a cada três meses, após os primeiros três meses',
   media_budget_included:false,
+  presentation,
   notice:'O aceite confirma ciência da seleção comercial, do valor inicial e dos ciclos de cobrança exibidos. A formalização contratual e o processamento do pagamento são etapas independentes.'
  };
  const snapshotHash=await digest(JSON.stringify(snapshot));
@@ -70,7 +75,7 @@ Deno.serve(async(req:Request)=>{
    template:'proposal_sent',recipient:email,recipientName:name,
    data:{firstName:name.split(/\s+/)[0],company,email,plan:computed.plan,cycle:computed.cycle,
     orderReference:'PROPOSTA-'+String(result.version),amountCents:computed.amountTotal,
-    actionUrl:proposalUrl,whatsappUrl:'https://wa.me/5521974510932'}
+    actionUrl:proposalUrl,whatsappUrl:'https://wa.me/5521974510932',proposalPresentation:presentation}
   });
   emailSent=true;
  }catch(error){console.error('Proposal email delivery needs review',{proposal_id:result.id,code:error instanceof Error?error.message:'unknown'})}
