@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PaymentPage, StripePayment, type PublicBillingOrder } from './PaymentPage';
+import { paymentAsset } from './checkout/payment-assets';
 
 const mocks = vi.hoisted(() => ({
   checkout: vi.fn(),
@@ -151,6 +152,14 @@ describe('StripePayment', () => {
     const confirm = vi.fn();
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
     const {container}=render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
+    const user = userEvent.setup();
+    const preview=screen.getByRole('button',{name:'Ver verso do cartão'});
+    const entry=container.querySelector('.pay-card-entry');
+    expect(entry).toContainElement(preview);
+    expect(entry).toContainElement(screen.getByText('Campos Stripe'));
+    expect(preview).toHaveAttribute('aria-pressed','false');
+    await user.click(preview);
+    expect(screen.getByRole('button',{name:'Ver frente do cartão'})).toHaveAttribute('aria-pressed','true');
     expect(container.querySelector('.pay-card-detected')).toBeNull();
     expect(screen.queryByRole('note',{name:'Bandeiras de cartão'})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:'Simular Stripe pronta'}));
@@ -158,15 +167,37 @@ describe('StripePayment', () => {
     expect(cardDetailsHandler).toEqual(expect.any(Function));
 
     cardDetailsHandler({details:{brands:['visa'],funding:'credit'}});
-    expect(await screen.findByText(/Visa reconhecida/)).toBeInTheDocument();
-    expect(container.querySelector('.pay-card-detected img')).not.toBeNull();
+    await waitFor(()=>expect(container.querySelector('.pay-visual-card')).toHaveClass('is-recognized'));
+    expect(screen.queryByText(/Visa reconhecida/)).not.toBeInTheDocument();
+    expect(container.querySelector('.pay-visual-card-front img')).toHaveAttribute('src',paymentAsset.visa);
+
+    cardDetailsHandler({details:{brands:['mastercard'],funding:'credit'}});
+    await waitFor(()=>expect(container.querySelector('.pay-visual-card-front img')).toHaveAttribute('src',paymentAsset.mastercard));
+    expect(screen.queryByText(/Mastercard reconhecida/)).not.toBeInTheDocument();
+
+    cardDetailsHandler({details:{brands:null,funding:null}});
+    await waitFor(()=>expect(container.querySelector('.pay-visual-card-front img')).toBeNull());
+    expect(screen.queryByText(/Digite o cartão para a Stripe validar/)).not.toBeInTheDocument();
+    expect(container.querySelector('.pay-visual-card')).not.toHaveClass('is-recognized');
 
     cardDetailsHandler({details:{brands:['amex'],funding:'credit'}});
-    expect(await screen.findByRole('alert')).toHaveTextContent('Esta bandeira não é aceita neste checkout. Use Visa ou Mastercard.');
-    const user = userEvent.setup();
+    const alert=await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Bandeira não aceita. Use Visa ou Mastercard.');
+    expect(screen.getByText('Campos Stripe').compareDocumentPosition(alert)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelector('.pay-visual-card')).toHaveClass('has-error');
     await user.click(screen.getByRole('checkbox'));
     expect(screen.getByRole('button',{name:/Pagar R\$\s*1\.739,80 agora/})).toBeDisabled();
     expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('remove o ouvinte de bandeira ao desmontar o formulário',()=>{
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm:vi.fn()}});
+    const {unmount}=render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
+    fireEvent.click(screen.getByRole('button',{name:'Simular Stripe pronta'}));
+    const handler=mocks.cardDetailsOn.mock.calls.find(([event])=>event==='carddetailschange')?.[1];
+    expect(handler).toEqual(expect.any(Function));
+    unmount();
+    expect(mocks.cardDetailsOff).toHaveBeenCalledWith('carddetailschange',handler);
   });
 });
 

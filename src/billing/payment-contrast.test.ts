@@ -20,8 +20,8 @@ describe('contraste do resumo de cobrança', () => {
     expect(rule('.order-summary-recurring')).not.toMatch(/border:/i);
   });
 
-  it('usa a família tipográfica e os neutrals oficiais da ORYNEO', () => {
-    expect(css).toMatch(/background:\s*#fff/i);
+  it('usa a família tipográfica e os neutrals oficiais da ORYNEO em um canvas contínuo', () => {
+    expect(rule('.order-summary')).toMatch(/background:\s*transparent/i);
     expect(css).toMatch(/color:\s*#0f1115/i);
     expect(css).toMatch(/font-family:\s*Inter,\s*Arial,\s*sans-serif/i);
   });

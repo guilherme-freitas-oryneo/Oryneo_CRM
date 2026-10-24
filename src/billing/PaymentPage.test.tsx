@@ -121,6 +121,14 @@ describe('PaymentPageView', () => {
     expect(screen.getByRole('link',{name:/Acompanhar implantação/})).toHaveAttribute('href',url);
   });
 
+  it('substitui instruções de cobrança por confirmação e total pago após a liquidação',()=>{
+    render(<PaymentPageView order={{...order,status:'paid',payment_method:'card',card_funding:'credit'}} paymentSlot={null} onPay={()=>undefined}/>);
+    expect(screen.getByRole('heading',{name:'Pagamento confirmado.'})).toBeInTheDocument();
+    expect(screen.queryByRole('heading',{name:/Pague .* com cartão/})).not.toBeInTheDocument();
+    expect(screen.getByText('Total pago')).toBeInTheDocument();
+    expect(screen.queryByText(/Preencha os dados seguros do cartão/)).not.toBeInTheDocument();
+  });
+
   it('permite consultar novamente enquanto o webhook confirma o pagamento', async () => {
     const user = userEvent.setup();
     const onRefresh = vi.fn();

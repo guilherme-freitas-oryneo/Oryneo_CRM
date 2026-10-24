@@ -1,5 +1,5 @@
 import { TermsDialog } from '../../legal/TermsDialog';
-import { Check, CreditCard, LockKeyhole, Plus } from 'lucide-react';
+import { CreditCard, Plus } from 'lucide-react';
 import { paymentAsset } from './payment-assets';
 import { useMemo, useState } from 'react';
 import { OrderSummary } from '../OrderSummary';
@@ -86,7 +86,7 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
       <p>Plano, serviços e forma de pagamento em uma única revisão.</p>
     </div>
     <section className="checkout-choice checkout-locked-selection" aria-label="Plano e periodicidade selecionados">
-      <div className="checkout-locked-heading"><span>Plano selecionado</span><LockKeyhole size={15} aria-hidden="true"/></div>
+      <div className="checkout-locked-heading"><span>Plano selecionado</span></div>
       <div className="checkout-locked-grid">
         <div><small>Plano</small><strong>ORYNEO {plan}</strong><span>{money(plans[plan][cycle])} {cycle === 'annual' ? 'por ano' : 'por mês'}</span></div>
         <div><small>Periodicidade</small><strong>{cycle === 'annual' ? 'Anual' : 'Mensal'}</strong><span>{cycle === 'annual' ? 'Pagamento anual antecipado' : 'Cobrança a cada mês'}</span></div>
@@ -130,8 +130,8 @@ export function CheckoutConfigurator({ onContinue, busy = false, error = '' }: P
     />
     <div className="checkout-consent"><label><input type="checkbox" checked={termsAccepted} onChange={e=>setTermsAccepted(e.target.checked)} /><span>Li e aceito os termos e as condições comerciais deste pedido.</span></label><TermsDialog label="Ler termos completos" /></div>
     {error && <p className="checkout-error" role="alert">{error}</p>}
-    <button className="pay-submit" type="button" disabled={!valid || !termsAccepted || busy} onClick={submit}><LockKeyhole size={17}/>{busy ? 'Preparando pagamento…' : paymentMethod==='pix'?`Continuar para o Pix · ${money(quote.total)}`:`Continuar para o pagamento · ${money(quote.total)}`}</button>
-    <p className="checkout-secure"><Check size={14}/> {paymentMethod==='pix'?'Pix pago uma vez. Nada será debitado automaticamente.':paymentMethod==='card'&&cardFunding?`Cartão de ${cardFunding==='credit'?'crédito':'débito'} com cobrança conforme a periodicidade do plano.`:paymentMethod==='card'?'Escolha crédito ou débito para continuar.':paymentMethod==='boleto'?'Um novo boleto será enviado a cada período; o pagamento é manual.':'Escolha uma forma de pagamento para continuar.'}</p>
+    <button className="pay-submit" type="button" disabled={!valid || !termsAccepted || busy} onClick={submit}>{busy ? 'Preparando pagamento…' : paymentMethod==='pix'?`Continuar para o Pix · ${money(quote.total)}`:`Continuar para o pagamento · ${money(quote.total)}`}</button>
+    <p className="checkout-secure">{paymentMethod==='pix'?'Pix pago uma vez. Nada será debitado automaticamente.':paymentMethod==='card'&&cardFunding?`Cartão de ${cardFunding==='credit'?'crédito':'débito'} com cobrança conforme a periodicidade do plano.`:paymentMethod==='card'?'Escolha crédito ou débito para continuar.':paymentMethod==='boleto'?'Um novo boleto será enviado a cada período; o pagamento é manual.':'Escolha uma forma de pagamento para continuar.'}</p>
     </div>
   </div>;
 }

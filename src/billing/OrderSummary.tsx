@@ -24,6 +24,7 @@ type Props = {
   totalCents: number;
   paymentMethod?: PaymentMethod | null;
   recurring?: OrderSummaryRecurring | null;
+  settled?: boolean;
 };
 
 const money = (cents: number) => new Intl.NumberFormat('pt-BR', {
@@ -34,7 +35,7 @@ const shortDate = (value?: string | null) => value
   ? new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
   : null;
 
-export function OrderSummary({ company, heading, reference, status, items, totalCents, paymentMethod, recurring }: Props) {
+export function OrderSummary({ company, heading, reference, status, items, totalCents, paymentMethod, recurring, settled = false }: Props) {
   const traffic = items.find(item => item.key === 'traffic');
   const nextCharge = shortDate(recurring?.next_charge_at);
   const recurringLabel = paymentMethod === 'pix'
@@ -62,7 +63,7 @@ export function OrderSummary({ company, heading, reference, status, items, total
       </div>)}
     </dl>
 
-    <div className="order-summary-total"><span>Total de hoje</span><strong>{money(totalCents)}</strong></div>
+    <div className="order-summary-total"><span>{settled?'Total pago':'Total de hoje'}</span><strong>{money(totalCents)}</strong></div>
 
     {recurring && <section className="order-summary-recurring" aria-label="Próximos pagamentos">
       <h3>Próximos pagamentos</h3>
