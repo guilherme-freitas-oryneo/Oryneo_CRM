@@ -39,4 +39,4 @@ Data: 2026-10-24 UTC. Fonte: README do Brand Kit oficial v1.1 no Drive ORYNEO, a
 - Abrir conversa a partir do card do lead por identidade de canal/contato, com resolução server-side e dedupe; se não houver canal configurado, manter o fluxo externo atual.
 - Reusar linguagem de navegação, ícones e foco do CRM. O módulo terá CSS próprio e componentes pequenos; não duplicar a lógica de e-mail, cujos conceitos de pasta/assunto não se aplicam a chat.
 
-**Status:** especificação, sem UI publicada. A validação visual depende de backend com eventos reais ou dados sintéticos isolados, revisão em 375/768/1024/1440 px, teclado, leitor de tela e sessão autenticada.
+**Status:** especificação e [protótipo visual isolado](prototype/README.md), sem UI publicada. O protótipo usa dados sintéticos e envio desativado; passou por inspeção visual e interação em 390/768/1024/1440 px. A validação do produto depende de backend com eventos reais, teste em 375 px, teclado virtual, leitor de tela e sessão autenticada.
