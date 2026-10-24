@@ -1,7 +1,10 @@
 import {render,screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {describe,it,expect,vi} from 'vitest';
+import {readFileSync} from 'node:fs';
 import {ProposalView,type PublicProposal} from './ProposalPage';
+
+const proposalStyles=readFileSync('src/proposal/proposal.css','utf8');
 
 const sample:PublicProposal={
  version:1,status:'sent',company:'Empresa Exemplo',customer_name:'Marina Costa',
@@ -46,6 +49,12 @@ describe('F01 proposta comercial',()=>{
   await userEvent.click(screen.getByRole('button',{name:'Imprimir ou salvar em PDF'}));
   expect(print).toHaveBeenCalledOnce();
   print.mockRestore();
+ });
+
+ it('remove qualquer modal de termos aberto da versão impressa',()=>{
+  const printRules=proposalStyles.slice(proposalStyles.indexOf('@media print'));
+  expect(printRules).toMatch(/\.oryneo-terms-overlay[^}]*display\s*:\s*none\s*!important/);
+  expect(printRules).toMatch(/\.oryneo-terms-modal[^}]*display\s*:\s*none\s*!important/);
  });
 
  it('mantém propostas anteriores legíveis quando o snapshot não possui apresentação',()=>{
