@@ -1,0 +1,14 @@
+# Referências funcionais para a inbox ORYNEO
+
+Consulta: 2026-10-24 UTC. Fontes: documentação pública oficial de cada produto. A evidência abaixo é textual; ainda não houve inspeção visual autenticada nem screenshots. Assim, este benchmark informa fluxos, não a aparência final.
+
+| Referência e evidência observável | Padrão e decisão ORYNEO | Diferença, impacto e custo |
+| --- | --- | --- |
+| [Intercom Inbox](https://www.intercom.com/help/en/articles/6272267-how-to-use-command-k-with-intercom-inbox): Command-K e atalho de atribuição. | **Adaptar:** comandos de teclado para buscar/atribuir após os fluxos básicos funcionarem. | CRM atual não tem inbox; atalho exige foco e permissões confiáveis. Impacto médio, implementação média. |
+| [Front](https://help.front.com/en/articles/2256): comentários internos são visíveis a quem tem acesso à conversa; prévia respeita esse acesso. | **Adotar:** notas internas com autorização por conversa, visualmente separadas da resposta pública. | ORYNEO não possui ainda escopo de conversa; implementar só depois de RLS. Impacto alto, custo alto. |
+| [Zendesk Agent Workspace](https://support.zendesk.com/hc/en-us/articles/4408821259930-About-the-Zendesk-Agent-Workspace/): agrupa conversas de canais e considera roteamento de carga de agentes. | **Adaptar:** identidade do canal e atribuição claras no cabeçalho, sem automatizar roteamento antes de haver equipes reais. | CRM atual é centrado em pipeline/e-mail; navegação precisa permanecer familiar. Impacto alto, custo médio/alto. |
+| [HubSpot Conversations Inbox](https://knowledge.hubspot.com/inbox/collaborate-with-your-team-in-the-conversations-inbox): atribuição, comentários e transferência entre inbox/help desk; avatar indica colega respondendo. | **Adaptar:** contexto do lead e sinal de colaboração sem tratar presença como lock transacional. | Modelo ORYNEO atual não tem carteira/equipe. Impacto alto, custo alto. |
+| [Chatwoot](https://app.chatwoot.com/hc/user-guide/articles/1677235281-lesson-3-a-mastering-core-features): notas privadas, respostas prontas, etiquetas e ações na conversa. | **Adaptar:** notas e estados de handoff; **adiar** macros até existir aprovação e auditoria de envio. | WhatsApp oficial exige janela/template e bloqueio SDR, além da UX de chat. Impacto médio/alto, custo médio. |
+| [respond.io](https://respond.io/help/inbox/assigning-and-closing-a-conversation): atribuição no topo, fechamento e reabertura por nova mensagem. | **Adotar:** estado resolvido com regra explícita de reabertura por inbound. | Precisa evento persistente e worker idempotente, inexistentes hoje. Impacto alto, custo médio. |
+
+Antes de desenhar a inbox, ainda faltam: screenshots das interfaces realmente acessíveis, comparação de densidade/colunas/mobile/acessibilidade, avaliação de templates/mídia por versão de produto e baseline autenticada do CRM ORYNEO. Nenhuma tela, marca, imagem ou código dos concorrentes será copiada.
