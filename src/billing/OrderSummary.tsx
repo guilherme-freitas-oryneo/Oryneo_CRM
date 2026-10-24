@@ -22,7 +22,7 @@ type Props = {
   status?: string;
   items: OrderSummaryItem[];
   totalCents: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod | null;
   recurring?: OrderSummaryRecurring | null;
 };
 
@@ -41,7 +41,9 @@ export function OrderSummary({ company, heading, reference, status, items, total
     ? 'Novo Pix necessário por período'
     : paymentMethod === 'boleto'
       ? 'Novo boleto enviado por período'
-      : 'Cartão cobrado automaticamente';
+      : paymentMethod === 'card'
+        ? 'Cartão cobrado automaticamente'
+        : 'Forma de pagamento a definir';
 
   return <aside className="order-summary" aria-label="Resumo do pedido">
     <header className="order-summary-header">
@@ -69,7 +71,9 @@ export function OrderSummary({ company, heading, reference, status, items, total
         ? <p>Nada será debitado automaticamente.</p>
         : paymentMethod === 'boleto'
           ? <p>Cada boleto exige pagamento manual.</p>
-          : <p>{nextCharge ? `Próxima cobrança em ${nextCharge}.` : 'Conforme o período contratado.'}</p>}
+          : paymentMethod === 'card'
+            ? <p>{nextCharge ? `Próxima cobrança em ${nextCharge}.` : 'Conforme o período contratado.'}</p>
+            : <p>Escolha a forma de pagamento para continuar.</p>}
     </section>}
 
     {traffic && <section className="order-summary-traffic" aria-label="Renovação de gestão de tráfego">

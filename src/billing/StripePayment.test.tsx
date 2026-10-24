@@ -150,13 +150,16 @@ describe('StripePayment', () => {
   it('identifica Visa pela Stripe e bloqueia bandeira fora de Visa ou Mastercard antes da confirmação', async () => {
     const confirm = vi.fn();
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
-    render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
+    const {container}=render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
+    expect(container.querySelector('.pay-card-detected')).toBeNull();
+    expect(screen.queryByRole('note',{name:'Bandeiras de cartão'})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:'Simular Stripe pronta'}));
     const cardDetailsHandler = mocks.cardDetailsOn.mock.calls.find(([event]) => event === 'carddetailschange')?.[1];
     expect(cardDetailsHandler).toEqual(expect.any(Function));
 
     cardDetailsHandler({details:{brands:['visa'],funding:'credit'}});
     expect(await screen.findByText(/Visa reconhecida/)).toBeInTheDocument();
+    expect(container.querySelector('.pay-card-detected img')).not.toBeNull();
 
     cardDetailsHandler({details:{brands:['amex'],funding:'credit'}});
     expect(await screen.findByRole('alert')).toHaveTextContent('Esta bandeira não é aceita neste checkout. Use Visa ou Mastercard.');
@@ -178,7 +181,8 @@ describe('seleção de crédito/débito no Checkout',()=>{
    .mockResolvedValueOnce({data:{ok:true,recorded:true},error:null})
    .mockResolvedValueOnce({data:{ok:true,client_secret:'cs_test_secret',publishable_key:'pk_test_key'},error:null});
   render(<PaymentPage/>);
-  await user.click(await screen.findByRole('radio',{name:/Cartão de débito/}));
+  await user.click(await screen.findByRole('radio',{name:'Cartão'}));
+  await user.click(screen.getByRole('radio',{name:'Cartão de débito'}));
   await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
   await user.click(screen.getByRole('button',{name:'Continuar com esta opção'}));
   await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'card',card_funding:'debit'}}));

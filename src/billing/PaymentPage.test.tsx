@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { BoletoPayment, PaymentPage, PaymentPageView, PixPayment, type PublicBillingOrder } from './PaymentPage';
+import { BoletoPayment, CheckoutMethodPicker, PaymentPage, PaymentPageView, PixPayment, type PublicBillingOrder } from './PaymentPage';
 
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('../data', () => ({ supabase: { functions: { invoke } } }));
@@ -54,6 +54,19 @@ describe('Pix apresentado a partir da cobrança já criada na Stripe',()=>{
 });
 
 describe('PaymentPageView', () => {
+  it('começa sem forma de pagamento marcada e trata crédito ou débito como subopção do cartão',async()=>{
+    const user=userEvent.setup();
+    render(<CheckoutMethodPicker order={order} onContinue={vi.fn()} busy={false} error=""/>);
+    expect(screen.getByRole('radio',{name:'Cartão'})).not.toBeChecked();
+    expect(screen.getByRole('radio',{name:'Boleto bancário'})).not.toBeChecked();
+    expect(screen.getByRole('radio',{name:'Pix'})).not.toBeChecked();
+    expect(screen.queryByRole('radio',{name:'Cartão de crédito'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio',{name:'Cartão de débito'})).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio',{name:'Cartão'}));
+    expect(screen.getByRole('radio',{name:'Cartão de crédito'})).not.toBeChecked();
+    expect(screen.getByRole('radio',{name:'Cartão de débito'})).not.toBeChecked();
+    expect(screen.getByRole('button',{name:'Continuar com esta opção'})).toBeDisabled();
+  });
   it('mostra indisponibilidade temporária sem rotular o pagamento como recusado', async () => {
     invoke.mockResolvedValue({ data: null, error: new Error('Edge Function returned a non-2xx status code') });
     window.history.pushState({}, '', '/pagar/?token=' + 't'.repeat(48));

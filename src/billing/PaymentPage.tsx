@@ -258,9 +258,12 @@ export function PaymentPage() {
   </CheckoutElementsProvider>;
 }
 
-function CheckoutMethodPicker({order,onContinue,busy,error}:{order:PublicBillingOrder;onContinue:(method:'card'|'boleto'|'pix',funding?:'credit'|'debit')=>void;busy:boolean;error:string}){
- const [choice,setChoice]=useState<'credit'|'debit'|'boleto'|'pix'>(order.payment_method==='boleto'?'boleto':order.payment_method==='pix'?'pix':'credit');
+export function CheckoutMethodPicker({order,onContinue,busy,error}:{order:PublicBillingOrder;onContinue:(method:'card'|'boleto'|'pix',funding?:'credit'|'debit')=>void;busy:boolean;error:string}){
+ const [choice,setChoice]=useState<'card'|'boleto'|'pix'|null>(null);
+ const [funding,setFunding]=useState<'credit'|'debit'|null>(null);
  const [methodAccepted,setMethodAccepted]=useState(false);
+ const selectionComplete=choice!==null&&(choice!=='card'||funding!==null);
+ const chooseMethod=(method:'card'|'boleto'|'pix')=>{setChoice(method);setFunding(null)};
  return <main className="pay-page">
    <header className="pay-header"><div className="pay-shell pay-header-inner"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><span>Ambiente seguro de pagamento</span><div><ShieldCheck size={17}/> Checkout protegido</div></div></header>
    <section className="pay-shell funding-shell">
@@ -268,15 +271,15 @@ function CheckoutMethodPicker({order,onContinue,busy,error}:{order:PublicBilling
      <div className="pay-card funding-picker">
        <div className="funding-total"><span>Total de hoje</span><strong>{money(order.amount_total)}</strong></div>
        <fieldset><legend>Forma de pagamento</legend>
-         <label><input type="radio" name="checkout-method" checked={choice==='credit'} onChange={()=>setChoice('credit')}/><span className="funding-art" aria-hidden="true"><img src={paymentAsset.visa} alt=""/><img src={paymentAsset.mastercard} alt=""/></span><span><strong>Cartão de crédito</strong><small>Renovação conforme o período contratado.</small></span></label>
-         <label><input type="radio" name="checkout-method" checked={choice==='debit'} onChange={()=>setChoice('debit')}/><span className="funding-art" aria-hidden="true"><img src={paymentAsset.visa} alt=""/><img src={paymentAsset.mastercard} alt=""/></span><span><strong>Cartão de débito</strong><small>O emissor precisa permitir a cobrança.</small></span></label>
-         <label><input type="radio" name="checkout-method" checked={choice==='boleto'} onChange={()=>setChoice('boleto')}/><span className="funding-art" aria-hidden="true"><img src={paymentAsset.boleto} alt=""/></span><span><strong>Boleto bancário</strong><small>Novo boleto por período; pagamento manual.</small></span></label>
-         <label><input type="radio" name="checkout-method" checked={choice==='pix'} onChange={()=>setChoice('pix')}/><span className="funding-art" aria-hidden="true"><img src={paymentAsset.pix} alt=""/></span><span><strong>Pix</strong><small>Pagamento único agora. Nada será debitado automaticamente.</small></span></label>
+         <label><input aria-label="Cartão" type="radio" name="checkout-method" checked={choice==='card'} onChange={()=>chooseMethod('card')}/><span className="funding-art funding-card-art" aria-hidden="true"><CreditCard size={25}/></span><span><strong>Cartão</strong><small>Escolha crédito ou débito.</small></span></label>
+         {choice==='card'&&<div className="funding-card-types" role="radiogroup" aria-label="Tipo do cartão"><span>Tipo do cartão</span><div><label><input aria-label="Cartão de crédito" type="radio" name="checkout-card-funding" checked={funding==='credit'} onChange={()=>setFunding('credit')}/><span><strong>Crédito</strong><small>Renovação conforme o período contratado.</small></span></label><label><input aria-label="Cartão de débito" type="radio" name="checkout-card-funding" checked={funding==='debit'} onChange={()=>setFunding('debit')}/><span><strong>Débito</strong><small>O emissor precisa permitir a cobrança.</small></span></label></div></div>}
+         <label><input aria-label="Boleto bancário" type="radio" name="checkout-method" checked={choice==='boleto'} onChange={()=>chooseMethod('boleto')}/><span className="funding-art" aria-hidden="true"><img src={paymentAsset.boleto} alt=""/></span><span><strong>Boleto bancário</strong><small>Novo boleto por período; pagamento manual.</small></span></label>
+         <label><input aria-label="Pix" type="radio" name="checkout-method" checked={choice==='pix'} onChange={()=>chooseMethod('pix')}/><span className="funding-art" aria-hidden="true"><img src={paymentAsset.pix} alt=""/></span><span><strong>Pix</strong><small>Pagamento único agora. Nada será debitado automaticamente.</small></span></label>
        </fieldset>
        <label className="pay-consent"><input type="checkbox" checked={methodAccepted} onChange={e=>setMethodAccepted(e.target.checked)}/><span><Check size={15}/> Li e aceito as condições comerciais e a forma de pagamento selecionada.</span></label>
        <div className="pay-terms-access"><TermsDialog /></div>
        {error&&<p role="alert" className="pay-inline-error">{error}</p>}
-       <button className="pay-submit" disabled={busy||!methodAccepted} onClick={()=>choice==='boleto'?onContinue('boleto'):choice==='pix'?onContinue('pix'):onContinue('card',choice)}><LockKeyhole size={17}/>{busy?'Preparando checkout…':'Continuar com esta opção'}</button>
+       <button className="pay-submit" disabled={busy||!methodAccepted||!selectionComplete} onClick={()=>{if(choice==='boleto')onContinue('boleto');else if(choice==='pix')onContinue('pix');else if(choice==='card'&&funding)onContinue('card',funding)}}><LockKeyhole size={17}/>{busy?'Preparando checkout…':'Continuar com esta opção'}</button>
        <p className="pay-test-note">Visa e Mastercard são identificados com segurança enquanto você digita. A aprovação depende do emissor.</p>
      </div>
    </section>
@@ -493,12 +496,8 @@ export function StripePayment({order,onChoosePaymentMethod}:{order:PublicBilling
       <span>{order.payment_method==='boleto'?'Boleto bancário':'Dados do cartão'}</span>
       <small>Ambiente seguro da Stripe</small>
     </div>}
-    {order.payment_method==='card' && <div className="pay-card-brands pay-card-brands-compact" role="note" aria-label="Bandeiras de cartão">
-      <span className="pay-brands-art" aria-hidden="true"><img src={paymentAsset.visa} alt=""/><img src={paymentAsset.mastercard} alt=""/></span>
-      <span>Aceitamos Visa e Mastercard. A Stripe identifica a bandeira enquanto você digita.</span>
-    </div>}
     {order.payment_method==='card'&&cardEligibility==='checking'&&<p className="pay-card-check" role="status">Digite o cartão para a Stripe validar bandeira e tipo com segurança.</p>}
-    {order.payment_method==='card'&&cardEligibility==='accepted'&&detectedBrand&&<p className="pay-card-check is-valid" role="status">{cardBrandName(detectedBrand)} reconhecida · cartão de {detectedFundingLabel==='debit'?'débito':'crédito'} compatível.</p>}
+    {order.payment_method==='card'&&cardEligibility==='accepted'&&detectedBrand&&<p className="pay-card-check pay-card-detected is-valid" role="status"><img src={paymentAsset[detectedBrand]} alt=""/><span>{cardBrandName(detectedBrand)} reconhecida · cartão de {detectedFundingLabel==='debit'?'débito':'crédito'} compatível.</span></p>}
     {order.payment_method==='card'&&cardEligibility==='unsupported_brand'&&<div className="pay-card-check is-blocked" role="alert">Esta bandeira não é aceita neste checkout. Use Visa ou Mastercard.{onChoosePaymentMethod&&<button type="button" onClick={onChoosePaymentMethod}>Escolher outra forma de pagamento</button>}</div>}
     {order.payment_method==='card'&&cardEligibility==='funding_mismatch'&&<div className="pay-card-check is-blocked" role="alert">Este cartão foi identificado como {detectedFunding==='debit'?'débito':'crédito'}, mas o pedido está configurado para {order.card_funding==='debit'?'débito':'crédito'}.{onChoosePaymentMethod&&<button type="button" onClick={onChoosePaymentMethod}>Escolher outro tipo de cartão</button>}</div>}
     {completion==='awaiting_pix' && <div className="pay-pix-guidance" role="status" aria-live="polite"><strong>{pixStatus==='processing'?'Aguardando confirmação financeira':'Escaneie o QR Code ou copie o Pix abaixo'}</strong>{pollingError&&<p>Não foi possível consultar o status agora. Evite pagar novamente.</p>}</div>}

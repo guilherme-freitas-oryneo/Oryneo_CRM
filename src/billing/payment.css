@@ -76,11 +76,10 @@
 .pay-pix-brand{display:block;width:62px;height:24px;object-fit:contain}
 .pay-method-badge-pix .pay-method-mark{width:72px}
 .pay-boleto-brand{display:block;width:48px;height:20px;object-fit:contain}
-.pay-card-brands{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;padding:11px 13px;border-radius:9px;background:#f7f8fb;color:#5b6574;font-size:12px;line-height:1.45}
-.pay-brands-art{display:flex;align-items:center;gap:7px;flex:none}
-.pay-brands-art img:first-child{width:40px}.pay-brands-art img:last-child{width:30px}
 .pay-card-check{margin:0 0 14px;color:#657080;font-size:13px;line-height:1.45}
 .pay-card-check.is-valid{color:#176451}
+.pay-card-detected{display:flex;align-items:center;gap:9px}
+.pay-card-detected img{width:auto;max-width:34px;height:18px;object-fit:contain}
 .pay-card-check.is-blocked{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 13px;border-radius:9px;background:#fff3f1;color:#963c33}
 .pay-card-check.is-blocked button{flex:none;padding:0;border:0;background:transparent;color:#85362f;font:700 12px Inter,Arial,sans-serif;text-decoration:underline;cursor:pointer}
 
@@ -126,6 +125,13 @@
 .funding-picker label strong{font-size:14px}.funding-picker label small{color:#687180;font-size:12px;line-height:1.4}
 .funding-art{height:30px;display:flex;align-items:center;gap:6px}
 .funding-art img{max-width:64px;max-height:25px;object-fit:contain}.funding-art img+img{max-width:28px}
+.funding-card-art{color:var(--oryneo-indigo)}
+.funding-card-types{margin:9px 0 14px;padding:14px 0 2px 31px;border-left:2px solid #e2e5ea}
+.funding-card-types>span{display:block;margin-bottom:9px;color:#4f5865;font-size:12px;font-weight:700}
+.funding-card-types>div{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.funding-card-types label{min-height:58px;display:grid;grid-template-columns:18px 1fr;align-items:center;gap:10px;padding:10px 12px;border:1px solid #dfe3e8;border-radius:9px;cursor:pointer}
+.funding-card-types label:has(input:checked){border-color:var(--oryneo-indigo);background:#f6f7ff}
+.funding-card-types label span{display:grid;gap:2px}
 
 @media(max-width:800px){
   .pay-shell{width:min(100% - 28px,640px)}
@@ -143,10 +149,9 @@
   .pay-method-mark{width:46px}.pay-method-badge-pix .pay-method-mark{width:66px}.pay-pix-brand{width:56px}
   .pay-order-reference{font-size:11px}.pay-intro h1{font-size:26px}
   .pay-field-row{grid-template-columns:1fr}.pay-element-head small{display:none}
-  .pay-card-brands{align-items:flex-start;flex-direction:column;gap:8px}
   .pay-card-check.is-blocked{flex-direction:column}
   .pay-pix-generated{padding:2px 0 0}.pay-pix-copy-row{flex-direction:column}.pay-pix-copy-row button{width:100%}
   .funding-shell{width:calc(100% - 24px);padding-block:22px}.funding-picker{padding:20px 16px}.funding-intro{margin-bottom:16px}.funding-intro h1{font-size:27px}
-  .funding-total strong{font-size:24px}.funding-picker fieldset>label{grid-template-columns:18px 58px 1fr;padding:10px 11px;gap:10px}.funding-art{width:58px}.funding-art img{max-width:56px}
+  .funding-total strong{font-size:24px}.funding-picker fieldset>label{grid-template-columns:18px 58px 1fr;padding:10px 11px;gap:10px}.funding-art{width:58px}.funding-art img{max-width:56px}.funding-card-types{padding-left:12px}.funding-card-types>div{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){.pay-page *{animation-duration:.01ms!important;transition:none!important}}

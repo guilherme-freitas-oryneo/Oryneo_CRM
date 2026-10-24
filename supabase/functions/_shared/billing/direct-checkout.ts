@@ -4,7 +4,7 @@ export type DirectCheckoutInput = {
   request_id: string; payment_token: string; customer_name: string; customer_email: string; company: string; tax_id: string;
   plan: string; cycle: string; addons: string[];
   payment_method: 'card'|'boleto'|'pix';
-  card_funding: 'credit'|'debit';
+  card_funding: 'credit'|'debit'|null;
 };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const token = /^[A-Za-z0-9_-]{43}$/;
@@ -19,12 +19,13 @@ export function parseDirectCheckoutInput(value: unknown): DirectCheckoutInput {
     request_id: text(raw.request_id, 36), payment_token: text(raw.payment_token, 60),
     customer_name: text(raw.customer_name, 180), customer_email: text(raw.customer_email, 254).toLowerCase(), company: text(raw.company, 200), tax_id: text(raw.tax_id, 20).replace(/\D/g,''),
     plan: text(raw.plan, 25), cycle: text(raw.cycle, 20), addons: Array.isArray(raw.addons) ? raw.addons.map(item => text(item, 30)) : [],
-    payment_method: (raw.payment_method === undefined ? 'card' : text(raw.payment_method, 20)) as DirectCheckoutInput['payment_method'],
-    card_funding: (raw.card_funding === undefined ? 'credit' : text(raw.card_funding, 20)) as DirectCheckoutInput['card_funding'],
+    payment_method: text(raw.payment_method, 20) as DirectCheckoutInput['payment_method'],
+    card_funding: raw.card_funding == null ? null : text(raw.card_funding, 20) as DirectCheckoutInput['card_funding'],
   };
   if (!uuid.test(input.request_id) || !token.test(input.payment_token) || input.customer_name.length < 2 || input.company.length < 2 || !email.test(input.customer_email) || !validTaxId(input.tax_id)) throw new Error('INVALID_DIRECT_CHECKOUT');
   if (!['card','boleto','pix'].includes(input.payment_method)) throw new Error('INVALID_PAYMENT_METHOD');
-  if (!['credit','debit'].includes(input.card_funding)) throw new Error('INVALID_CARD_FUNDING');
+  if (input.payment_method === 'card' && (input.card_funding === null || !['credit','debit'].includes(input.card_funding))) throw new Error('INVALID_CARD_FUNDING');
+  if (input.payment_method !== 'card') input.card_funding = null;
   buildBillingQuote({ plan: input.plan, cycle: input.cycle, addons: input.addons });
   return input;
 }

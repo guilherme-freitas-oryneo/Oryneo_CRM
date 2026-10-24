@@ -11,7 +11,9 @@ describe('CheckoutConfigurator', () => {
 
     expect(screen.getAllByText(/1\.739,80/).length).toBeGreaterThan(0);
     expect(screen.getByRole('region', { name: 'Plano e periodicidade selecionados' })).toHaveTextContent('ORYNEO Start');
-    expect(screen.getAllByRole('radio')).toHaveLength(5);
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    expect(screen.getByRole('radio', { name: 'Cartão' })).not.toBeChecked();
+    expect(screen.queryByRole('radiogroup', { name: 'Tipo do cartão' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('checkbox', { name: /Landing page de conversão/i }));
     expect(screen.getAllByText(/2\.629,70/).length).toBeGreaterThan(0);
 
@@ -21,6 +23,11 @@ describe('CheckoutConfigurator', () => {
     await user.type(screen.getByLabelText('E-mail corporativo'), 'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'), 'Acme Comércio');
     await user.type(screen.getByLabelText('CPF ou CNPJ'), '52998224725');
+    await user.click(screen.getByRole('radio', { name: 'Cartão' }));
+    expect(screen.getByRole('radiogroup', { name: 'Tipo do cartão' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Cartão de crédito' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Cartão de débito' })).not.toBeChecked();
+    await user.click(screen.getByRole('radio', { name: 'Cartão de crédito' }));
     expect(button).toBeDisabled();
     await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
     expect(button).toBeEnabled();
@@ -32,15 +39,16 @@ describe('CheckoutConfigurator', () => {
     });
   });
 
-  it('apresenta formas de pagamento e bandeiras aprovadas, sem ícones genéricos', async () => {
+  it('apresenta cartão como método único e reserva a bandeira para a digitação', async () => {
     const {container} = render(<CheckoutConfigurator onContinue={vi.fn()}/>);
     const methods = container.querySelectorAll('.checkout-payment-options label');
     expect(methods).toHaveLength(3);
-    expect(methods[0]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(2);
+    expect(methods[0]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(0);
+    expect(methods[0]?.querySelector('.checkout-payment-art svg')).not.toBeNull();
     expect(methods[1]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(1);
     expect(methods[2]?.querySelectorAll('.checkout-payment-art img')).toHaveLength(1);
     const images = [...container.querySelectorAll<HTMLImageElement>('.checkout-payment-art img')];
-    expect(images).toHaveLength(4);
+    expect(images).toHaveLength(2);
     for(const image of images){
       expect(image.src).toMatch(/^data:image\/png;base64,/);
       expect(image.alt).toBe('');
@@ -52,9 +60,13 @@ describe('CheckoutConfigurator', () => {
     const user = userEvent.setup();
     render(<CheckoutConfigurator onContinue={vi.fn()}/>);
 
-    expect(screen.getByRole('radio', { name: 'Cartão' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Cartão' })).not.toBeChecked();
+    expect(screen.queryByRole('radiogroup', { name: 'Tipo do cartão' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Cartão' }));
     expect(screen.getByRole('radiogroup', { name: 'Tipo do cartão' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Cartão de crédito' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Cartão de crédito' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Cartão de débito' })).not.toBeChecked();
+    expect(screen.getByText('Escolha crédito ou débito para continuar.')).toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: /Pix/ }));
     expect(screen.queryByRole('radiogroup', { name: 'Tipo do cartão' })).not.toBeInTheDocument();
   });
@@ -107,7 +119,7 @@ describe('seleção vinda da landing page', () => {
     const locked = screen.getByRole('region',{name:'Plano e periodicidade selecionados'});
     expect(locked).toHaveTextContent('ORYNEO Scale');
     expect(locked).toHaveTextContent('Anual');
-    expect(screen.getAllByRole('radio')).toHaveLength(5);
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
     expect(screen.getByRole('checkbox',{name:/Landing page de conversão/i})).toBeChecked();
     expect(screen.getByRole('checkbox',{name:/Gestão de tráfego pago/i})).toBeChecked();
     expect(screen.getAllByText(/21\.692,42/).length).toBeGreaterThan(0);
@@ -125,7 +137,7 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     const onContinue = vi.fn();
     const user = userEvent.setup();
     render(<CheckoutConfigurator onContinue={onContinue}/>);
-    expect(screen.getAllByRole('radio')).toHaveLength(5);
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
     expect(screen.getByRole('region',{name:'Plano e periodicidade selecionados'})).toHaveTextContent('ORYNEO Growth');
     expect(screen.queryByRole('link',{name:'página de planos'})).not.toBeInTheDocument();
     await user.click(screen.getByRole('checkbox',{name:/Landing page de conversão/i}));
@@ -133,6 +145,8 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');
     await user.type(screen.getByLabelText('CPF ou CNPJ'),'52998224725');
+    await user.click(screen.getByRole('radio',{name:'Cartão'}));
+    await user.click(screen.getByRole('radio',{name:'Cartão de crédito'}));
     await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
     await user.click(screen.getByRole('button',{name:/Continuar para o pagamento/}));
     expect(onContinue).toHaveBeenCalledWith({
@@ -146,7 +160,9 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     window.history.replaceState({}, '', '/contratar/?plan=Growth&cycle=monthly');
     const onContinue=vi.fn(),user=userEvent.setup();
     render(<CheckoutConfigurator onContinue={onContinue}/>);
-    await user.click(screen.getByRole('radio',{name:/Cartão de débito/}));
+    expect(screen.getByRole('radio',{name:'Cartão'})).not.toBeChecked();
+    await user.click(screen.getByRole('radio',{name:'Cartão'}));
+    await user.click(screen.getByRole('radio',{name:'Cartão de débito'}));
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
     await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
     await user.type(screen.getByLabelText('Empresa'),'Acme');

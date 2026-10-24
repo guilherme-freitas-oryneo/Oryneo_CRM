@@ -51,6 +51,7 @@ Deno.serve(async req => {
       form.set('return_url',`${origin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(input.payment_token)}&retorno=1`);
       form.set('metadata[oryneo_order_id]',created.order_id);form.set('metadata[oryneo_billing_environment]',environment);
       if(input.payment_method==='card'){
+        if(!input.card_funding)throw new Error('INVALID_CARD_FUNDING');
         form.set('mode','subscription');
         form.set('subscription_data[metadata][oryneo_order_id]',created.order_id);form.set('subscription_data[billing_mode][type]','flexible');
         applyCardFundingRestriction(form,input.card_funding);
