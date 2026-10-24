@@ -1,6 +1,6 @@
 # ORYNEO WhatsApp — continuidade da execução
 
-Data da auditoria: 2026-10-24 UTC. Branch: `feat/whatsapp-forensic-resumption-20261024`, originada de `main` em `62e05be4701c07adf4896ca5904864f7d19e94c6`. PR draft: [#53](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/pull/53). Último commit de código verificado neste lote: `3cd0b708a48f1d5b954d75803b0dfe9d02b37dff`. CI ainda em execução na última consulta; não foi declarado verde.
+Data da auditoria: 2026-10-24 UTC. Branch: `feat/whatsapp-forensic-resumption-20261024`, originada de `main` em `62e05be4701c07adf4896ca5904864f7d19e94c6`. PR draft: [#53](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/pull/53). CI do checkpoint anterior concluiu verde; o novo lote de webhook ainda precisa da validação do CI após push.
 
 ## O que foi observado
 
@@ -17,6 +17,7 @@ Data da auditoria: 2026-10-24 UTC. Branch: `feat/whatsapp-forensic-resumption-20
 - Após OAuth feito pelo titular, o conector Meta desta conversa listou `ORYNEO | CRM e Marketing` (Business ID `1098665735949825`). Perfil incompleto e verificação empresarial ainda não aprovada. Nenhum app WhatsApp administrado por esta conexão, nenhuma conta de produção listada e número comercial não encontrado no escopo acessível. Isso não prova ausência em contas fora deste acesso. O Codex CLI cloud segue `Not logged in`; `00-META-MCP-AUDIT.md` separa os dois contextos.
 - Nova leitura após o proprietário informar que criou um app e que o número está livre: o portfólio Meta ainda reporta perfil incompleto, verificação não aprovada, zero apps WhatsApp administrados nesta conexão, nenhuma conta de produção acessível e o número comercial não encontrado no escopo visível. O GitHub Pages publica `62e05be` (deploy `8cf8e89`, HTTP 200); Supabase continua com 44 migrations e nenhuma tabela/Edge Function WhatsApp. O CRM publicado abre `wa.me`, sem inbox integrada. Ver `01-AS-IS-CRM.md`.
 - Brand Kit oficial v1.1 foi localizado e seu README lido no Drive ORYNEO; `03-DESIGN-DIRECTION.md` registra as restrições de logos e tipografia. A auditoria de policies mostrou que `crm_members` contém somente `user_id`, sem equipe/carteira; `01-AS-IS-CRM.md` detalha o impacto para o futuro módulo.
+- Na retomada seguinte, foi versionada uma migração aditiva de inbox privado para eventos Meta e uma Edge Function de recepção. O receptor verifica GET challenge e HMAC do POST sobre bytes brutos, limita o corpo, calcula digest para dedupe e só confirma depois de gravar. Cinco testes novos, check Deno, suíte 278/278 e build passaram. Migração e grants foram testados em Postgres 17 descartável, não no Supabase ativo. Sem consumidor durável ou app Meta administrado, o callback permanece sem deploy e não deve ser inscrito. Ver `06-WEBHOOK-INBOX-RUNBOOK.md`.
 
 ## Matriz de progresso do prompt mestre (00–21)
 
@@ -30,8 +31,8 @@ Status se refere à missão de WhatsApp oficial, não ao CRM inteiro. `NÃO VERI
 | 03 MCP Meta | PARCIAL | Conector desta conversa autenticado, ferramentas `whatsapp_biz_*` e leitura de negócio bem-sucedida; CLI cloud ainda `Not logged in` | Confirmar app/permissões no portfólio e autenticar CLI somente se ele for usado como cliente operacional. |
 | 04 Forense CRM/Supabase | PARCIAL | GitHub `main` 62e05be; Supabase ativo: 31 tabelas, 44 migrations, 21 functions; testes 255/255 | Falta baseline em navegador autenticado, inspeção de RLS detalhada, logs e eventual material local do escritório. |
 | 05 Provider/coexistência | BLOQUEADO | Meta não encontrou o número comercial no escopo acessível; nenhum app administrado nesta conexão; código só tem `wa.me` | Conferir titularidade do app/número no Business Manager antes de decidir migração/coexistência; manter canal atual intacto. |
-| 06 Modelo de dados | PARCIAL | ADR de contrato em `02-ARCHITECTURE-ADR.md`; Supabase public sem tabelas WhatsApp | Falta schema, RLS, migrations e persistência; revisar identidade CRM antes de migrar. |
-| 07 API/webhooks | PARCIAL | Verificador puro GET/HMAC em `supabase/functions/_shared/whatsapp/webhookVerification.ts`, testado localmente; remoto sem função WhatsApp | Falta handler HTTP, inbox durável, dedupe, retry, autorização, secret e deploy; não configurar webhook Meta agora. |
+| 06 Modelo de dados | PARCIAL | Migração aditiva de eventos brutos com RLS/grants service-only testada em Postgres descartável; Supabase ativo ainda sem tabelas WhatsApp | Faltam schema de canal, conversa, mensagem, lock/consentimento, consumidor e validação em staging. |
+| 07 API/webhooks | PARCIAL | Handler HTTP GET/POST, HMAC bruto, limite, dedupe e gravação antes do ACK, testados localmente; remoto sem função WhatsApp | Falta consumidor, secret, deploy e homologação; não configurar webhook Meta agora. |
 | 08 SDR/governança | PARCIAL | Política pura em `supabase/functions/_shared/whatsapp/policy.ts`, com teste local; `crm_automation_jobs` é de e-mail | Ainda não há lock persistente nem chamada da política em worker; não há garantia operacional de bloqueio. |
 | 09 Direção visual | PARCIAL | README oficial Brand Kit v1.1 lido no Drive; `03-DESIGN-DIRECTION.md` | Conferir assets concretos e testar UI quando implementada. Landing fora de escopo. |
 | 10 Componentes | NÃO INICIADO | Ação de lead abre aba `wa.me`; nenhuma thread/composer | Especificar e implementar com backend real, estados de erro e acesso. |
@@ -39,7 +40,7 @@ Status se refere à missão de WhatsApp oficial, não ao CRM inteiro. `NÃO VERI
 | 12 Benchmarking | PARCIAL | `04-BENCHMARK.md`: seis fontes oficiais consultadas em 2026-10-24, com padrões e trade-offs | Falta inspeção visual/screenshot e matriz completa de elementos de UI antes de implementação. |
 | 13 Segurança/LGPD | PARCIAL | RLS habilitada nas tabelas públicas existentes; nenhum webhook Meta | Auditar policies e projetar assinatura, isolamento, retenção e consentimento antes de expor rota. |
 | 14 Estratégia de implementação | PARCIAL | Branch isolada criada após auditoria; suíte baseline verde | Registrar ADR, implementar atrás de flag, manter PR/CI rastreáveis. |
-| 15 Matriz de testes | PARCIAL | 255 testes baseline; 18 testes novos de política/status/assinatura; suíte 273/273 e build local em 2026-10-24 | Faltam RLS, integração, UI e E2E real; os testes novos não comprovam proteção em runtime. |
+| 15 Matriz de testes | PARCIAL | 255 testes baseline; 23 testes novos de política/status/assinatura/receptor; suíte 278/278, check Deno, build e grants/dedupe em Postgres local | Faltam integração no Supabase ativo, UI e E2E real; os testes locais não comprovam recebimento Meta. |
 | 16 Homologação do número | BLOQUEADO | Leitura Meta não encontrou `+5521974510932` no escopo acessível; perfil empresarial incompleto | Conferir ativo em WhatsApp Manager e titularidade; não registrar, migrar ou desvincular agora. |
 | 17 Aceite de produto | NÃO INICIADO | Nenhum fluxo Cloud API observado ponta a ponta | Homologar somente com envio/recebimento autorizados e evidência de produção. |
 | 18 Entregáveis | PARCIAL | Este checkpoint e baseline remoto | Completar documentação, código, evidências e runbook nos lotes correspondentes. |

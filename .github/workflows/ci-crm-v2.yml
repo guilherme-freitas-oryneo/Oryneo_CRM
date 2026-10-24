@@ -38,6 +38,7 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/company-enrich/index.ts
           deno check --node-modules-dir=auto supabase/functions/mail-sync/index.ts
           deno check --node-modules-dir=auto supabase/functions/mail-api/index.ts
+          deno check --node-modules-dir=auto supabase/functions/whatsapp-webhook/index.ts
           deno check --node-modules-dir=auto supabase/functions/intake-mail-worker/index.ts
           deno check --node-modules-dir=auto supabase/functions/stripe-webhook/index.ts
           deno check --node-modules-dir=auto supabase/functions/proposal-create/index.ts
