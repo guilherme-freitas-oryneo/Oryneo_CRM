@@ -1,6 +1,6 @@
 # ORYNEO WhatsApp — continuidade da execução
 
-Data da auditoria: 2026-10-24 UTC. Branch: `feat/whatsapp-forensic-resumption-20261024`, originada de `main` em `62e05be4701c07adf4896ca5904864f7d19e94c6`.
+Data da auditoria: 2026-10-24 UTC. Branch: `feat/whatsapp-forensic-resumption-20261024`, originada de `main` em `62e05be4701c07adf4896ca5904864f7d19e94c6`. PR draft: [#53](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/pull/53). Último commit de código verificado neste lote: `3cd0b708a48f1d5b954d75803b0dfe9d02b37dff`. CI ainda em execução na última consulta; não foi declarado verde.
 
 ## O que foi observado
 
