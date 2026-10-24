@@ -13,6 +13,7 @@ Data da auditoria: 2026-10-24 UTC. Branch: `feat/whatsapp-forensic-resumption-20
 - Baseline local do repositório: `npm ci --no-audit --no-fund` e `npm test -- --run`: 41 arquivos, 255 testes aprovados. Isso valida a suíte existente no clone, não a integração WhatsApp.
 - Após adicionar apenas funções puras de política e status, `npx vitest run src/whatsapp/policy.test.ts` passou (14 testes), `npm test -- --run` passou (42 arquivos, 269 testes) e `npm run build -- --base=/Oryneo_CRM/` passou. Nenhum desses testes exercitou Cloud API, banco ou um envio real.
 - O rebranding da landing page está fora de escopo e não foi modificado.
+- Brand Kit oficial v1.1 foi localizado e seu README lido no Drive ORYNEO; `03-DESIGN-DIRECTION.md` registra as restrições de logos e tipografia. A auditoria de policies mostrou que `crm_members` contém somente `user_id`, sem equipe/carteira; `01-AS-IS-CRM.md` detalha o impacto para o futuro módulo.
 
 ## Matriz de progresso do prompt mestre (00–21)
 
@@ -29,7 +30,7 @@ Status se refere à missão de WhatsApp oficial, não ao CRM inteiro. `NÃO VERI
 | 06 Modelo de dados | PARCIAL | ADR de contrato em `02-ARCHITECTURE-ADR.md`; Supabase public sem tabelas WhatsApp | Falta schema, RLS, migrations e persistência; revisar identidade CRM antes de migrar. |
 | 07 API/webhooks | NÃO INICIADO | Edge Functions remotas sem função WhatsApp; repositório sem handler Meta | Implementar contrato e testes de HMAC, idempotência e isolamento antes de deploy. |
 | 08 SDR/governança | PARCIAL | Política pura em `supabase/functions/_shared/whatsapp/policy.ts`, com teste local; `crm_automation_jobs` é de e-mail | Ainda não há lock persistente nem chamada da política em worker; não há garantia operacional de bloqueio. |
-| 09 Direção visual | PARCIAL | Tokens e assets ORYNEO no repo; pasta Brand Kit localizada no Drive | Conferir materiais oficiais e revisar UI existente antes de criar tela. Landing fora de escopo. |
+| 09 Direção visual | PARCIAL | README oficial Brand Kit v1.1 lido no Drive; `03-DESIGN-DIRECTION.md` | Conferir assets concretos e testar UI quando implementada. Landing fora de escopo. |
 | 10 Componentes | NÃO INICIADO | Ação de lead abre aba `wa.me`; nenhuma thread/composer | Especificar e implementar com backend real, estados de erro e acesso. |
 | 11 Responsividade/acessibilidade/performance | NÃO VERIFICÁVEL | Suíte atual não cobre inbox WhatsApp | Medir e testar após existir interface. |
 | 12 Benchmarking | NÃO INICIADO | Nenhum benchmark WhatsApp versionado encontrado | Pesquisar fontes atuais e registrar decisões específicas para a interface. |
