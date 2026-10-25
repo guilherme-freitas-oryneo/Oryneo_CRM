@@ -16,8 +16,8 @@ describe('WhatsAppWorkspace', () => {
     render(<WhatsAppWorkspace deals={[deal]} loading={false} loadError="" onOpenDeal={onOpenDeal}/>);
     await userEvent.click(screen.getByRole('button', { name: 'Abrir contato Marina' }));
     expect(screen.getByText('Conversa ainda não conectada')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Enviar mensagem indisponível' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Gravar áudio indisponível' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Enviar/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Gravar áudio' })).toBeDisabled();
     expect(screen.getByRole('link', { name: /Abrir WhatsApp externo/ })).toHaveAttribute('href', 'https://wa.me/5511999998888');
     expect(screen.getByRole('link', { name: /Ligar pelo telefone/ })).toHaveAttribute('href', 'tel:11999998888');
     await userEvent.click(screen.getByRole('button', { name: /Abrir no pipeline/ }));
