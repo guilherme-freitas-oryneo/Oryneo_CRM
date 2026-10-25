@@ -35,7 +35,7 @@ vi.mock('@stripe/react-stripe-js', async () => {
 vi.mock('@stripe/react-stripe-js/checkout', () => ({
   useCheckoutElements: () => mocks.checkout(),
   // The real Stripe Element signals onReady asynchronously, after rendering.
-  PaymentElement: ({onReady}: {onReady?:(element:unknown)=>void}) => <div>Campos Stripe{onReady&&<button type="button" onClick={()=>onReady({on:mocks.cardDetailsOn,off:mocks.cardDetailsOff})}>Simular Stripe pronta</button>}</div>,
+  PaymentElement: ({onReady}: {onReady?:(element:unknown)=>void}) => <div>Campos Stripe{onReady&&<button type="button" onClick={()=>onReady({})}>Simular Stripe pronta</button>}</div>,
   CheckoutElementsProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
