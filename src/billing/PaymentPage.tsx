@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { Barcode, CreditCard, QrCode, ShieldCheck } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
-import type { StripePaymentElement, StripePaymentElementCardDetailsChangeEvent } from '@stripe/stripe-js';
+import type { StripeCardCvcElement, StripeCardNumberElement, StripeCardNumberElementChangeEvent } from '@stripe/stripe-js';
+import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
 import { CheckoutElementsProvider, PaymentElement, useCheckoutElements } from '@stripe/react-stripe-js/checkout';
 import { supabase } from '../data';
 import './payment.css';
@@ -254,7 +255,9 @@ export function PaymentPage() {
   if(order.status==='awaiting_payment'&&!checkout)return <main className="pay-page pay-center"><div className="pay-error"><img src="../oryneo-wordmark-mono.png" alt="ORYNEO"/><h1>Não foi possível carregar o pagamento agora.</h1><p>A sessão segura ainda não está disponível. Isso não significa que seu pagamento foi recusado ou confirmado. Consulte novamente antes de tentar outra cobrança.</p><button className="pay-submit" type="button" onClick={()=>window.location.reload()}>Consultar novamente</button></div></main>;
   if(!checkout)return <PaymentPageView order={order} paymentSlot={null} onPay={()=>undefined} onRefresh={()=>window.location.reload()} portalUrl={order.status==='paid'?deliveryLink():''} accountUrl={order.status==='paid'?offboardingLink():''}/>;
   return <CheckoutElementsProvider stripe={stripePromise} options={{clientSecret:checkout.clientSecret,elementsOptions:{appearance:{theme:'stripe',variables:{colorPrimary:'#4357E8',colorText:'#242931',colorBackground:'#ffffff',borderRadius:'0px',fontFamily:'Inter, Arial, sans-serif'}}}}}>
-    <StripePayment order={order} onChoosePaymentMethod={()=>{setCheckout(null);setOrder(current=>current?{...current,payment_method:undefined,card_funding:null}:current);}}/>
+    <Elements stripe={stripePromise}>
+      <StripePayment order={order} onChoosePaymentMethod={()=>{setCheckout(null);setOrder(current=>current?{...current,payment_method:undefined,card_funding:null}:current);}}/>
+    </Elements>
   </CheckoutElementsProvider>;
 }
 
@@ -272,7 +275,7 @@ export function CheckoutMethodPicker({order,onContinue,busy,error}:{order:Public
        <div className="funding-total"><span>Total de hoje</span><strong>{money(order.amount_total)}</strong></div>
        <fieldset><legend>Forma de pagamento</legend>
          <label><input aria-label="Cartão" type="radio" name="checkout-method" checked={choice==='card'} onChange={()=>chooseMethod('card')}/><span className="funding-art funding-card-art" aria-hidden="true"><CreditCard size={25}/></span><span><strong>Cartão</strong><small>Escolha crédito ou débito.</small></span></label>
-         {choice==='card'&&<div className="funding-card-types" role="radiogroup" aria-label="Tipo do cartão"><span>Tipo do cartão</span><div><label><input aria-label="Cartão de crédito" type="radio" name="checkout-card-funding" checked={funding==='credit'} onChange={()=>setFunding('credit')}/><span><strong>Crédito</strong><small>Renovação conforme o período contratado.</small></span></label><label><input aria-label="Cartão de débito" type="radio" name="checkout-card-funding" checked={funding==='debit'} onChange={()=>setFunding('debit')}/><span><strong>Débito</strong><small>O emissor precisa permitir a cobrança.</small></span></label></div></div>}
+         {choice==='card'&&<div className="funding-card-types" role="radiogroup" aria-label="Tipo do cartão"><span>Usar no</span><div><label><input aria-label="Cartão de crédito" type="radio" name="checkout-card-funding" checked={funding==='credit'} onChange={()=>setFunding('credit')}/><strong>Crédito</strong></label><label><input aria-label="Cartão de débito" type="radio" name="checkout-card-funding" checked={funding==='debit'} onChange={()=>setFunding('debit')}/><strong>Débito</strong></label></div></div>}
          <label><input aria-label="Boleto bancário" type="radio" name="checkout-method" checked={choice==='boleto'} onChange={()=>chooseMethod('boleto')}/><span className="funding-art" aria-hidden="true"><img src={paymentAsset.boleto} alt=""/></span><span><strong>Boleto bancário</strong><small>Novo boleto por período; pagamento manual.</small></span></label>
          <label><input aria-label="Pix" type="radio" name="checkout-method" checked={choice==='pix'} onChange={()=>chooseMethod('pix')}/><span className="funding-art" aria-hidden="true"><img src={paymentAsset.pix} alt=""/></span><span><strong>Pix</strong><small>Pagamento único agora. Nada será debitado automaticamente.</small></span></label>
        </fieldset>
@@ -380,37 +383,84 @@ export function BoletoPayment({order,invoiceUrl}:{order:PublicBillingOrder;invoi
  return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} busy={busy} payLabel="Abrir boleto seguro"/>;
 }
 
-type CardEligibility = 'checking'|'accepted'|'unsupported_brand'|'funding_mismatch';
+type CardEligibility = 'checking'|'accepted'|'unsupported_brand';
+type SecureCardState = Readonly<{complete:boolean;brand:'visa'|'mastercard'|null;eligibility:CardEligibility;postalCode:string;fieldError:string}>;
 
-const removeCardDetailsListener=(element:StripePaymentElement,handler:(event:StripePaymentElementCardDetailsChangeEvent)=>void)=>{
-  const off=element.off as unknown as (eventType:'carddetailschange',listener:(event:StripePaymentElementCardDetailsChangeEvent)=>void)=>StripePaymentElement;
-  off.call(element,'carddetailschange',handler);
-};
+const cardNumberOptions={
+  showIcon:false,
+  placeholder:'0000 0000 0000 0000',
+  style:{base:{color:'#fff',fontFamily:'Inter, Arial, sans-serif',fontSize:'19px',fontWeight:'600','::placeholder':{color:'rgba(255,255,255,.46)'}},invalid:{color:'#ffd4cf'}},
+} as const;
+const cardExpiryOptions={
+  placeholder:'MM / AA',
+  style:{base:{color:'#fff',fontFamily:'Inter, Arial, sans-serif',fontSize:'13px',fontWeight:'650','::placeholder':{color:'rgba(255,255,255,.48)'}},invalid:{color:'#ffd4cf'}},
+} as const;
+const cardCvcOptions={
+  placeholder:'CVC',
+  style:{base:{color:'#20242b',fontFamily:'ui-monospace, SFMono-Regular, Consolas, monospace',fontSize:'15px',fontWeight:'650','::placeholder':{color:'#7b828d'}},invalid:{color:'#9b3028'}},
+} as const;
 
-function PaymentCardPreview({brand,funding,hasError,holder}:{brand:'visa'|'mastercard'|null;funding:'credit'|'debit'|null;hasError:boolean;holder:string}){
+function SecurePaymentCard({funding,holder,onStateChange}:{funding:'credit'|'debit'|null;holder:string;onStateChange:(state:SecureCardState)=>void}){
   const [flipped,setFlipped]=useState(false);
-  const label=flipped?'Ver frente do cartão':'Ver verso do cartão';
+  const [numberComplete,setNumberComplete]=useState(false);
+  const [expiryComplete,setExpiryComplete]=useState(false);
+  const [cvcComplete,setCvcComplete]=useState(false);
+  const [brand,setBrand]=useState<'visa'|'mastercard'|null>(null);
+  const [eligibility,setEligibility]=useState<CardEligibility>('checking');
+  const [numberError,setNumberError]=useState('');
+  const [expiryError,setExpiryError]=useState('');
+  const [cvcError,setCvcError]=useState('');
+  const [postalCode,setPostalCode]=useState('');
+  const numberElement=useRef<StripeCardNumberElement|null>(null);
+  const cvcElement=useRef<StripeCardCvcElement|null>(null);
   const holderName=holder.trim().slice(0,26)||'Titular do cartão';
+  const postalComplete=postalCode.length===8;
+  const complete=numberComplete&&expiryComplete&&cvcComplete&&postalComplete&&eligibility==='accepted';
+  const fieldError=flipped?cvcError:numberError||expiryError;
+
+  useEffect(()=>{onStateChange({complete,brand,eligibility,postalCode,fieldError})},[complete,brand,eligibility,postalCode,fieldError,onStateChange]);
+  useEffect(()=>{
+    if(!numberComplete||!expiryComplete){setFlipped(false);return}
+    setFlipped(true);
+    const frame=requestAnimationFrame(()=>cvcElement.current?.focus());
+    return()=>cancelAnimationFrame(frame);
+  },[numberComplete,expiryComplete]);
+
+  const onNumberChange=(event:StripeCardNumberElementChangeEvent)=>{
+    setNumberComplete(event.complete);
+    const accepted=event.brand==='visa'||event.brand==='mastercard'?event.brand:null;
+    setBrand(accepted);
+    setEligibility(event.empty?'checking':accepted?'accepted':event.brand&&event.brand!=='unknown'?'unsupported_brand':'checking');
+    setNumberError(event.error?.message||'');
+  };
+  const returnToFront=()=>{setFlipped(false);requestAnimationFrame(()=>numberElement.current?.focus())};
+
   return <div className="pay-card-stage">
-    <button type="button" className={`pay-visual-card${flipped?' is-flipped':''}${brand?' is-recognized':''}${hasError?' has-error':''}`} aria-label={label} aria-pressed={flipped} onClick={()=>setFlipped(value=>!value)}>
-      <span className="pay-visual-card-inner" aria-hidden="true">
-        <span className="pay-visual-card-face pay-visual-card-front">
-          <span className="pay-visual-card-top"><span className="pay-visual-card-chip"/>{brand?<img key={brand} className="pay-visual-card-brand" src={paymentAsset[brand]} alt=""/>:<small>CARTÃO</small>}</span>
-          <span className="pay-visual-card-number">••••&nbsp; ••••&nbsp; ••••&nbsp; ••••</span>
-          <span className="pay-visual-card-bottom"><span><small>TITULAR</small><b>{holderName}</b></span><span><small>TIPO</small><b>{funding==='debit'?'DÉBITO':funding==='credit'?'CRÉDITO':'—'}</b></span></span>
-        </span>
-        <span className="pay-visual-card-face pay-visual-card-back">
+    <div className={`pay-visual-card${flipped?' is-flipped':''}${brand?' is-recognized':''}${fieldError||eligibility==='unsupported_brand'?' has-error':''}`} role="group" aria-label={`Cartão seguro${funding?` de ${funding==='credit'?'crédito':'débito'}`:''}`}>
+      <div className="pay-visual-card-inner">
+        <div className="pay-visual-card-face pay-visual-card-front" aria-hidden={flipped} inert={flipped}>
+          <div className="pay-visual-card-top"><span className="pay-visual-card-chip"/>{brand?<img key={brand} className="pay-visual-card-brand" src={paymentAsset[brand]} alt=""/>:<small>CARTÃO</small>}</div>
+          <label className="pay-card-secure-number"><small>NÚMERO DO CARTÃO</small><span><CardNumberElement options={cardNumberOptions} onReady={element=>{numberElement.current=element}} onChange={onNumberChange}/></span></label>
+          <div className="pay-visual-card-bottom"><span><small>TITULAR</small><b>{holderName}</b></span><label className="pay-card-secure-expiry"><small>VALIDADE</small><span><CardExpiryElement options={cardExpiryOptions} onChange={event=>{setExpiryComplete(event.complete);setExpiryError(event.error?.message||'')}}/></span></label></div>
+        </div>
+        <div className="pay-visual-card-face pay-visual-card-back" aria-hidden={!flipped} inert={!flipped}>
           <span className="pay-visual-card-stripe"/>
-          <span className="pay-visual-card-signature"><i>Dados protegidos</i><b>•••</b></span>
+          <label className="pay-visual-card-signature"><i>CÓDIGO DE SEGURANÇA</i><span><CardCvcElement options={cardCvcOptions} onReady={element=>{cvcElement.current=element}} onChange={event=>{setCvcComplete(event.complete);setCvcError(event.error?.message||'')}}/></span></label>
+          <button type="button" className="pay-card-return" onClick={returnToFront}>Corrigir número ou validade</button>
           <span className="pay-visual-card-back-copy">Processamento seguro pela Stripe</span>
-        </span>
-      </span>
-    </button>
+        </div>
+      </div>
+    </div>
+    <label className="pay-card-postal">CEP da cobrança<input aria-label="CEP da cobrança" inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={postalCode.replace(/(\d{5})(\d{1,3})/,'$1-$2')} onChange={event=>setPostalCode(event.target.value.replace(/\D/g,'').slice(0,8))}/></label>
+    {fieldError&&<p className="pay-card-field-error" role="alert">{fieldError}</p>}
+    {eligibility==='unsupported_brand'&&<p className="pay-card-field-error" role="alert">Bandeira não aceita. Use Visa ou Mastercard.</p>}
   </div>;
 }
 
 export function StripePayment({order,onChoosePaymentMethod}:{order:PublicBillingOrder;onChoosePaymentMethod?:()=>void}){
   const result=useCheckoutElements();
+  const stripe=useStripe();
+  const elements=useElements();
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [completion,setCompletion]=useState<'idle'|'awaiting_pix'|'processing'|'paid'>('idle');
@@ -418,42 +468,12 @@ export function StripePayment({order,onChoosePaymentMethod}:{order:PublicBilling
   const [pollingError,setPollingError]=useState(false);
   const [pixLookupError,setPixLookupError]=useState(false);
   const [pixElementReady,setPixElementReady]=useState(false);
-  const [cardEligibility,setCardEligibility]=useState<CardEligibility>('checking');
-  const [detectedBrand,setDetectedBrand]=useState<'visa'|'mastercard'|null>(null);
-  const [detectedFunding,setDetectedFunding]=useState<'credit'|'debit'|null>(null);
+  const [cardState,setCardState]=useState<SecureCardState>({complete:false,brand:null,eligibility:'checking',postalCode:'',fieldError:''});
   const autoPixAttempted=useRef(false);
   const confirming=useRef(false);
-  const connectedCardElement=useRef<StripePaymentElement|null>(null);
-  const connectedCardHandler=useRef<((event:StripePaymentElementCardDetailsChangeEvent)=>void)|null>(null);
-  const selectedFunding=useRef(order.card_funding);
-  selectedFunding.current=order.card_funding;
-
-  const connectCardSignals=(element:StripePaymentElement)=>{
-    if(order.payment_method&&order.payment_method!=='card')return;
-    if(connectedCardElement.current===element)return;
-    if(connectedCardElement.current&&connectedCardHandler.current)
-      removeCardDetailsListener(connectedCardElement.current,connectedCardHandler.current);
-    connectedCardElement.current=element;
-    const onCardDetailsChange=(event:StripePaymentElementCardDetailsChangeEvent)=>{
-      const details=event.details;
-      const brand=details?.brands?.find((candidate):candidate is 'visa'|'mastercard'=>candidate==='visa'||candidate==='mastercard')||null;
-      const funding=details?.funding==='credit'||details?.funding==='debit'?details.funding:null;
-      setDetectedBrand(brand);setDetectedFunding(funding);
-      if(!details?.brands?.length){setCardEligibility('checking');return;}
-      if(!brand){setCardEligibility('unsupported_brand');return;}
-      if(funding&&funding!==selectedFunding.current){setCardEligibility('funding_mismatch');return;}
-      setCardEligibility('accepted');
-    };
-    connectedCardHandler.current=onCardDetailsChange;
-    element.on('carddetailschange',onCardDetailsChange);
-  };
-
-  useEffect(()=>()=>{
-    if(connectedCardElement.current&&connectedCardHandler.current)
-      removeCardDetailsListener(connectedCardElement.current,connectedCardHandler.current);
-    connectedCardElement.current=null;
-    connectedCardHandler.current=null;
-  },[]);
+  const syncCardState=useCallback((state:SecureCardState)=>setCardState(current=>
+    current.complete===state.complete&&current.brand===state.brand&&current.eligibility===state.eligibility&&current.postalCode===state.postalCode&&current.fieldError===state.fieldError?current:state
+  ),[]);
 
   useEffect(()=>{
     if(completion!=='processing'&&completion!=='awaiting_pix')return;
@@ -487,7 +507,8 @@ export function StripePayment({order,onChoosePaymentMethod}:{order:PublicBilling
   },[completion]);
 
   const pay=async()=>{
-    if(result.type!=='success'||busy||confirming.current||completion!=='idle'||(order.payment_method==='pix'&&!pixElementReady)||cardEligibility==='unsupported_brand'||cardEligibility==='funding_mismatch')return;
+    const cardPayment=order.payment_method==='card'||order.payment_method===undefined;
+    if(result.type!=='success'||busy||confirming.current||completion!=='idle'||(order.payment_method==='pix'&&!pixElementReady)||(cardPayment&&!cardState.complete))return;
     confirming.current=true;
     setBusy(true);
     setError('');
@@ -498,7 +519,15 @@ export function StripePayment({order,onChoosePaymentMethod}:{order:PublicBilling
       if(consentError||!consent?.ok)throw new Error('Não foi possível registrar o aceite anterior. Nenhum pagamento foi confirmado. Tente novamente.');
       // The Checkout Session already carries return_url. Passing it again here
       // makes Stripe reject Pix confirmation with a duplicate return_url error.
-      const confirmation=await result.checkout.confirm();
+      let paymentMethod:string|undefined;
+      if(cardPayment){
+        const cardNumber=elements?.getElement(CardNumberElement);
+        if(!stripe||!cardNumber)throw new Error('Os campos seguros do cartão ainda estão carregando. Tente novamente.');
+        const created=await stripe.createPaymentMethod({type:'card',card:cardNumber,billing_details:{name:order.customer_name,address:{country:'BR',postal_code:cardState.postalCode}}});
+        if(created.error||!created.paymentMethod?.id){setError('Confira os dados indicados no cartão e tente novamente.');return}
+        paymentMethod=created.paymentMethod.id;
+      }
+      const confirmation=await result.checkout.confirm(paymentMethod?{paymentMethod,billingAddress:{name:order.customer_name,address:{country:'BR',postal_code:cardState.postalCode}}}:undefined);
       if(confirmation.type==='error'){
         // Do not expose an unconfirmed Stripe PaymentElement QR placeholder.
         // Logging only the error classification avoids exposing client secrets.
@@ -535,13 +564,8 @@ export function StripePayment({order,onChoosePaymentMethod}:{order:PublicBilling
       <small>Ambiente seguro da Stripe</small>
     </div>}
     {cardPayment?<div className="pay-card-entry">
-      <PaymentCardPreview brand={detectedBrand} funding={detectedFunding||order.card_funding||null} hasError={cardEligibility==='unsupported_brand'||cardEligibility==='funding_mismatch'||Boolean(error)} holder={order.customer_name}/>
-      <div className="pay-card-entry-fields">
-        {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement onReady={connectCardSignals}/>}
-        {cardEligibility==='unsupported_brand'&&<div className="pay-card-field-error" role="alert">Bandeira não aceita. Use Visa ou Mastercard.{onChoosePaymentMethod&&<button type="button" onClick={onChoosePaymentMethod}>Escolher outra forma de pagamento</button>}</div>}
-        {cardEligibility==='funding_mismatch'&&<div className="pay-card-field-error" role="alert">Este cartão é de {detectedFunding==='debit'?'débito':'crédito'}. O pedido está configurado para {order.card_funding==='debit'?'débito':'crédito'}.{onChoosePaymentMethod&&<button type="button" onClick={onChoosePaymentMethod}>Escolher outro tipo de cartão</button>}</div>}
-        {error&&<p className="pay-inline-error" role="alert">{error}</p>}
-      </div>
+      {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<SecurePaymentCard funding={order.card_funding||null} holder={order.customer_name} onStateChange={syncCardState}/>}
+      {error&&<p className="pay-inline-error" role="alert">{error}</p>}
     </div>:<>
       {completion==='awaiting_pix' && <div className="pay-pix-guidance" role="status" aria-live="polite"><strong>{pixStatus==='processing'?'Aguardando confirmação financeira':'Escaneie o QR Code ou copie o Pix abaixo'}</strong>{pollingError&&<p>Não foi possível consultar o status agora. Evite pagar novamente.</p>}</div>}
       {pixLookupError&&completion==='awaiting_pix'&&<p className="pay-inline-error" role="status">O servidor ainda não retornou um status verificável. O código Pix continua abaixo; não realize outro pagamento.</p>}
@@ -555,6 +579,6 @@ export function StripePayment({order,onChoosePaymentMethod}:{order:PublicBilling
       {error&&<div className="pay-error-actions"><button type="button" className="pay-retry" disabled={busy} onClick={()=>result.type==='success'&&pixElementReady?void pay():window.location.reload()}>Tentar gerar Pix novamente</button>{onChoosePaymentMethod&&<button type="button" className="pay-link-button" onClick={onChoosePaymentMethod}>Escolher outra forma de pagamento</button>}</div>}
     </>}
   </div>;
-  const paymentBlockedReason=cardEligibility==='unsupported_brand'?'Bandeira não aceita':cardEligibility==='funding_mismatch'?'Tipo de cartão incompatível':'';
+  const paymentBlockedReason=cardPayment&&!cardState.complete?'Preencha os dados do cartão':'';
   return <PaymentPageView order={order} paymentSlot={slot} onPay={()=>void pay()} onRefresh={()=>window.location.reload()} busy={busy||result.type!=='success'||completion==='awaiting_pix'} payLabel={completion==='awaiting_pix'?'Aguardando pagamento Pix…':undefined} paymentBlockedReason={paymentBlockedReason}/>;
 }

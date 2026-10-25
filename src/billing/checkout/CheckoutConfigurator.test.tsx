@@ -63,7 +63,10 @@ describe('CheckoutConfigurator', () => {
     expect(screen.getByRole('radio', { name: 'Cartão' })).not.toBeChecked();
     expect(screen.queryByRole('radiogroup', { name: 'Tipo do cartão' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: 'Cartão' }));
-    expect(screen.getByRole('radiogroup', { name: 'Tipo do cartão' })).toBeInTheDocument();
+    const funding=screen.getByRole('radiogroup', { name: 'Tipo do cartão' });
+    expect(funding).toBeInTheDocument();
+    expect(funding).toHaveClass('checkout-card-funding-compact');
+    expect(funding.querySelectorAll('small')).toHaveLength(0);
     expect(screen.getByRole('radio', { name: 'Cartão de crédito' })).not.toBeChecked();
     expect(screen.getByRole('radio', { name: 'Cartão de débito' })).not.toBeChecked();
     expect(screen.getByText('Escolha crédito ou débito para continuar.')).toBeInTheDocument();
