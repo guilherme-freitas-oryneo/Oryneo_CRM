@@ -77,9 +77,6 @@
 .pay-pix-brand{display:block;width:62px;height:24px;object-fit:contain}
 .pay-method-badge-pix .pay-method-mark{width:72px}
 .pay-boleto-brand{display:block;width:48px;height:20px;object-fit:contain}
-.pay-card-field-error{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:9px;color:#963c33;font-size:12px;line-height:1.45}
-.pay-card-field-error button{flex:none;padding:0;border:0;background:transparent;color:#85362f;font:700 12px Inter,Arial,sans-serif;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
-
 .pay-card-entry{display:block;min-width:0}
 .pay-card-stage{width:min(420px,100%);min-width:0;display:grid;justify-items:stretch;margin:0 auto;perspective:1200px}
 .pay-visual-card{width:100%;aspect-ratio:1.586;border-radius:17px;background:transparent;box-shadow:0 25px 56px rgba(15,17,21,.2);perspective:1100px;animation:pay-card-enter .55s cubic-bezier(.2,.75,.25,1) both}
@@ -97,23 +94,27 @@
 .pay-visual-card-chip{width:34px;height:25px;border:1px solid #d8bb78;border-radius:4px;background:linear-gradient(135deg,#ead59b,#b99750);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
 .pay-visual-card-top img{display:block;width:auto;max-width:54px;height:24px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
 .pay-visual-card-brand{animation:pay-card-brand-in .22s ease-out both}
-.pay-card-secure-number{position:relative;z-index:1;display:grid;gap:7px;margin:auto 0 23px;cursor:text}
-.pay-card-secure-number>small,.pay-card-secure-expiry>small{color:#aeb5c2;font-size:8px;letter-spacing:.14em}
-.pay-card-secure-number>span{display:block;min-height:25px;padding-bottom:3px;border-bottom:1px solid rgba(255,255,255,.26)}
+.pay-card-preview-number{position:relative;z-index:1;display:grid;gap:7px;margin:auto 0 23px}
+.pay-card-preview-number>small,.pay-card-preview-expiry>small{color:#aeb5c2;font-size:8px;letter-spacing:.14em}
+.pay-card-preview-number>strong{color:#f7f8fb;font:600 clamp(15px,4.8vw,20px) ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.075em;white-space:nowrap}
 .pay-visual-card-bottom span{display:grid;min-width:0;gap:3px}.pay-visual-card-bottom span:first-child{max-width:72%}.pay-visual-card-bottom span:last-child{text-align:right}
 .pay-visual-card-bottom small{color:#aeb5c2;font-size:8px;letter-spacing:.14em}.pay-visual-card-bottom b{overflow:hidden;font-size:11px;letter-spacing:.06em;text-overflow:ellipsis;text-transform:uppercase;white-space:nowrap}
-.pay-card-secure-expiry{display:grid;width:78px;min-width:78px;gap:5px;text-align:right;cursor:text}
-.pay-card-secure-expiry>span{display:block;min-height:18px}
+.pay-card-preview-expiry{display:grid;width:78px;min-width:78px;gap:5px;text-align:right}
 .pay-visual-card-stripe{height:44px;margin:10px -27px 0;background:#050609}
 .pay-visual-card-signature{display:grid;grid-template-columns:1fr 72px;align-items:center;gap:12px;height:39px;margin-top:20px;padding:0 12px;background:#eef0f3;color:#343a44;font-size:9px;letter-spacing:.08em;cursor:text}
-.pay-visual-card-signature i{font-style:normal}.pay-visual-card-signature>span{min-width:0;padding-left:10px;border-left:1px solid #c6cad1}
+.pay-visual-card-signature i{font-style:normal}.pay-visual-card-signature>b{min-width:0;padding-left:10px;border-left:1px solid #c6cad1;font:650 14px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em}
 .pay-card-return{align-self:flex-end;margin-top:13px;padding:3px 0;border:0;border-bottom:1px solid rgba(255,255,255,.45);border-radius:0;background:transparent;color:#d9dde5;font:600 10px Inter,Arial,sans-serif;cursor:pointer}
 .pay-card-return:focus-visible{outline:2px solid #fff;outline-offset:3px}
 .pay-visual-card-back-copy{margin-top:auto;color:#aeb5c2;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
-.pay-card-postal{display:grid;grid-template-columns:1fr 138px;align-items:center;gap:18px;width:100%;margin-top:20px;padding:11px 0;border-top:1px solid #dfe3e8;border-bottom:1px solid #dfe3e8;color:#3c4450;font-size:12px;font-weight:700}
-.pay-card-postal input{min-width:0;height:36px;padding:0;border:0;border-bottom:1px solid #c9ced7;border-radius:0;background:transparent;color:#20242b;font:14px Inter,Arial,sans-serif;text-align:right}
-.pay-card-postal input:focus{border-color:var(--oryneo-indigo);outline:0;box-shadow:0 1px 0 var(--oryneo-indigo)}
-.pay-card-stage>.pay-card-field-error{margin:8px 0 0}
+.pay-card-fields{display:grid;gap:15px;width:100%;margin-top:27px}
+.pay-card-input-row{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.pay-card-input{display:grid;gap:7px;min-width:0;color:#3c4450;font-size:12px;font-weight:700}
+.pay-card-input>i{display:block;min-width:0;min-height:48px;padding:14px 13px 12px;border:1px solid #cfd4dc;border-radius:3px;background:#fff;font-style:normal;transition:border-color .15s ease,box-shadow .15s ease}
+.pay-card-input>i:focus-within{border-color:var(--oryneo-indigo);box-shadow:0 0 0 2px rgba(67,87,232,.12)}
+.pay-card-input>small{margin-top:-2px;color:#963c33;font-size:11px;font-weight:500;line-height:1.4}
+.pay-card-postal{display:grid;gap:7px;width:100%;color:#3c4450;font-size:12px;font-weight:700}
+.pay-card-postal input{min-width:0;height:48px;padding:0 13px;border:1px solid #cfd4dc;border-radius:3px;background:#fff;color:#20242b;font:16px Inter,Arial,sans-serif}
+.pay-card-postal input:focus{border-color:var(--oryneo-indigo);outline:0;box-shadow:0 0 0 2px rgba(67,87,232,.12)}
 @keyframes pay-card-enter{from{opacity:0;transform:translateY(8px) rotateX(5deg) rotateY(-7deg)}to{opacity:1;transform:none}}
 @keyframes pay-card-recognized{0%,100%{transform:rotateY(0)}45%{transform:rotateY(-5deg) rotateX(2deg)}}
 @keyframes pay-card-error{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px) rotateZ(-.5deg)}50%{transform:translateX(3px) rotateZ(.4deg)}75%{transform:translateX(-2px)}}
@@ -187,8 +188,7 @@
   .pay-method-mark{width:46px}.pay-method-badge-pix .pay-method-mark{width:66px}.pay-pix-brand{width:56px}
   .pay-order-reference{font-size:11px}.pay-intro h1{font-size:26px}
   .pay-field-row{grid-template-columns:1fr}.pay-element-head small{display:none}
-  .pay-card-field-error{flex-direction:column}
-  .pay-card-stage{width:min(100%,360px)}.pay-visual-card-face{padding:21px}.pay-card-secure-number{margin-bottom:17px}.pay-visual-card-stripe{margin-inline:-21px}.pay-visual-card-signature{grid-template-columns:1fr 66px;margin-top:16px}.pay-card-return{margin-top:9px}.pay-visual-card-back-copy{font-size:8px}
+  .pay-card-stage{width:min(100%,360px)}.pay-visual-card-face{padding:21px}.pay-card-preview-number{margin-bottom:17px}.pay-card-preview-number>strong{font-size:clamp(13px,4.6vw,17px)}.pay-visual-card-stripe{margin-inline:-21px}.pay-visual-card-signature{grid-template-columns:1fr 66px;margin-top:16px}.pay-card-return{margin-top:9px}.pay-visual-card-back-copy{font-size:8px}.pay-card-input-row{grid-template-columns:1fr 1fr;gap:10px}.pay-card-input>i{padding-inline:10px}
   .pay-pix-generated{padding:2px 0 0}.pay-pix-copy-row{flex-direction:column}.pay-pix-copy-row button{width:100%}
   .funding-shell{width:calc(100% - 32px);padding-block:28px}.funding-picker{padding:24px 0 0}.funding-intro h1{font-size:27px}
   .funding-total strong{font-size:24px}.funding-picker fieldset>label{grid-template-columns:18px 58px 1fr;padding:12px 0;gap:10px}.funding-art{width:58px}.funding-art img{max-width:56px}.funding-card-types{padding-left:12px}

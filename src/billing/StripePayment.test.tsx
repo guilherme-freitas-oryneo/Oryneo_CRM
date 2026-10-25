@@ -9,19 +9,20 @@ const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
   createPaymentMethod: vi.fn(),
   cardNumberElement: {focus: vi.fn()},
-  cvcElement: {focus: vi.fn()},
 }));
 
 vi.mock('../data', () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
 vi.mock('@stripe/stripe-js',()=>({loadStripe:vi.fn(()=>Promise.resolve({}))}));
 vi.mock('@stripe/react-stripe-js', async () => {
   const React = await import('react');
-  const field = (label:string, type:'number'|'expiry'|'cvc') => ({onChange,onReady}: {
+  const field = (label:string, type:'number'|'expiry'|'cvc') => ({onChange,onReady,onFocus,onBlur}: {
     onChange?:(event:{complete:boolean;empty:boolean;brand?:string;error?:{message:string}})=>void;
     onReady?:(element:unknown)=>void;
+    onFocus?:()=>void;
+    onBlur?:()=>void;
   }) => {
-    React.useEffect(()=>{onReady?.(type==='cvc'?mocks.cvcElement:mocks.cardNumberElement)},[onReady]);
-    return <button type="button" onClick={()=>onChange?.({complete:true,empty:false,...(type==='number'?{brand:'visa'}:{})})}>{label}</button>;
+    React.useEffect(()=>{onReady?.(mocks.cardNumberElement)},[onReady]);
+    return <button type="button" onFocus={onFocus} onBlur={onBlur} onClick={()=>onChange?.({complete:true,empty:false,...(type==='number'?{brand:'visa'}:{})})}>{label}</button>;
   };
   return {
     Elements: ({children}:{children:React.ReactNode}) => children,
@@ -172,23 +173,29 @@ describe('StripePayment', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível concluir com este cartão. Confira os dados ou escolha outra forma de pagamento.');
   });
 
-  it('mantém os campos Stripe dentro do cartão, identifica a bandeira e vira para o CVC após número e validade válidos', async () => {
+  it('mantém os campos Stripe abaixo do cartão, atualiza a prévia protegida e vira ao entrar no CVC', async () => {
     const confirm = vi.fn();
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
     const {container}=render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
     const user = userEvent.setup();
     const card=container.querySelector('.pay-visual-card');
     expect(card).not.toHaveClass('is-flipped');
-    expect(screen.getByText('Simular número válido').closest('.pay-visual-card-front')).not.toBeNull();
-    expect(screen.getByText('Simular validade válida').closest('.pay-visual-card-front')).not.toBeNull();
-    expect(screen.getByText('Simular CVC válido').closest('.pay-visual-card-back')).not.toBeNull();
+    expect(screen.getByText('Simular número válido').closest('.pay-visual-card')).toBeNull();
+    expect(screen.getByText('Simular validade válida').closest('.pay-visual-card')).toBeNull();
+    expect(screen.getByText('Simular CVC válido').closest('.pay-visual-card')).toBeNull();
+    expect(card).toHaveTextContent('0000 0000 0000 0000');
+    expect(card).toHaveTextContent('MM / AA');
 
     await user.click(screen.getByText('Simular número válido'));
     expect(card).not.toHaveClass('is-flipped');
     expect(container.querySelector('.pay-visual-card-front img')).toHaveAttribute('src',paymentAsset.visa);
+    expect(card).toHaveTextContent('•••• •••• •••• ••••');
     await user.click(screen.getByText('Simular validade válida'));
+    expect(card).not.toHaveClass('is-flipped');
+    expect(card).toHaveTextContent('•• / ••');
+    await user.click(screen.getByText('Simular CVC válido'));
     await waitFor(()=>expect(card).toHaveClass('is-flipped'));
-    await waitFor(()=>expect(mocks.cvcElement.focus).toHaveBeenCalledTimes(1));
+    expect(card).toHaveTextContent('•••');
     expect(screen.getByRole('button',{name:'Corrigir número ou validade'})).toBeInTheDocument();
   });
 

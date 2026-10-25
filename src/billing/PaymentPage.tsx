@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { Barcode, CreditCard, QrCode, ShieldCheck } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
-import type { StripeCardCvcElement, StripeCardNumberElement, StripeCardNumberElementChangeEvent } from '@stripe/stripe-js';
+import type { StripeCardNumberElement, StripeCardNumberElementChangeEvent } from '@stripe/stripe-js';
 import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
 import { CheckoutElementsProvider, PaymentElement, useCheckoutElements } from '@stripe/react-stripe-js/checkout';
 import { supabase } from '../data';
@@ -387,17 +387,17 @@ type CardEligibility = 'checking'|'accepted'|'unsupported_brand';
 type SecureCardState = Readonly<{complete:boolean;brand:'visa'|'mastercard'|null;eligibility:CardEligibility;postalCode:string;fieldError:string}>;
 
 const cardNumberOptions={
-  showIcon:false,
+  showIcon:true,
   placeholder:'0000 0000 0000 0000',
-  style:{base:{color:'#fff',fontFamily:'Inter, Arial, sans-serif',fontSize:'19px',fontWeight:'600','::placeholder':{color:'rgba(255,255,255,.46)'}},invalid:{color:'#ffd4cf'}},
+  style:{base:{color:'#20242b',fontFamily:'Inter, Arial, sans-serif',fontSize:'16px',fontWeight:'500','::placeholder':{color:'#9299a4'}},invalid:{color:'#9b3028'}},
 } as const;
 const cardExpiryOptions={
   placeholder:'MM / AA',
-  style:{base:{color:'#fff',fontFamily:'Inter, Arial, sans-serif',fontSize:'13px',fontWeight:'650','::placeholder':{color:'rgba(255,255,255,.48)'}},invalid:{color:'#ffd4cf'}},
+  style:{base:{color:'#20242b',fontFamily:'Inter, Arial, sans-serif',fontSize:'16px',fontWeight:'500','::placeholder':{color:'#9299a4'}},invalid:{color:'#9b3028'}},
 } as const;
 const cardCvcOptions={
-  placeholder:'CVC',
-  style:{base:{color:'#20242b',fontFamily:'ui-monospace, SFMono-Regular, Consolas, monospace',fontSize:'15px',fontWeight:'650','::placeholder':{color:'#7b828d'}},invalid:{color:'#9b3028'}},
+  placeholder:'123',
+  style:{base:{color:'#20242b',fontFamily:'Inter, Arial, sans-serif',fontSize:'16px',fontWeight:'500','::placeholder':{color:'#9299a4'}},invalid:{color:'#9b3028'}},
 } as const;
 
 function SecurePaymentCard({funding,holder,onStateChange}:{funding:'credit'|'debit'|null;holder:string;onStateChange:(state:SecureCardState)=>void}){
@@ -405,6 +405,9 @@ function SecurePaymentCard({funding,holder,onStateChange}:{funding:'credit'|'deb
   const [numberComplete,setNumberComplete]=useState(false);
   const [expiryComplete,setExpiryComplete]=useState(false);
   const [cvcComplete,setCvcComplete]=useState(false);
+  const [numberStarted,setNumberStarted]=useState(false);
+  const [expiryStarted,setExpiryStarted]=useState(false);
+  const [cvcStarted,setCvcStarted]=useState(false);
   const [brand,setBrand]=useState<'visa'|'mastercard'|null>(null);
   const [eligibility,setEligibility]=useState<CardEligibility>('checking');
   const [numberError,setNumberError]=useState('');
@@ -412,22 +415,16 @@ function SecurePaymentCard({funding,holder,onStateChange}:{funding:'credit'|'deb
   const [cvcError,setCvcError]=useState('');
   const [postalCode,setPostalCode]=useState('');
   const numberElement=useRef<StripeCardNumberElement|null>(null);
-  const cvcElement=useRef<StripeCardCvcElement|null>(null);
   const holderName=holder.trim().slice(0,26)||'Titular do cartão';
   const postalComplete=postalCode.length===8;
   const complete=numberComplete&&expiryComplete&&cvcComplete&&postalComplete&&eligibility==='accepted';
   const fieldError=flipped?cvcError:numberError||expiryError;
 
   useEffect(()=>{onStateChange({complete,brand,eligibility,postalCode,fieldError})},[complete,brand,eligibility,postalCode,fieldError,onStateChange]);
-  useEffect(()=>{
-    if(!numberComplete||!expiryComplete){setFlipped(false);return}
-    setFlipped(true);
-    const frame=requestAnimationFrame(()=>cvcElement.current?.focus());
-    return()=>cancelAnimationFrame(frame);
-  },[numberComplete,expiryComplete]);
 
   const onNumberChange=(event:StripeCardNumberElementChangeEvent)=>{
     setNumberComplete(event.complete);
+    setNumberStarted(!event.empty);
     const accepted=event.brand==='visa'||event.brand==='mastercard'?event.brand:null;
     setBrand(accepted);
     setEligibility(event.empty?'checking':accepted?'accepted':event.brand&&event.brand!=='unknown'?'unsupported_brand':'checking');
@@ -440,20 +437,25 @@ function SecurePaymentCard({funding,holder,onStateChange}:{funding:'credit'|'deb
       <div className="pay-visual-card-inner">
         <div className="pay-visual-card-face pay-visual-card-front" aria-hidden={flipped} inert={flipped}>
           <div className="pay-visual-card-top"><span className="pay-visual-card-chip"/>{brand?<img key={brand} className="pay-visual-card-brand" src={paymentAsset[brand]} alt=""/>:<small>CARTÃO</small>}</div>
-          <label className="pay-card-secure-number"><small>NÚMERO DO CARTÃO</small><span><CardNumberElement options={cardNumberOptions} onReady={element=>{numberElement.current=element}} onChange={onNumberChange}/></span></label>
-          <div className="pay-visual-card-bottom"><span><small>TITULAR</small><b>{holderName}</b></span><label className="pay-card-secure-expiry"><small>VALIDADE</small><span><CardExpiryElement options={cardExpiryOptions} onChange={event=>{setExpiryComplete(event.complete);setExpiryError(event.error?.message||'')}}/></span></label></div>
+          <div className="pay-card-preview-number"><small>NÚMERO DO CARTÃO</small><strong>{numberStarted?'•••• •••• •••• ••••':'0000 0000 0000 0000'}</strong></div>
+          <div className="pay-visual-card-bottom"><span><small>TITULAR</small><b>{holderName}</b></span><span className="pay-card-preview-expiry"><small>VALIDADE</small><b>{expiryStarted?'•• / ••':'MM / AA'}</b></span></div>
         </div>
         <div className="pay-visual-card-face pay-visual-card-back" aria-hidden={!flipped} inert={!flipped}>
           <span className="pay-visual-card-stripe"/>
-          <label className="pay-visual-card-signature"><i>CÓDIGO DE SEGURANÇA</i><span><CardCvcElement options={cardCvcOptions} onReady={element=>{cvcElement.current=element}} onChange={event=>{setCvcComplete(event.complete);setCvcError(event.error?.message||'')}}/></span></label>
+          <span className="pay-visual-card-signature"><i>CÓDIGO DE SEGURANÇA</i><b>{cvcStarted?'•••':'CVC'}</b></span>
           <button type="button" className="pay-card-return" onClick={returnToFront}>Corrigir número ou validade</button>
           <span className="pay-visual-card-back-copy">Processamento seguro pela Stripe</span>
         </div>
       </div>
     </div>
-    <label className="pay-card-postal">CEP da cobrança<input aria-label="CEP da cobrança" inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={postalCode.replace(/(\d{5})(\d{1,3})/,'$1-$2')} onChange={event=>setPostalCode(event.target.value.replace(/\D/g,'').slice(0,8))}/></label>
-    {fieldError&&<p className="pay-card-field-error" role="alert">{fieldError}</p>}
-    {eligibility==='unsupported_brand'&&<p className="pay-card-field-error" role="alert">Bandeira não aceita. Use Visa ou Mastercard.</p>}
+    <div className="pay-card-fields">
+      <label className="pay-card-input pay-card-input-number"><span>Número do cartão</span><i><CardNumberElement options={cardNumberOptions} onReady={element=>{numberElement.current=element}} onFocus={()=>setFlipped(false)} onChange={onNumberChange}/></i>{numberError&&<small role="alert">{numberError}</small>}{eligibility==='unsupported_brand'&&<small role="alert">Bandeira não aceita. Use Visa ou Mastercard.</small>}</label>
+      <div className="pay-card-input-row">
+        <label className="pay-card-input"><span>Validade</span><i><CardExpiryElement options={cardExpiryOptions} onFocus={()=>setFlipped(false)} onChange={event=>{setExpiryComplete(event.complete);setExpiryStarted(!event.empty);setExpiryError(event.error?.message||'')}}/></i>{expiryError&&<small role="alert">{expiryError}</small>}</label>
+        <label className="pay-card-input"><span>Código de segurança</span><i><CardCvcElement options={cardCvcOptions} onFocus={()=>setFlipped(true)} onChange={event=>{setCvcComplete(event.complete);setCvcStarted(!event.empty);setCvcError(event.error?.message||'')}}/></i>{cvcError&&<small role="alert">{cvcError}</small>}</label>
+      </div>
+      <label className="pay-card-postal">CEP da cobrança<input aria-label="CEP da cobrança" inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={postalCode.replace(/(\d{5})(\d{1,3})/,'$1-$2')} onFocus={()=>setFlipped(false)} onChange={event=>setPostalCode(event.target.value.replace(/\D/g,'').slice(0,8))}/></label>
+    </div>
   </div>;
 }
 
