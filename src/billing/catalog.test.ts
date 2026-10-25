@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BILLING_PRICE_SPECS,
+  buildBillingQuote,
   buildBillingSelection,
   resolveBillingPrices,
   resolveStripeBillingPrices,
@@ -20,6 +21,12 @@ const resolvedPrices = (livemode = false) => Object.fromEntries(
 );
 
 describe('buildBillingSelection', () => {
+  it('expõe o limite de usuários da seleção comercial versionada', () => {
+    expect(buildBillingQuote({ plan: 'Start', cycle: 'monthly', addons: [] }).userLimit).toBe(5);
+    expect(buildBillingQuote({ plan: 'Growth', cycle: 'monthly', addons: [] }).userLimit).toBe(10);
+    expect(buildBillingQuote({ plan: 'Scale', cycle: 'annual', addons: [] }).userLimit).toBe(20);
+  });
+
   it('mantém assinatura mensal, implantação e landing como itens distintos', () => {
     const result = buildBillingSelection({ plan: 'Growth', cycle: 'monthly', addons: ['landing-page'] }, resolvedPrices());
     expect(result.amountTotal).toBe(337_970);

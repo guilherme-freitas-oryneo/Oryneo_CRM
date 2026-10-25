@@ -22,8 +22,9 @@ type Props = {
   status?: string;
   items: OrderSummaryItem[];
   totalCents: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod | null;
   recurring?: OrderSummaryRecurring | null;
+  settled?: boolean;
 };
 
 const money = (cents: number) => new Intl.NumberFormat('pt-BR', {
@@ -34,14 +35,16 @@ const shortDate = (value?: string | null) => value
   ? new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
   : null;
 
-export function OrderSummary({ company, heading, reference, status, items, totalCents, paymentMethod, recurring }: Props) {
+export function OrderSummary({ company, heading, reference, status, items, totalCents, paymentMethod, recurring, settled = false }: Props) {
   const traffic = items.find(item => item.key === 'traffic');
   const nextCharge = shortDate(recurring?.next_charge_at);
   const recurringLabel = paymentMethod === 'pix'
     ? 'Novo Pix necessário por período'
     : paymentMethod === 'boleto'
       ? 'Novo boleto enviado por período'
-      : 'Cartão cobrado automaticamente';
+      : paymentMethod === 'card'
+        ? 'Cartão cobrado automaticamente'
+        : 'Forma de pagamento a definir';
 
   return <aside className="order-summary" aria-label="Resumo do pedido">
     <header className="order-summary-header">
@@ -60,7 +63,7 @@ export function OrderSummary({ company, heading, reference, status, items, total
       </div>)}
     </dl>
 
-    <div className="order-summary-total"><span>Total de hoje</span><strong>{money(totalCents)}</strong></div>
+    <div className="order-summary-total"><span>{settled?'Total pago':'Total de hoje'}</span><strong>{money(totalCents)}</strong></div>
 
     {recurring && <section className="order-summary-recurring" aria-label="Próximos pagamentos">
       <h3>Próximos pagamentos</h3>
@@ -69,7 +72,9 @@ export function OrderSummary({ company, heading, reference, status, items, total
         ? <p>Nada será debitado automaticamente.</p>
         : paymentMethod === 'boleto'
           ? <p>Cada boleto exige pagamento manual.</p>
-          : <p>{nextCharge ? `Próxima cobrança em ${nextCharge}.` : 'Conforme o período contratado.'}</p>}
+          : paymentMethod === 'card'
+            ? <p>{nextCharge ? `Próxima cobrança em ${nextCharge}.` : 'Conforme o período contratado.'}</p>
+            : <p>Escolha a forma de pagamento para continuar.</p>}
     </section>}
 
     {traffic && <section className="order-summary-traffic" aria-label="Renovação de gestão de tráfego">

@@ -43,16 +43,19 @@ export const BILLING_PRICE_SPECS: readonly BillingPriceSpec[] = [
 
 const plans = {
   Start: {
+    users: 5,
     monthly: { amount: 74_990, lookupKey: 'oryneo_start_monthly' },
     annual: { amount: 809_892, lookupKey: 'oryneo_start_annual' },
     setup: { amount: 98_990, lookupKey: 'oryneo_start_setup' },
   },
   Growth: {
+    users: 10,
     monthly: { amount: 109_990, lookupKey: 'oryneo_growth_monthly' },
     annual: { amount: 1_187_892, lookupKey: 'oryneo_growth_annual' },
     setup: { amount: 138_990, lookupKey: 'oryneo_growth_setup' },
   },
   Scale: {
+    users: 20,
     monthly: { amount: 147_990, lookupKey: 'oryneo_scale_monthly' },
     annual: { amount: 1_598_292, lookupKey: 'oryneo_scale_annual' },
     setup: { amount: 184_990, lookupKey: 'oryneo_scale_setup' },
@@ -155,6 +158,7 @@ export function buildBillingQuote(input: Selection) {
     catalogVersion: '2026-10-13',
     plan: planName,
     cycle,
+    userLimit: plan.users,
     items,
     amountTotal: items.reduce((total, item) => total + item.amountCents, 0),
     trafficRenewalLookupKey: uniqueAddons.includes('traffic') ? addons.traffic.renewalLookupKey : null,

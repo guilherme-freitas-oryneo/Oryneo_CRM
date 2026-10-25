@@ -42,6 +42,7 @@ export function ProposalAction({dealId,canPrepare,onPrepareBilling}:{
  const [issuing,setIssuing]=useState(false);
  const [link,setLink]=useState<ProposalLink|null>(()=>readSessionProposalLink(dealId));
  const [copied,setCopied]=useState(false);
+ const [emailState,setEmailState]=useState<'sent'|'review'|null>(null);
  const [error,setError]=useState('');
  const refresh=useCallback(async()=>{
   setLoading(true);setError('');
@@ -62,7 +63,7 @@ export function ProposalAction({dealId,canPrepare,onPrepareBilling}:{
  useEffect(()=>{setLink(readSessionProposalLink(dealId));void refresh()},[dealId,refresh]);
  const issue=async()=>{
   if(issuing)return;
-  setIssuing(true);setError('');setCopied(false);
+  setIssuing(true);setError('');setCopied(false);setEmailState(null);
   try{
    const {data,error:invokeError}=await supabase.functions.invoke('proposal-create',{body:{deal_id:dealId}});
    if(invokeError)throw invokeError;
@@ -71,6 +72,7 @@ export function ProposalAction({dealId,canPrepare,onPrepareBilling}:{
    if(!safeProposalLink(issued))throw new Error('A proposta foi emitida, mas o endereço retornado é inválido. Não reemita antes de conferir o registro.');
    storeSessionProposalLink(dealId,issued);
    setLink(issued);setStatus('sent');setVersion(data.version);
+   setEmailState(data.email_sent===true?'sent':'review');
   }catch(e){setError(await billingErrorText(e))}
   finally{setIssuing(false)}
  };
@@ -84,7 +86,7 @@ export function ProposalAction({dealId,canPrepare,onPrepareBilling}:{
    <p role="status">{loading?'Conferindo aceite…':status==='accepted'
     ?`Versão ${version} aceita pelo cliente.`
     :status==='sent'?`Versão ${version} aguardando aceite do cliente.`
-    :status?'A proposta anterior não está mais válida.':'Ainda não existe proposta individual enviada.'}</p>
+    :status?'A proposta anterior não está mais válida.':'Ainda não existe proposta individual enviada.'}{emailState==='sent'?<><br/>Proposta enviada por e-mail.</>:null}</p>
   </div>
   <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
    <button className="cd-primary" type="button" disabled={issuing||!canPrepare} onClick={()=>void issue()}>
@@ -105,5 +107,6 @@ export function ProposalAction({dealId,canPrepare,onPrepareBilling}:{
    ? <BillingAction canPrepare={canPrepare} onPrepare={onPrepareBilling}/>
    : <p>O link de pagamento será liberado somente após o aceite desta versão.</p>}
   {error&&<p className="cd-error" role="alert">{error}</p>}
+  {emailState==='review'&&<p className="cd-error" role="alert">A proposta foi criada, mas o envio por e-mail precisa de revisão. Use o mesmo link no WhatsApp.</p>}
  </div>;
 }

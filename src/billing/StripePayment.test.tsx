@@ -2,20 +2,41 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PaymentPage, StripePayment, type PublicBillingOrder } from './PaymentPage';
+import { paymentAsset } from './checkout/payment-assets';
 
 const mocks = vi.hoisted(() => ({
   checkout: vi.fn(),
   invoke: vi.fn(),
-  cardDetailsOn: vi.fn(),
-  cardDetailsOff: vi.fn(),
+  createPaymentMethod: vi.fn(),
+  cardNumberElement: {focus: vi.fn()},
 }));
 
 vi.mock('../data', () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
 vi.mock('@stripe/stripe-js',()=>({loadStripe:vi.fn(()=>Promise.resolve({}))}));
+vi.mock('@stripe/react-stripe-js', async () => {
+  const React = await import('react');
+  const field = (label:string, type:'number'|'expiry'|'cvc') => ({onChange,onReady,onFocus,onBlur}: {
+    onChange?:(event:{complete:boolean;empty:boolean;brand?:string;error?:{message:string}})=>void;
+    onReady?:(element:unknown)=>void;
+    onFocus?:()=>void;
+    onBlur?:()=>void;
+  }) => {
+    React.useEffect(()=>{onReady?.(mocks.cardNumberElement)},[onReady]);
+    return <button type="button" onFocus={onFocus} onBlur={onBlur} onClick={()=>onChange?.({complete:true,empty:false,...(type==='number'?{brand:'visa'}:{})})}>{label}</button>;
+  };
+  return {
+    Elements: ({children}:{children:React.ReactNode}) => children,
+    useStripe: () => ({createPaymentMethod:mocks.createPaymentMethod}),
+    useElements: () => ({getElement:()=>mocks.cardNumberElement}),
+    CardNumberElement: field('Simular número válido','number'),
+    CardExpiryElement: field('Simular validade válida','expiry'),
+    CardCvcElement: field('Simular CVC válido','cvc'),
+  };
+});
 vi.mock('@stripe/react-stripe-js/checkout', () => ({
   useCheckoutElements: () => mocks.checkout(),
   // The real Stripe Element signals onReady asynchronously, after rendering.
-  PaymentElement: ({onReady}: {onReady?:(element:unknown)=>void}) => <div>Campos Stripe{onReady&&<button type="button" onClick={()=>onReady({on:mocks.cardDetailsOn,off:mocks.cardDetailsOff})}>Simular Stripe pronta</button>}</div>,
+  PaymentElement: ({onReady}: {onReady?:(element:unknown)=>void}) => <div>Campos Stripe{onReady&&<button type="button" onClick={()=>onReady({})}>Simular Stripe pronta</button>}</div>,
   CheckoutElementsProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -33,6 +54,10 @@ const order: PublicBillingOrder = {
 
 async function consentAndPay() {
   const user = userEvent.setup();
+  await user.click(screen.getByText('Simular número válido'));
+  await user.click(screen.getByText('Simular validade válida'));
+  await user.click(screen.getByText('Simular CVC válido'));
+  await user.type(screen.getByLabelText('CEP da cobrança'),'01310930');
   await user.click(screen.getByRole('checkbox'));
   await user.click(screen.getByRole('button', { name: /Pagar R\$\s*1\.739,80 agora/ }));
 }
@@ -42,6 +67,7 @@ describe('StripePayment', () => {
     vi.resetAllMocks();
     window.history.replaceState({}, '', '/pagar/?token=token-de-teste');
     mocks.invoke.mockResolvedValue({data:{ok:true},error:null});
+    mocks.createPaymentMethod.mockResolvedValue({paymentMethod:{id:'pm_card_seguro'}});
   });
 
   it('abre o Pix após o aceite anterior, sem segundo clique nem novo checkbox',async()=>{
@@ -147,23 +173,46 @@ describe('StripePayment', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível concluir com este cartão. Confira os dados ou escolha outra forma de pagamento.');
   });
 
-  it('identifica Visa pela Stripe e bloqueia bandeira fora de Visa ou Mastercard antes da confirmação', async () => {
+  it('mantém os campos Stripe abaixo do cartão, atualiza a prévia protegida e vira ao entrar no CVC', async () => {
     const confirm = vi.fn();
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm}});
-    render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
-    fireEvent.click(screen.getByRole('button',{name:'Simular Stripe pronta'}));
-    const cardDetailsHandler = mocks.cardDetailsOn.mock.calls.find(([event]) => event === 'carddetailschange')?.[1];
-    expect(cardDetailsHandler).toEqual(expect.any(Function));
-
-    cardDetailsHandler({details:{brands:['visa'],funding:'credit'}});
-    expect(await screen.findByText(/Visa reconhecida/)).toBeInTheDocument();
-
-    cardDetailsHandler({details:{brands:['amex'],funding:'credit'}});
-    expect(await screen.findByRole('alert')).toHaveTextContent('Esta bandeira não é aceita neste checkout. Use Visa ou Mastercard.');
+    const {container}=render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('checkbox'));
-    expect(screen.getByRole('button',{name:/Pagar R\$\s*1\.739,80 agora/})).toBeDisabled();
-    expect(confirm).not.toHaveBeenCalled();
+    const card=container.querySelector('.pay-visual-card');
+    expect(card).not.toHaveClass('is-flipped');
+    expect(screen.getByText('Simular número válido').closest('.pay-visual-card')).toBeNull();
+    expect(screen.getByText('Simular validade válida').closest('.pay-visual-card')).toBeNull();
+    expect(screen.getByText('Simular CVC válido').closest('.pay-visual-card')).toBeNull();
+    expect(card).toHaveTextContent('0000 0000 0000 0000');
+    expect(card).toHaveTextContent('MM / AA');
+
+    await user.click(screen.getByText('Simular número válido'));
+    expect(card).not.toHaveClass('is-flipped');
+    expect(container.querySelector('.pay-visual-card-front img')).toHaveAttribute('src',paymentAsset.visa);
+    expect(card).toHaveTextContent('•••• •••• •••• ••••');
+    await user.click(screen.getByText('Simular validade válida'));
+    expect(card).not.toHaveClass('is-flipped');
+    expect(card).toHaveTextContent('•• / ••');
+    await user.click(screen.getByText('Simular CVC válido'));
+    await waitFor(()=>expect(card).toHaveClass('is-flipped'));
+    expect(card).toHaveTextContent('•••');
+    expect(screen.getByRole('button',{name:'Corrigir número ou validade'})).toBeInTheDocument();
+  });
+
+  it('apresenta um cartão neutro com o titular, sem simular que a ORYNEO é a emissora',()=>{
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm:vi.fn()}});
+    render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
+    const preview=document.querySelector('.pay-visual-card');
+    expect(preview).toHaveTextContent(/Cliente de teste/i);
+    expect(preview).not.toHaveTextContent('ORYNEO');
+  });
+
+  it('cria o PaymentMethod com o campo protegido e entrega apenas o identificador à sessão Checkout',async()=>{
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm:vi.fn()}});
+    render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
+    await consentAndPay();
+    expect(mocks.createPaymentMethod).toHaveBeenCalledWith(expect.objectContaining({type:'card',card:mocks.cardNumberElement}));
+    expect(mocks.checkout().checkout.confirm).toHaveBeenCalledWith({paymentMethod:'pm_card_seguro',billingAddress:{name:'Cliente de teste',address:{country:'BR',postal_code:'01310930'}}});
   });
 });
 
@@ -178,12 +227,14 @@ describe('seleção de crédito/débito no Checkout',()=>{
    .mockResolvedValueOnce({data:{ok:true,recorded:true},error:null})
    .mockResolvedValueOnce({data:{ok:true,client_secret:'cs_test_secret',publishable_key:'pk_test_key'},error:null});
   render(<PaymentPage/>);
-  await user.click(await screen.findByRole('radio',{name:/Cartão de débito/}));
+  await user.click(await screen.findByRole('radio',{name:'Cartão'}));
+  expect(screen.getByRole('radiogroup',{name:'Tipo do cartão'}).querySelectorAll('small')).toHaveLength(0);
+  await user.click(screen.getByRole('radio',{name:'Cartão de débito'}));
   await user.click(screen.getByRole('checkbox',{name:/Li e aceito as condições comerciais/}));
   await user.click(screen.getByRole('button',{name:'Continuar com esta opção'}));
   await waitFor(()=>expect(mocks.invoke).toHaveBeenLastCalledWith('billing-public',{body:{action:'set_checkout_method',token:'token-de-teste',payment_method:'card',card_funding:'debit'}}));
   expect((await screen.findAllByText('Cartão de débito')).length).toBeGreaterThanOrEqual(1);
-  expect(await screen.findByText('Campos Stripe')).toBeInTheDocument();
+  expect(await screen.findByRole('group',{name:/Cartão seguro/})).toBeInTheDocument();
  });
  it('permite escolher faturas Boleto recorrentes sem criar assinatura de cartão',async()=>{
   const user=userEvent.setup();mocks.checkout.mockReturnValue({type:'success',checkout:{confirm:vi.fn()}});

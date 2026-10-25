@@ -1,7 +1,6 @@
 import { createClient } from '../_shared/mail/deps.ts';
 import { safeToDiscardAttempt, safeToRetryOutbox, sendMail, type ComposeInput, type MailSendDependencies } from '../_shared/mail/actions.ts';
 import { SupabaseMailDatabase } from '../_shared/mail/database.ts';
-import { sendFirstContact, type FirstContactActionDependencies } from '../_shared/mail/first-contact.ts';
 import type { MailboxAddress, OutgoingAttachment } from '../_shared/mail/mime.ts';
 import { syncMailbox, type MailCredentials } from '../_shared/mail/sync.ts';
 import { ImapClient, SmtpClient } from '../_shared/mail/transport.ts';
@@ -156,32 +155,6 @@ const sendDependencies: MailSendDependencies = {
   },
 };
 
-const firstContactDependencies: FirstContactActionDependencies = {
-  async loadDeal(dealId) {
-    const { data, error } = await client.from('crm_records').select('id,data').eq('id', dealId).eq('kind', 'deal').eq('deleted', false).maybeSingle();
-    if (error) throw new Error('MAIL_API_INTERNAL');
-    return data ? { id: data.id, data: data.data as Record<string, unknown> } : null;
-  },
-  async loadMailbox(mailboxId) {
-    const { data, error } = await client.from('crm_mailboxes').select('id,address,active').eq('id', mailboxId).maybeSingle();
-    if (error) throw new Error('MAIL_API_INTERNAL');
-    return data ? { id: data.id, address: data.address, active: data.active === true } : null;
-  },
-  send: (userId, input) => sendMail(sendDependencies, userId, input),
-  async record(input) {
-    const { data, error } = await client.rpc('crm_record_first_contact', {
-      p_deal_id: input.dealId,
-      p_idempotency_key: input.idempotencyKey,
-      p_internet_message_id: input.internetMessageId,
-      p_actor: input.actorId,
-    });
-    if (error || !data || typeof data !== 'object') throw new Error('MAIL_API_INTERNAL');
-    const result = data as Record<string, unknown>;
-    if (typeof result.sent_at !== 'string') throw new Error('MAIL_API_INTERNAL');
-    return { sentAt: result.sent_at, alreadyRecorded: result.already_recorded === true };
-  },
-};
-
 async function saveDraft(userId: string, body: Record<string, unknown>): Promise<unknown> {
   validateDraftBody(body);
   const values = {
@@ -272,15 +245,6 @@ async function syncNow(): Promise<unknown> {
 
 async function execute(userId: string, body: Record<string, unknown>): Promise<unknown> {
   const action = String(body.action);
-  if (action === 'send-first-contact') {
-    if (typeof body.resend !== 'undefined' && typeof body.resend !== 'boolean') throw new Error('INVALID_MESSAGE');
-    return await sendFirstContact(firstContactDependencies, userId, {
-      dealId: requiredString(body.dealId),
-      mailboxId: requiredString(body.mailboxId),
-      idempotencyKey: requiredString(body.idempotencyKey),
-      resend: body.resend === true,
-    });
-  }
   if (action === 'send' || action === 'retry-send') {
     let source = body;
     if (action === 'retry-send' && !body.to) {

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { BoletoPayment, PaymentPage, PaymentPageView, PixPayment, type PublicBillingOrder } from './PaymentPage';
+import { BoletoPayment, CheckoutMethodPicker, PaymentPage, PaymentPageView, PixPayment, type PublicBillingOrder } from './PaymentPage';
 
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('../data', () => ({ supabase: { functions: { invoke } } }));
@@ -54,6 +54,19 @@ describe('Pix apresentado a partir da cobrança já criada na Stripe',()=>{
 });
 
 describe('PaymentPageView', () => {
+  it('começa sem forma de pagamento marcada e trata crédito ou débito como subopção do cartão',async()=>{
+    const user=userEvent.setup();
+    render(<CheckoutMethodPicker order={order} onContinue={vi.fn()} busy={false} error=""/>);
+    expect(screen.getByRole('radio',{name:'Cartão'})).not.toBeChecked();
+    expect(screen.getByRole('radio',{name:'Boleto bancário'})).not.toBeChecked();
+    expect(screen.getByRole('radio',{name:'Pix'})).not.toBeChecked();
+    expect(screen.queryByRole('radio',{name:'Cartão de crédito'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio',{name:'Cartão de débito'})).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio',{name:'Cartão'}));
+    expect(screen.getByRole('radio',{name:'Cartão de crédito'})).not.toBeChecked();
+    expect(screen.getByRole('radio',{name:'Cartão de débito'})).not.toBeChecked();
+    expect(screen.getByRole('button',{name:'Continuar com esta opção'})).toBeDisabled();
+  });
   it('mostra indisponibilidade temporária sem rotular o pagamento como recusado', async () => {
     invoke.mockResolvedValue({ data: null, error: new Error('Edge Function returned a non-2xx status code') });
     window.history.pushState({}, '', '/pagar/?token=' + 't'.repeat(48));
@@ -106,6 +119,14 @@ describe('PaymentPageView', () => {
     expect(screen.queryByRole('link',{name:/Acompanhar implantação/})).not.toBeInTheDocument();
     rerender(<PaymentPageView order={{...order,status:'paid'}} paymentSlot={null} onPay={()=>undefined} portalUrl={url}/>);
     expect(screen.getByRole('link',{name:/Acompanhar implantação/})).toHaveAttribute('href',url);
+  });
+
+  it('substitui instruções de cobrança por confirmação e total pago após a liquidação',()=>{
+    render(<PaymentPageView order={{...order,status:'paid',payment_method:'card',card_funding:'credit'}} paymentSlot={null} onPay={()=>undefined}/>);
+    expect(screen.getByRole('heading',{name:'Pagamento confirmado.'})).toBeInTheDocument();
+    expect(screen.queryByRole('heading',{name:/Pague .* com cartão/})).not.toBeInTheDocument();
+    expect(screen.getByText('Total pago')).toBeInTheDocument();
+    expect(screen.queryByText(/Preencha os dados seguros do cartão/)).not.toBeInTheDocument();
   });
 
   it('permite consultar novamente enquanto o webhook confirma o pagamento', async () => {

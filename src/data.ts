@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 export const supabase = createClient('https://ucikrafwfzamxvweuvgk.supabase.co','sb_publishable_nrZxV0W6d88FuvQKXsTDUg_wtGyRrTi');
 export type Stage = { name:string; color:string; position:number; outcome:'open'|'won'|'lost' };
-export type CompanyProfile={legal_name?:string;trade_name?:string;status?:string;opened_at?:string;capital?:number|null;legal_form?:string;main_activity?:string;main_cnae?:string;email?:string;phone?:string;secondary_phone?:string;address?:{street?:string;number?:string;complement?:string;district?:string;city?:string;state?:string;zip?:string};qsa?:{name:string;qualification?:string;joined_at?:string}[]};
+export type CompanyProfile={legal_name?:string;trade_name?:string;status?:string;status_date?:string;status_reason?:string;opened_at?:string;capital?:number|null;size?:string;legal_form?:string;legal_form_code?:string;branch_type?:string;main_activity?:string;main_cnae?:string;secondary_activities?:{code?:string;description?:string}[];email?:string;phone?:string;secondary_phone?:string;address?:{street_type?:string;street?:string;number?:string;complement?:string;district?:string;city?:string;city_code?:string;state?:string;zip?:string;country?:string};simples?:{enabled?:boolean;since?:string;excluded_at?:string};mei?:{enabled?:boolean;since?:string;excluded_at?:string};tax_regime?:{year?:number|null;label?:string}[];qsa?:{name:string;qualification?:string;joined_at?:string}[]};
 export type Quote={plan:string;cycle:'monthly'|'annual';monthly_cents:number;period_cents:number;setup_cents:number;first_charge_cents:number;users:number;catalog_version:string;addons:{key:string;label:string;billing:string;amount_cents:number;upfront_cents:number}[]};
 export type NextAction={title:string;due_at?:string|null;done:boolean;updated_at?:string};
 export type FirstContactStatus={sent_at:string;internet_message_id:string;idempotency_key:string};
@@ -9,6 +9,7 @@ export type FormSubmission={intent?:string;goals?:string[];primary_goal?:string;
 export type CrmEvent={id:string;deal_id:string;event_type:string;actor_label:string;detail:Record<string,any>;created_at:string};
 export type Deal = { title:string; company:string; contact:string; email:string; phone:string; value_cents:number; stage_id:string; notes:string; source:string; due_date:string;
  company_cnpj?:string|null;company_profile?:CompanyProfile|null;quote?:Quote|null;next_action?:NextAction;first_contact?:FirstContactStatus;
+ checkout_state?:'started'|'payment_pending'|'paid'|'payment_failed'|'expired';
  duplicated_from?:string;
  form_submission?:FormSubmission
 };

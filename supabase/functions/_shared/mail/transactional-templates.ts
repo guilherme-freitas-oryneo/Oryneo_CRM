@@ -5,6 +5,8 @@
  * Dados financeiros reais devem vir do pedido/fatura verificados no servidor.
  * Links de identidade devem vir do Supabase Auth; nunca gerar tokens aqui.
  */
+import type {ProposalPresentation} from '../billing/presentation.ts';
+
 export type TransactionalId =
  | 'confirm_email' | 'reset_password' | 'invite_user' | 'password_changed' | 'email_changed'
  | 'payment_pending' | 'payment_failed' | 'checkout_expired'
@@ -28,6 +30,7 @@ export type TransactionalInput = {
  actionUrl?:string;
  whatsappUrl?:string;
  supportEmail?:string;
+ proposalPresentation?:ProposalPresentation;
 };
 
 export type RenderedTransactionalEmail = {
@@ -56,6 +59,7 @@ const order=(d:TransactionalInput)=>trim(d.orderReference,80)||'—';
 const plan=(d:TransactionalInput)=>trim(d.plan,35)||'ORYNEO';
 const help=(d:TransactionalInput)=>trim(d.supportEmail,120)||'contato@oryneo.com.br';
 const price=(d:TransactionalInput)=>money(d.amountCents);
+const cycle=(d:TransactionalInput)=>d.cycle==='annual'?'Anual':d.cycle==='monthly'?'Mensal':trim(d.cycle,30)||'—';
 const defaultDetails=(d:TransactionalInput)=>[['Empresa',company(d)],['Referência',order(d)]] as Array<[string,string]>;
 
 export const transactionDefinitions:TemplateDefinition[]=[
@@ -226,10 +230,16 @@ export const transactionDefinitions:TemplateDefinition[]=[
  },
  {
   id:'proposal_sent',category:'finance',label:'Proposta comercial enviada',description:'Proposta comercial disponibilizada para revisão',
-  subject:d=> 'Sua proposta ORYNEO está pronta · '+order(d), preheader:'Revise a proposta e fale com a equipe se quiser ajustar algum ponto.',
+  subject:d=> client(d)+', sua proposta ORYNEO está pronta · '+order(d), preheader:'Veja o que está incluído, revise os valores e confira a versão completa.',
   eyebrow:'PROPOSTA COMERCIAL',headline:'Sua proposta está pronta para revisão.',
-  paragraphs:d=>['Olá, '+client(d)+'.','A proposta para '+company(d)+' está disponível para sua conferência.','Use o botão principal para abrir a proposta. Se quiser ajustar algum ponto, fale diretamente com a equipe no WhatsApp.'],
-  details:d=>defaultDetails(d), cta:'Ver proposta', whatsappLabel:'AJUSTAR A PROPOSTA? FALE NO WHATSAPP', footnote:'A proposta válida é sempre a versão apresentada no link seguro fornecido pela ORYNEO.'
+  paragraphs:d=>[
+   'Olá, '+client(d)+'.',
+   'Preparamos esta versão para '+company(d)+'. Abaixo está um resumo concreto do que entra na contratação.',
+   trim(d.proposalPresentation?.primary_goal)?'Prioridade informada: '+trim(d.proposalPresentation?.primary_goal,180):'',
+   'Use o botão principal para conferir a proposta completa. Se quiser ajustar algum ponto, fale diretamente com a equipe no WhatsApp.',
+  ].filter(Boolean),
+  details:d=>[['Empresa',company(d)],['Plano e ciclo',plan(d)+' · '+cycle(d)],['Investimento inicial',price(d)],['Referência',order(d)]],
+  cta:'Ver proposta', whatsappLabel:'AJUSTAR A PROPOSTA? FALE NO WHATSAPP', footnote:'A proposta válida é sempre a versão apresentada no link seguro fornecido pela ORYNEO.'
  },
  {
   id:'payment_link',category:'finance',label:'Link de pagamento',description:'Link seguro de pagamento disponibilizado para revisão',
@@ -269,12 +279,26 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
  const copy=paragraphs.join('\n\n');
  const detailText=details.map(([k,v])=>k+': '+trim(v,240)).join('\n');
  const supportText=hasWhatsapp?'Dúvidas? Use o WhatsApp oficial acima ou escreva para '+help(input):'Dúvidas? Responda este e-mail ou escreva para '+help(input);
- const text=[copy,detailText,hasCta?(def.cta+': '+target):'',hasWhatsapp?(def.whatsappLabel+': '+whatsapp):'',
+ const proposalItems=id==='proposal_sent'&&input.proposalPresentation?.schema==='oryneo.proposal-presentation.v1'
+  ?input.proposalPresentation.items.slice(0,4):[];
+ const proposalText=proposalItems.length?'O que está incluído nesta proposta\n\n'+proposalItems.map(item=>{
+  const bullets=item.bullets.slice(0,4).map(value=>'• '+trim(value,240)).join('\n');
+  return trim(item.title,120)+' — '+trim(item.commercial_detail,180)+'\n'+trim(item.summary,400)+(bullets?'\n'+bullets:'');
+ }).join('\n\n'):'';
+ const text=[copy,proposalText,detailText,hasCta?(def.cta+': '+target):'',hasWhatsapp?(def.whatsappLabel+': '+whatsapp):'',
    def.footnote||'', supportText,'Equipe ORYNEO · Crescimento em sistema.']
    .filter(Boolean).join('\n\n');
  const rows=details.length?'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:28px 0;border-top:1px solid #e6e9ef">'+
   details.map(([key,val])=>'<tr><td style="padding:13px 8px 13px 0;color:#687383;font-size:13px;border-bottom:1px solid #e6e9ef">'+escapeHtml(key)+'</td>'+
      '<td align="right" style="padding:13px 0 13px 8px;color:#0F1115;font-size:13px;font-weight:700;border-bottom:1px solid #e6e9ef">'+escapeHtml(val)+'</td></tr>').join('')+'</table>':'';
+ const proposalHtml=proposalItems.length?'<div style="margin:30px 0 24px"><p style="font-size:11px;line-height:1.4;letter-spacing:1.3px;font-weight:700;color:#4F6BFF;text-transform:uppercase;margin:0 0 14px">O que está incluído nesta proposta</p>'+
+  proposalItems.map(item=>'<table data-proposal-item="true" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;margin:0 0 12px;border:1px solid #e3e7ef;border-radius:10px"><tr><td style="padding:18px 20px">'+
+   '<p style="font-size:10px;line-height:1.4;letter-spacing:1.1px;font-weight:700;color:#667085;margin:0 0 5px">'+escapeHtml(trim(item.eyebrow,80))+'</p>'+
+   '<h2 style="font-size:18px;line-height:1.3;color:#0F1115;margin:0 0 6px">'+escapeHtml(trim(item.title,120))+'</h2>'+
+   '<p style="font-size:12px;line-height:1.5;color:#4357E8;font-weight:700;margin:0 0 10px">'+escapeHtml(trim(item.commercial_detail,180))+'</p>'+
+   '<p style="font-size:13px;line-height:1.65;color:#5f6877;margin:0 0 10px">'+escapeHtml(trim(item.summary,400))+'</p>'+
+   item.bullets.slice(0,4).map(value=>'<p style="font-size:12px;line-height:1.55;color:#344054;margin:5px 0">✓&nbsp; '+escapeHtml(trim(value,240))+'</p>').join('')+
+   '</td></tr></table>').join('')+'</div>':'';
  const action=hasCta?'<table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0"><tr><td style="background:#4357E8;border-radius:8px">'+
   '<a href="'+escapeHtml(target)+'" style="display:inline-block;color:#fff;text-decoration:none;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;padding:15px 24px;border-radius:8px">'+escapeHtml(def.cta)+'</a></td></tr></table>'+
   '<p style="font-size:12px;line-height:1.6;overflow-wrap:anywhere;color:#828b9a;margin:0 0 20px">Se o botão não funcionar, copie este endereço no navegador: '+escapeHtml(target)+'</p>':'';
@@ -292,7 +316,7 @@ export function renderTransactionalEmail(id:TransactionalId,input:TransactionalI
   '<p style="font-size:11px;color:#4357E8;letter-spacing:1.6px;font-weight:bold;margin:0 0 15px">'+escapeHtml(def.eyebrow)+'</p>'+
   '<h1 class="ory-h1" style="font-size:32px;font-weight:700;letter-spacing:-1.2px;line-height:1.18;color:#0F1115;margin:0 0 23px">'+escapeHtml(def.headline)+'</h1>'+
   paragraphs.map(p=>'<p style="font-size:15px;line-height:1.77;color:#6B7280;margin:0 0 17px">'+escapeHtml(p)+'</p>').join('')+
-  rows+action+whatsappAction+
+  proposalHtml+rows+action+whatsappAction+
   (def.footnote?'<p style="padding:15px 17px;border-left:3px solid #4F6BFF;background:#F1F3FF;color:#5d657a;font-size:12px;line-height:1.7;margin:27px 0">'+escapeHtml(def.footnote)+'</p>':'')+
   '<p style="font-size:13px;color:#5d6676;line-height:1.8;margin:30px 0 0">'+(hasWhatsapp?'Dúvidas? Use o WhatsApp oficial acima ou escreva para ':'Dúvidas? Responda este e-mail ou escreva para ')+'<a style="color:#4357E8" href="mailto:'+escapeHtml(help(input))+'">'+escapeHtml(help(input))+'</a>.<br>'+
   '<strong style="color:#0F1115">Equipe ORYNEO</strong></p>'+
