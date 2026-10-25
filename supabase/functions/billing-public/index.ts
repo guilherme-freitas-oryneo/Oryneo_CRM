@@ -9,6 +9,10 @@ import { billingEnvironmentMatchesLivemode, getBillingEnvironmentConfig, parseBi
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
 const origins=new Set(['https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br','http://localhost:4175']);
 const hash=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(v=>v.toString(16).padStart(2,'0')).join('');
+const recordPaymentArtifact=async(orderId:string,kind:'pix_ready'|'boleto_issued',providerId:string)=>{
+ const {error}=await db.rpc('crm_record_payment_artifact',{p_order_id:orderId,p_kind:kind,p_provider_id:providerId});
+ if(error)console.error('billing artifact timeline failed',{kind,code:error.code});
+};
 Deno.serve(async req=>{
  const origin=req.headers.get('origin')||'';const headers:Record<string,string>={'Content-Type':'application/json','Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store','Vary':'Origin'};if(origins.has(origin))headers['Access-Control-Allow-Origin']=origin;
  const respond=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
@@ -100,6 +104,7 @@ Deno.serve(async req=>{
    try{
     const invoiceUrl=await finalizeStripeBoletoInvoice(identities.invoiceId,identities.customerId,identities.subscriptionId,selection,context,config);
     if(!invoiceUrl)return respond({error:'A fatura não ficou disponível. Tente novamente para concluir a emissão.'},503);
+    await recordPaymentArtifact(order.id,'boleto_issued',identities.invoiceId);
     return respond({ok:true,payment_method:'boleto',invoice_url:invoiceUrl});
    }catch(error){console.error('boleto invoice finalization failed',{code:error instanceof Error?error.message:'unknown'});return respond({error:'A assinatura existe, mas a fatura precisa de conciliação antes do envio.'},503)}
   }
@@ -143,6 +148,7 @@ Deno.serve(async req=>{
     if(invoice.id!==order.stripe_invoice_id)return respond({error:'Referência de fatura divergente.'},503);
     const view=boletoInvoiceView(order,invoice);
     invoiceUrl=view.invoiceUrl;
+    if(invoiceUrl)await recordPaymentArtifact(order.id,'boleto_issued',order.stripe_invoice_id);
     snapshot={status:view.status,clientSecret:null};
    }catch(error){
     console.error('billing-public boleto invoice validation failed',{code:error instanceof Error?error.message:'unknown'});
@@ -174,6 +180,7 @@ Deno.serve(async req=>{
  // Stripe may already have generated the Pix QR when the Checkout Session opened.
  // Read the existing PaymentIntent; never confirm it or issue another charge here.
  const pixSession=pixSessionBox.value as Record<string,any>|null;
+ let pixProviderId:string|null=null;
  if(paymentMethod==='pix'&&status==='awaiting_payment'&&pixSession?.payment_intent){
   try{
    const session=pixSession;
@@ -184,11 +191,13 @@ Deno.serve(async req=>{
    if(!intentResponse.ok)throw new Error('PIX_INTENT_UNAVAILABLE');
    const intent=await intentResponse.json();
    pix=verifiedPixPresentation({id:order.id,amount_total:order.amount_total},session,intent,config.livemode);
+   if(pix?.status==='ready')pixProviderId=intent.id;
   }catch(error){
    console.error('billing-public pix presentation unavailable',{code:error instanceof Error?error.message:'unknown'});
    return respond({error:'Não foi possível consultar o código Pix existente. Atualize a página, sem gerar outra cobrança.'},503);
   }
  }
+ if(pixProviderId)await recordPaymentArtifact(order.id,'pix_ready',pixProviderId);
  const selection=order.selection as {plan:string;cycle:string};
  return respond({order:{reference:order.reference,company:order.company,customer_name:order.customer_name,status,payment_method:paymentMethod,card_funding:order.selection?.card_funding||null,currency:'brl',amount_total:order.amount_total,items:order.items,recurring:{label:`Plano ${selection.plan}`,amount_cents:(order.items as any[])[0]?.amount_cents||0,interval_label:selection.cycle==='annual'?'por ano':'por mês',next_charge_at:null},expires_at:order.expires_at,test_mode:environment==='test'},client_secret:clientSecret,publishable_key:config.publishableKey,invoice_url:invoiceUrl,pix});
 });

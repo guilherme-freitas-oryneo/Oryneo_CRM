@@ -28,7 +28,18 @@ function Board({session}:{session:Session}){
  const deals=(rows.filter(r=>r.kind==='deal') as DealRow[]).sort((a,b)=>b.created_at.localeCompare(a.created_at));
  const detailDeal=deals.find(d=>d.id===detailId);
  const refresh=useCallback(async(silent=false)=>{const req=++fetchRef.current;if(!silent)setLoading(true);try{const result=await getBoard();if(req===fetchRef.current){setRows(result);setLoadError('');setSynced(new Date())}}catch(e){if(req===fetchRef.current)setLoadError(errorText(e))}finally{if(req===fetchRef.current)setLoading(false)}},[]);
- useEffect(()=>{void refresh();const interval=setInterval(()=>{if(document.visibilityState==='visible'&&!busyRef.current)void refresh(true)},30000);const focus=()=>{if(!busyRef.current)void refresh(true)};window.addEventListener('focus',focus);return()=>{clearInterval(interval);window.removeEventListener('focus',focus)}},[refresh]);
+ useEffect(()=>{
+  void refresh();
+  let realtimeTimer:ReturnType<typeof setTimeout>|undefined;
+  const channel=supabase.channel?.(`crm-board-${session.user.id}`).on('postgres_changes',{event:'*',schema:'public',table:'crm_records'},()=>{
+   if(realtimeTimer)clearTimeout(realtimeTimer);
+   realtimeTimer=setTimeout(()=>{if(!busyRef.current)void refresh(true)},120);
+  }).subscribe();
+  const interval=setInterval(()=>{if(document.visibilityState==='visible'&&!busyRef.current)void refresh(true)},30000);
+  const focus=()=>{if(!busyRef.current)void refresh(true)};
+  window.addEventListener('focus',focus);
+  return()=>{if(realtimeTimer)clearTimeout(realtimeTimer);clearInterval(interval);window.removeEventListener('focus',focus);if(channel)void supabase.removeChannel(channel)};
+ },[refresh,session.user.id]);
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(null),toast.error?10000:4500);return()=>clearTimeout(t)},[toast]);
  const perform=async(action:()=>Promise<string|void>,message:string,close=true,isUndo=false)=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);try{const op=await action();setOperation(isUndo?null:op||null);setToast({message});if(close){setEditor(null);setDeleting(null);setMoveDeal(null)}await refresh(true)}catch(e){setToast({message:errorText(e),error:true});await refresh(true)}finally{busyRef.current=false;setBusy(false)}};
  const doUndo=()=>{if(operation)void perform(()=>undo(operation),'Última ação desfeita.',false,true)};

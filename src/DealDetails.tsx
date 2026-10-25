@@ -65,7 +65,7 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
     }else setCompany(data.company_profile||null);
    }catch(e){setError(errorText(e));setCompany(data.company_profile||null)}
    finally{setLoading(false)}
- },[row.id,cnpj,data.company_profile]);
+ },[row.id,row.revision,cnpj,data.company_profile]);
  useEffect(()=>{void refresh()},[refresh]);
  useEffect(()=>{setActionTitle(next.title||'Realizar diagnóstico inicial');setActionDue(next.due_at?new Date(next.due_at).toISOString().slice(0,16):'');setActionDone(!!next.done)},[row.id,row.revision]);
  const run=async(task:()=>Promise<void>)=>{
