@@ -117,6 +117,7 @@ export function DealDetails({row,stages,onClose,onEdit,onChanged}:{row:DealRow;s
        <div className="cd-grid">
         <Stat label="CNPJ" value={cnpj?formatCnpj(cnpj):''}/>
         <Stat label="Capital social" value={currencyCapital(company?.capital)}/>
+        <Stat label="Porte" value={company?.size||''}/>
         <Stat label="Abertura" value={company?.opened_at||''}/>
         <Stat label="Natureza jurídica" value={company?.legal_form||''}/>
         <Stat label="Atividade principal" value={company?.main_activity||''}/>

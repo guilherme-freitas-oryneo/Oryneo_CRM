@@ -20,9 +20,9 @@ describe('CheckoutConfigurator', () => {
     const button = screen.getByRole('button', { name: /Continuar para o pagamento/ });
     expect(button).toBeDisabled();
     await user.type(screen.getByLabelText('Nome completo'), 'Marina Costa');
-    await user.type(screen.getByLabelText('E-mail corporativo'), 'marina@acme.example');
-    await user.type(screen.getByLabelText('Empresa'), 'Acme Comércio');
-    await user.type(screen.getByLabelText('CPF ou CNPJ'), '52998224725');
+    await user.type(screen.getByLabelText('E-mail'), 'marina@acme.example');
+    await user.type(screen.getByLabelText('WhatsApp'), '21987654321');
+    await user.type(screen.getByLabelText('CNPJ'), '11222333000181');
     await user.click(screen.getByRole('radio', { name: 'Cartão' }));
     expect(screen.getByRole('radiogroup', { name: 'Tipo do cartão' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Cartão de crédito' })).not.toBeChecked();
@@ -35,7 +35,7 @@ describe('CheckoutConfigurator', () => {
     expect(onContinue).toHaveBeenCalledWith({
       plan: 'Start', cycle: 'monthly', addons: ['landing-page'],
       payment_method:'card',card_funding:'credit',
-      customer_name: 'Marina Costa', customer_email: 'marina@acme.example', company: 'Acme Comércio', tax_id:'52998224725',
+      customer_name: 'Marina Costa', customer_email: 'marina@acme.example', customer_phone: '+5521987654321', cnpj:'11222333000181',
     });
   });
 
@@ -54,6 +54,22 @@ describe('CheckoutConfigurator', () => {
       expect(image.alt).toBe('');
     }
     expect(screen.queryByText('Seu pagamento via Pix')).not.toBeInTheDocument();
+  });
+
+  it('identifica a empresa pelo CNPJ e mantém documento ou WhatsApp inválidos bloqueando o avanço', async () => {
+    const user=userEvent.setup();
+    const onDraft=vi.fn().mockResolvedValue({cnpj_status:'found',company:{legal_name:'Acme Comércio Ltda.',trade_name:'Acme',status:'ATIVA'}});
+    render(<CheckoutConfigurator onContinue={vi.fn()} onDraft={onDraft}/>);
+    expect(screen.queryByLabelText('Empresa')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('CNPJ'),'11222333000181');
+    expect(await screen.findByText('Empresa identificada: Acme')).toBeInTheDocument();
+    expect(onDraft).toHaveBeenCalledWith(expect.objectContaining({cnpj:'11222333000181'}));
+    await user.clear(screen.getByLabelText('CNPJ'));
+    await user.type(screen.getByLabelText('CNPJ'),'11222333000180');
+    expect(screen.getByText('Digite um CNPJ válido para continuar.')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('WhatsApp'),'11911111111');
+    expect(screen.getByText('Digite um WhatsApp válido com DDD.')).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:/Continuar para o pagamento/})).toBeDisabled();
   });
 
   it('só revela crédito ou débito depois que cartão é escolhido', async () => {
@@ -145,9 +161,9 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     expect(screen.queryByRole('link',{name:'página de planos'})).not.toBeInTheDocument();
     await user.click(screen.getByRole('checkbox',{name:/Landing page de conversão/i}));
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
-    await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
-    await user.type(screen.getByLabelText('Empresa'),'Acme');
-    await user.type(screen.getByLabelText('CPF ou CNPJ'),'52998224725');
+    await user.type(screen.getByLabelText('E-mail'),'marina@acme.example');
+    await user.type(screen.getByLabelText('WhatsApp'),'21987654321');
+    await user.type(screen.getByLabelText('CNPJ'),'11222333000181');
     await user.click(screen.getByRole('radio',{name:'Cartão'}));
     await user.click(screen.getByRole('radio',{name:'Cartão de crédito'}));
     await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
@@ -155,7 +171,7 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     expect(onContinue).toHaveBeenCalledWith({
       plan:'Growth',cycle:'annual',addons:['landing-page'],
       payment_method:'card',card_funding:'credit',
-      customer_name:'Marina Costa',customer_email:'marina@acme.example',company:'Acme',tax_id:'52998224725',
+      customer_name:'Marina Costa',customer_email:'marina@acme.example',customer_phone:'+5521987654321',cnpj:'11222333000181',
     });
   });
 
@@ -167,9 +183,9 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     await user.click(screen.getByRole('radio',{name:'Cartão'}));
     await user.click(screen.getByRole('radio',{name:'Cartão de débito'}));
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
-    await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
-    await user.type(screen.getByLabelText('Empresa'),'Acme');
-    await user.type(screen.getByLabelText('CPF ou CNPJ'),'52998224725');
+    await user.type(screen.getByLabelText('E-mail'),'marina@acme.example');
+    await user.type(screen.getByLabelText('WhatsApp'),'21987654321');
+    await user.type(screen.getByLabelText('CNPJ'),'11222333000181');
     await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
     await user.click(screen.getByRole('button',{name:/Continuar para o pagamento/}));
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({payment_method:'card',card_funding:'debit'}));
@@ -181,9 +197,9 @@ describe('checkout não permite alterar o plano nem a periodicidade', () => {
     await user.click(screen.getByRole('radio',{name:/Boleto bancário/}));
     expect(screen.getByText(/Pagamento manual por período/i)).toBeInTheDocument();
     await user.type(screen.getByLabelText('Nome completo'),'Marina Costa');
-    await user.type(screen.getByLabelText('E-mail corporativo'),'marina@acme.example');
-    await user.type(screen.getByLabelText('Empresa'),'Acme');
-    await user.type(screen.getByLabelText('CPF ou CNPJ'),'52998224725');
+    await user.type(screen.getByLabelText('E-mail'),'marina@acme.example');
+    await user.type(screen.getByLabelText('WhatsApp'),'21987654321');
+    await user.type(screen.getByLabelText('CNPJ'),'11222333000181');
     await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
     await user.click(screen.getByRole('button',{name:/Continuar para o pagamento/}));
     expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({payment_method:'boleto'}));
@@ -204,11 +220,11 @@ describe('jornada Pix guiada', () => {
     expect(screen.getAllByText(/1\.739,80/).length).toBeGreaterThanOrEqual(initialTotal);
     expect(onContinue).not.toHaveBeenCalled();
     await user.type(screen.getByLabelText('Nome completo'), 'Marina Costa');
-    await user.type(screen.getByLabelText('E-mail corporativo'), 'marina@acme.example');
-    await user.type(screen.getByLabelText('Empresa'), 'Acme Comércio');
-    await user.type(screen.getByLabelText('CPF ou CNPJ'), '52998224725');
+    await user.type(screen.getByLabelText('E-mail'), 'marina@acme.example');
+    await user.type(screen.getByLabelText('WhatsApp'), '21987654321');
+    await user.type(screen.getByLabelText('CNPJ'), '11222333000181');
     await user.click(screen.getByRole('checkbox',{name:/Li e aceito os termos/}));
     await user.click(screen.getByRole('button', { name: /Continuar para o Pix/ }));
-    expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'pix', tax_id: '52998224725' }));
+    expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'pix', customer_phone:'+5521987654321', cnpj: '11222333000181' }));
   });
 });
