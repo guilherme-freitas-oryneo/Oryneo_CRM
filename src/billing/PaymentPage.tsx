@@ -387,16 +387,17 @@ const removeCardDetailsListener=(element:StripePaymentElement,handler:(event:Str
   off.call(element,'carddetailschange',handler);
 };
 
-function PaymentCardPreview({brand,funding,hasError}:{brand:'visa'|'mastercard'|null;funding:'credit'|'debit'|null;hasError:boolean}){
+function PaymentCardPreview({brand,funding,hasError,holder}:{brand:'visa'|'mastercard'|null;funding:'credit'|'debit'|null;hasError:boolean;holder:string}){
   const [flipped,setFlipped]=useState(false);
   const label=flipped?'Ver frente do cartão':'Ver verso do cartão';
+  const holderName=holder.trim().slice(0,26)||'Titular do cartão';
   return <div className="pay-card-stage">
     <button type="button" className={`pay-visual-card${flipped?' is-flipped':''}${brand?' is-recognized':''}${hasError?' has-error':''}`} aria-label={label} aria-pressed={flipped} onClick={()=>setFlipped(value=>!value)}>
       <span className="pay-visual-card-inner" aria-hidden="true">
         <span className="pay-visual-card-face pay-visual-card-front">
-          <span className="pay-visual-card-top"><b>ORYNEO</b>{brand?<img key={brand} className="pay-visual-card-brand" src={paymentAsset[brand]} alt=""/>:<small>CARTÃO</small>}</span>
+          <span className="pay-visual-card-top"><span className="pay-visual-card-chip"/>{brand?<img key={brand} className="pay-visual-card-brand" src={paymentAsset[brand]} alt=""/>:<small>CARTÃO</small>}</span>
           <span className="pay-visual-card-number">••••&nbsp; ••••&nbsp; ••••&nbsp; ••••</span>
-          <span className="pay-visual-card-bottom"><span><small>PAGAMENTO</small><b>ORYNEO</b></span><span><small>TIPO</small><b>{funding==='debit'?'DÉBITO':funding==='credit'?'CRÉDITO':'—'}</b></span></span>
+          <span className="pay-visual-card-bottom"><span><small>TITULAR</small><b>{holderName}</b></span><span><small>TIPO</small><b>{funding==='debit'?'DÉBITO':funding==='credit'?'CRÉDITO':'—'}</b></span></span>
         </span>
         <span className="pay-visual-card-face pay-visual-card-back">
           <span className="pay-visual-card-stripe"/>
@@ -534,7 +535,7 @@ export function StripePayment({order,onChoosePaymentMethod}:{order:PublicBilling
       <small>Ambiente seguro da Stripe</small>
     </div>}
     {cardPayment?<div className="pay-card-entry">
-      <PaymentCardPreview brand={detectedBrand} funding={detectedFunding||order.card_funding||null} hasError={cardEligibility==='unsupported_brand'||cardEligibility==='funding_mismatch'||Boolean(error)}/>
+      <PaymentCardPreview brand={detectedBrand} funding={detectedFunding||order.card_funding||null} hasError={cardEligibility==='unsupported_brand'||cardEligibility==='funding_mismatch'||Boolean(error)} holder={order.customer_name}/>
       <div className="pay-card-entry-fields">
         {result.type==='loading'?<PaymentSkeleton/>:result.type==='error'?<p role="alert">{result.error.message||'Não foi possível carregar os campos seguros.'}</p>:<PaymentElement onReady={connectCardSignals}/>}
         {cardEligibility==='unsupported_brand'&&<div className="pay-card-field-error" role="alert">Bandeira não aceita. Use Visa ou Mastercard.{onChoosePaymentMethod&&<button type="button" onClick={onChoosePaymentMethod}>Escolher outra forma de pagamento</button>}</div>}

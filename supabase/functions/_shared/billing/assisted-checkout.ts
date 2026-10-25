@@ -11,6 +11,7 @@ export type CardFundingChoice='credit'|'debit';
 /** Checkout Session enforcement for the customer's explicit credit/debit choice. */
 export function applyCardFundingRestriction(form:URLSearchParams,choice:CardFundingChoice):void{
  if(choice!=='credit'&&choice!=='debit')throw new Error('INVALID_CARD_FUNDING');
+ form.set('allowed_payment_method_types[0]','card');
  const blocked=choice==='credit'?['debit','prepaid']:['credit','prepaid'];
  blocked.forEach((type,index)=>form.set(`payment_method_options[card][restrictions][funding_types_blocked][${index}]`,type));
 }

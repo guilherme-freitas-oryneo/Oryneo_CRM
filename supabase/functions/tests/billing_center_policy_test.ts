@@ -40,6 +40,7 @@ Deno.test('assisted renewal checkout is one-time, single-method, and server-pric
 
 Deno.test('credit and debit choices block the opposite Stripe card funding types server-side',()=>{
   const credit=new URLSearchParams();applyCardFundingRestriction(credit,'credit');
+  assertEquals(credit.get('allowed_payment_method_types[0]'),'card');
   assertEquals(credit.get('payment_method_options[card][restrictions][funding_types_blocked][0]'),'debit');
   assertEquals(credit.get('payment_method_options[card][restrictions][funding_types_blocked][1]'),'prepaid');
   const debit=new URLSearchParams();applyCardFundingRestriction(debit,'debit');
@@ -50,6 +51,7 @@ Deno.test('credit and debit choices block the opposite Stripe card funding types
 Deno.test('card subscription Checkout Session binds a funding choice to server prices',()=>{
   const form=buildCardSubscriptionCheckoutForm({orderId:'11111111-1111-4111-8111-111111111111',environment:'test',customerEmail:'qa@oryneo.com.br',funding:'debit',priceIds:['price_abc123'],returnUrl:'https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/pagar/?token=abc',integrationIdentifier:'oryneo_test'});
   assertEquals(form.get('mode'),'subscription');
+  assertEquals(form.get('allowed_payment_method_types[0]'),'card');
   assertEquals(form.get('metadata[oryneo_card_funding]'),'debit');
   assertEquals(form.get('payment_method_options[card][restrictions][funding_types_blocked][0]'),'credit');
   assertEquals(form.get('line_items[0][price]'),'price_abc123');

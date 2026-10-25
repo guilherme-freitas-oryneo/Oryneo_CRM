@@ -190,6 +190,14 @@ describe('StripePayment', () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
+  it('apresenta um cartão neutro com o titular, sem simular que a ORYNEO é a emissora',()=>{
+    mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm:vi.fn()}});
+    render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);
+    const preview=screen.getByRole('button',{name:'Ver verso do cartão'});
+    expect(preview).toHaveTextContent(/Cliente de teste/i);
+    expect(preview).not.toHaveTextContent('ORYNEO');
+  });
+
   it('remove o ouvinte de bandeira ao desmontar o formulário',()=>{
     mocks.checkout.mockReturnValue({type:'success',checkout:{canConfirm:true,confirm:vi.fn()}});
     const {unmount}=render(<StripePayment order={{...order,payment_method:'card',card_funding:'credit'}}/>);

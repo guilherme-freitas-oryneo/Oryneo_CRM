@@ -95,12 +95,13 @@
 .pay-visual-card-front{background:radial-gradient(circle at 82% 12%,rgba(74,93,236,.38),transparent 34%),linear-gradient(145deg,#252a34 0%,#101216 58%,#08090b 100%)}
 .pay-visual-card-back{transform:rotateY(180deg);background:linear-gradient(145deg,#20242c,#08090b)}
 .pay-visual-card-top,.pay-visual-card-bottom{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:18px}
-.pay-visual-card-top>b{font-size:16px;letter-spacing:.08em}.pay-visual-card-top>small{color:#cbd0da;font-size:10px;letter-spacing:.16em}
+.pay-visual-card-top>small{color:#cbd0da;font-size:10px;letter-spacing:.16em}
+.pay-visual-card-chip{width:34px;height:25px;border:1px solid #d8bb78;border-radius:4px;background:linear-gradient(135deg,#ead59b,#b99750);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
 .pay-visual-card-top img{display:block;width:auto;max-width:54px;height:24px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
 .pay-visual-card-brand{animation:pay-card-brand-in .22s ease-out both}
 .pay-visual-card-number{position:relative;z-index:1;margin:auto 0 22px;font-size:21px;font-weight:600;letter-spacing:.08em;white-space:nowrap}
-.pay-visual-card-bottom span{display:grid;gap:3px}.pay-visual-card-bottom span:last-child{text-align:right}
-.pay-visual-card-bottom small{color:#aeb5c2;font-size:8px;letter-spacing:.14em}.pay-visual-card-bottom b{font-size:11px;letter-spacing:.08em}
+.pay-visual-card-bottom span{display:grid;min-width:0;gap:3px}.pay-visual-card-bottom span:first-child{max-width:72%}.pay-visual-card-bottom span:last-child{text-align:right}
+.pay-visual-card-bottom small{color:#aeb5c2;font-size:8px;letter-spacing:.14em}.pay-visual-card-bottom b{overflow:hidden;font-size:11px;letter-spacing:.06em;text-overflow:ellipsis;text-transform:uppercase;white-space:nowrap}
 .pay-visual-card-stripe{height:44px;margin:10px -27px 0;background:#050609}
 .pay-visual-card-signature{display:flex;align-items:center;justify-content:space-between;height:35px;margin-top:20px;padding:0 12px;background:#eef0f3;color:#343a44;font-size:10px}
 .pay-visual-card-signature i{font-style:normal}.pay-visual-card-signature b{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
