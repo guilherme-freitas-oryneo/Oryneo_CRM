@@ -183,6 +183,7 @@ Deno.serve(async(req:Request)=>{
   };
   if(input.payment_method==='card'){
    const funding=input.card_funding;
+   if(funding!=='credit'&&funding!=='debit')throw Error('INVALID_CARD_FUNDING');
    const previousId=created.stripe_checkout_session_id;
    let session:Record<string,any>;
    if(previousId){

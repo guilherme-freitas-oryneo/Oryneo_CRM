@@ -4,6 +4,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CheckoutConfigurator, parseCheckoutPrefill } from './CheckoutConfigurator';
 
 describe('CheckoutConfigurator', () => {
+  it('recupera a consulta indisponível sem alterar os dados e não cria rascunho vazio', async () => {
+    const user=userEvent.setup();
+    const onDraft=vi.fn().mockResolvedValueOnce({cnpj_status:'unavailable'}).mockResolvedValue({cnpj_status:'found',company:{legal_name:'Empresa teste'}});
+    render(<CheckoutConfigurator onContinue={vi.fn()} onDraft={onDraft}/>);
+    expect(screen.getByText(/salvos automaticamente como rascunho/)).toBeInTheDocument();
+    expect(onDraft).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText('CNPJ'),'11222333000181');
+    await user.click(await screen.findByRole('button',{name:'Tentar consultar CNPJ novamente'}));
+    expect(await screen.findByText('Empresa identificada: Empresa teste')).toBeInTheDocument();
+    expect(screen.getByLabelText('CNPJ')).toHaveValue('11.222.333/0001-81');
+    expect(onDraft).toHaveBeenCalledTimes(2);
+  });
+
   it('recalcula a seleção escolhida e só habilita a continuação com os dados mínimos', async () => {
     const user = userEvent.setup();
     const onContinue = vi.fn();

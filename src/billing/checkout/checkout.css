@@ -77,3 +77,12 @@
 }
 @media(max-width:380px){.checkout-payment-options>label{gap:4px}.checkout-payment-options>label:nth-child(n+2) .checkout-payment-copy{display:none}.checkout-payment-art .checkout-boleto{width:48px}.checkout-payment-art .checkout-pix{width:42px}.checkout-payment-copy strong{font-size:11px}.checkout-addons label{grid-template-columns:18px minmax(0,1fr)}.checkout-addons b{grid-column:2}}
 @media(prefers-reduced-motion:reduce){.checkout-payment-options>label{transition:none}}
+
+/* Public journey: visible keyboard focus and predictable form grid. */
+.checkout-payment-options>label:has(input:focus-visible),
+.checkout-card-funding label:has(input:focus-visible){outline:2px solid #4357e8;outline-offset:4px}
+.checkout-draft-notice{grid-column:1/-1;margin:0;color:#60646d;font-size:13px;line-height:1.6}
+.checkout-retry{grid-column:1/-1;justify-self:start;min-height:44px;padding:10px 14px;border:1px solid #4357e8;background:transparent;color:#4357e8;font:inherit;cursor:pointer}
+.checkout-retry:focus-visible{outline:2px solid #4357e8;outline-offset:4px}
+.checkout-retry:disabled{opacity:.6;cursor:wait}
+@media(max-width:380px){.checkout-payment-options>label{flex-direction:column;gap:6px}.checkout-payment-options>label:nth-child(n+2) .checkout-payment-copy{display:block}}
