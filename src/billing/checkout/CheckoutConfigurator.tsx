@@ -32,7 +32,10 @@ const additions = {
 const money = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 const digits = (value: string) => value.replace(/\D/g, '');
 const normalizedCnpj=(value:string)=>value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,14);
-const formatCnpj=(value:string)=>normalizedCnpj(value).replace(/^(.{2})(.)/,'$1.$2').replace(/^(.{2})\.(.{3})(.)/,'$1.$2.$3').replace(/\.(.{3})(.)/,'.$1/$2').replace(/(.{4})(.{1,2})$/,'$1-$2');
+const formatCnpj=(value:string)=>{
+  const raw=normalizedCnpj(value);
+  return raw.slice(0,2)+(raw.length>2?'.'+raw.slice(2,5):'')+(raw.length>5?'.'+raw.slice(5,8):'')+(raw.length>8?'/'+raw.slice(8,12):'')+(raw.length>12?'-'+raw.slice(12,14):'');
+};
 const cnpjDigit=(base:string)=>{let sum=0,weight=base.length===12?5:6;for(const char of base){sum+=(char.charCodeAt(0)-48)*weight--;if(weight<2)weight=9}const rest=sum%11;return rest<2?0:11-rest};
 const validCnpj=(value:string)=>{const cnpj=normalizedCnpj(value);return /^[A-Z0-9]{12}\d{2}$/.test(cnpj)&&!/^([A-Z0-9])\1{11}/.test(cnpj)&&cnpjDigit(cnpj.slice(0,12))===Number(cnpj[12])&&cnpjDigit(cnpj.slice(0,13))===Number(cnpj[13])};
 const validDdds=new Set(['11','12','13','14','15','16','17','18','19','21','22','24','27','28','31','32','33','34','35','37','38','41','42','43','44','45','46','47','48','49','51','53','54','55','61','62','63','64','65','66','67','68','69','71','73','74','75','77','79','81','82','83','84','85','86','87','88','89','91','92','93','94','95','96','97','98','99']);
@@ -66,6 +69,7 @@ export function CheckoutConfigurator({ onContinue, onDraft, busy = false, error 
   const [cnpj,setCnpj]=useState('');
   const [cnpjLookup,setCnpjLookup]=useState<DirectCheckoutDraftResult|null>(null);
   const [termsAccepted,setTermsAccepted]=useState(false);
+  const [lookupAttempt,setLookupAttempt]=useState(0);
   const quote = useMemo(() => {
     const selected = plans[plan];
     const selectedAddons = addons.map(key => ({ key, ...additions[key] }));
@@ -86,7 +90,7 @@ export function CheckoutConfigurator({ onContinue, onDraft, busy = false, error 
         .then(result=>{if(active&&result)setCnpjLookup(result)}).catch(()=>{if(active&&validCnpj(cnpj))setCnpjLookup({cnpj_status:'unavailable'})});
     },650);
     return()=>{active=false;window.clearTimeout(timer)};
-  },[addons,cardFunding,cnpj,customerName,cycle,email,onDraft,paymentMethod,phone,plan]);
+  },[addons,cardFunding,cnpj,customerName,cycle,email,onDraft,paymentMethod,phone,plan,lookupAttempt]);
   const submit = () => {
     if (!valid || !termsAccepted || busy || !paymentMethod) return;
     onContinue({ plan, cycle, addons, payment_method:paymentMethod, card_funding:paymentMethod==='card'?cardFunding:null, customer_name: customerName.trim(), customer_email: email.trim().toLowerCase(), customer_phone:`+55${phoneDigits(phone)}`, cnpj:normalizedCnpj(cnpj) });
@@ -119,7 +123,9 @@ export function CheckoutConfigurator({ onContinue, onDraft, busy = false, error 
     {paymentMethod==='pix'&&<p className="checkout-payment-note">Um novo Pix será gerado em cada período.</p>}
     {paymentMethod==='boleto'&&<p className="checkout-payment-note">Pagamento manual por período; cada boleto chega por e-mail.</p>}</fieldset>
     <fieldset className="checkout-choice checkout-contact"><legend>Dados para o pedido</legend>
+      {onDraft && <p className="checkout-field-note">Ao começar a preencher, seus dados são salvos automaticamente como rascunho da solicitação no CRM, antes da conclusão. Isso não confirma a contratação nem autoriza cobrança.</p>}
       <label>CNPJ<input aria-label="CNPJ" inputMode="text" autoCapitalize="characters" autoComplete="off" placeholder="00.000.000/0000-00" value={cnpj} onChange={event=>{const next=formatCnpj(event.target.value);setCnpj(next);setCnpjLookup(validCnpj(next)?{cnpj_status:'partial'}:null)}}/>{cnpj&&normalizedCnpj(cnpj).length===14&&!validCnpj(cnpj)&&<small className="checkout-field-error">Digite um CNPJ válido para continuar.</small>}{cnpjLookup?.cnpj_status==='partial'&&validCnpj(cnpj)&&<small className="checkout-field-note">Consultando o cadastro…</small>}{cnpjLookup?.cnpj_status==='found'&&cnpjLookup.company&&<small className="checkout-company-found">Empresa identificada: {cnpjLookup.company.trade_name||cnpjLookup.company.legal_name}</small>}{cnpjLookup?.cnpj_status==='not_found'&&<small className="checkout-field-error">CNPJ não encontrado na Receita Federal.</small>}{cnpjLookup?.cnpj_status==='unavailable'&&<small className="checkout-field-error">Não foi possível consultar o CNPJ agora. Tente novamente.</small>}</label>
+      {onDraft && cnpjLookup?.cnpj_status==='unavailable' && <button type="button" disabled={busy} onClick={()=>{setCnpjLookup({cnpj_status:'partial'});setLookupAttempt(value=>value+1)}}>Tentar consultar CNPJ novamente</button>}
       <label>Nome completo<input aria-label="Nome completo" autoComplete="name" value={customerName} onChange={event => setCustomerName(event.target.value)}/></label>
       <label>E-mail<input aria-label="E-mail" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)}/>{email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && <small className="checkout-field-error">Digite um e-mail válido, como nome@empresa.com.br.</small>}</label>
       <label>WhatsApp<input aria-label="WhatsApp" type="tel" inputMode="tel" autoComplete="tel" placeholder="(00) 00000-0000" value={phone} onChange={event=>setPhone(formatPhone(event.target.value))}/>{phoneDigits(phone).length===11&&!validPhone(phone)&&<small className="checkout-field-error">Digite um WhatsApp válido com DDD.</small>}<small className="checkout-field-note">Usaremos este número para falar sobre esta contratação.</small></label>
