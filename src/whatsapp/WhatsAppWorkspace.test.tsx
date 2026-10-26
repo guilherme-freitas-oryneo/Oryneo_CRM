@@ -1,8 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DealRow } from '../data';
+import { loadWhatsAppInbox, loadWhatsAppMessages } from './api';
 import { WhatsAppWorkspace } from './WhatsAppWorkspace';
+
+vi.mock('./api', () => ({ loadWhatsAppInbox: vi.fn(), loadWhatsAppMessages: vi.fn() }));
 
 const deal: DealRow = {
   id: '11111111-1111-4111-8111-111111111111', kind: 'deal', revision: 1, deleted: false,
@@ -11,6 +14,10 @@ const deal: DealRow = {
 };
 
 describe('WhatsAppWorkspace', () => {
+  beforeEach(() => {
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({ channel: { id: 'channel-1', enabled: false, display_phone_number: '+5521974510932' }, conversations: [] });
+    vi.mocked(loadWhatsAppMessages).mockResolvedValue([]);
+  });
   it('mostra contato real e contexto sem criar conversa fictícia ou habilitar envio', async () => {
     const onOpenDeal = vi.fn();
     render(<WhatsAppWorkspace deals={[deal]} loading={false} loadError="" onOpenDeal={onOpenDeal}/>);
@@ -28,5 +35,15 @@ describe('WhatsAppWorkspace', () => {
     render(<WhatsAppWorkspace deals={[]} loading={false} loadError="Falha de rede" onOpenDeal={vi.fn()}/>);
     expect(screen.getByRole('alert')).toHaveTextContent('Falha de rede');
     expect(screen.queryByText('Nenhum contato com telefone')).not.toBeInTheDocument();
+  });
+
+  it('exibe mensagens recebidas sem inferir vínculo com oportunidade pelo telefone', async () => {
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({ channel: { id: 'channel-1', enabled: false, display_phone_number: '+5521974510932' }, conversations: [{ id: 'conversation-1', channel_id: 'channel-1', customer_wa_id: '5511999998888', customer_name: 'Marina', deal_id: null, mode: 'review', opted_out: false, consent_granted: false, last_message_at: '2026-10-24T16:40:00Z', last_preview: 'Olá' }] });
+    vi.mocked(loadWhatsAppMessages).mockResolvedValue([{ id: 'message-1', conversation_id: 'conversation-1', direction: 'inbound', kind: 'text', body: 'Olá', media_id: null, mime_type: null, delivery_status: null, occurred_at: '2026-10-24T16:40:00Z' }]);
+    render(<WhatsAppWorkspace deals={[deal]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir conversa de Marina' }));
+    expect(await screen.findByText('Olá', { selector: '.wa-message-bubble p' })).toBeInTheDocument();
+    expect(screen.getByText('Nenhuma oportunidade foi vinculada a esta conversa.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Enviar/ })).toBeDisabled();
   });
 });

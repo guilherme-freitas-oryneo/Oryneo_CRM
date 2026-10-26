@@ -26,6 +26,7 @@ Data da auditoria: 2026-10-24 UTC. Branch: `feat/whatsapp-forensic-resumption-20
 - A central WhatsApp entrou na navegação real do CRM (`src/whatsapp/WhatsAppWorkspace.tsx`), usando somente contatos com telefone das oportunidades reais. Lista, busca, seleção, contexto do lead, abertura da oportunidade, link externo existente e discador telefônico estão funcionais. O painel não inventa histórico. Compositor de texto, áudio, anexos e envio estão bloqueados com motivo explícito; chamada pelo WhatsApp aparece como indisponível e depende de elegibilidade do recurso Meta. O componente de mensagem suporta texto, áudio, imagem, documento e estado de entrega para a futura ligação ao backend, mas ainda não lê mensagens. Build, 280/280 testes e checagem visual em 390/768/1024/1440 px passaram; frontend não foi publicado. A última consulta Meta segue sem app WhatsApp administrado e sem número de produção visível.
 - O compositor foi separado em `src/whatsapp/WhatsAppComposer.tsx`, com rascunho de texto, seleção de anexo, gravação/prévia de áudio, limite de arquivo, timeout de gravação e preservação do rascunho se o callback de envio falhar. A tela atual passa `enabled=false` e nenhum callback, impedindo qualquer envio antes da rota oficial. O formato final de áudio e os limites Meta terão de ser tratados no servidor; nenhuma chamada WhatsApp está habilitada. A implementação desta etapa ficou somente em `src/whatsapp/` e nesta documentação, respeitando os fluxos recentes da landing, checkout e demais áreas do CRM.
 - Em 2026-10-26, o titular liberou o acesso Meta Developers no computador. O conector passou a reconhecer `Oryneo_01` como app WhatsApp do portfólio. Após confirmação específica do titular, uma conta de produção ORYNEO foi criada com `+55 21 97451-0932` **pendente de verificação**. O SMS ainda aguarda a confirmação específica exigida pelo conector. Webhook, inscrição, publicação, token operacional e envio continuam pendentes; ver `00-META-MCP-AUDIT.md`.
+- Ainda em 2026-10-26, o SMS foi confirmado pelo titular, o número foi verificado e registrado na Cloud API, e `Oryneo_01` foi inscrito na conta após confirmação. O titular escolheu configurar recebimento antes de teste de envio. As migrações isoladas de WhatsApp foram aplicadas no Supabase ativo e o receptor v2 foi implantado; a leitura de canal, conversas e mensagens passou a existir no menu WhatsApp do CRM, com envio desabilitado. RLS/grants foram conferidos no projeto ativo e testes locais da migração passaram em Postgres descartável. Os segredos foram configurados pelo titular; GET com token incorreto retornou 403 e desafio correto retornou 200 com o texto exato. Após confirmação específica, a Meta gravou o callback e assinou o campo `messages`; uma leitura posterior confirmou callback, campo e inscrição da conta. O app permanece em desenvolvimento e a homologação com evento real segue pendente. Ver `06-WEBHOOK-INBOX-RUNBOOK.md`.
 
 ## Matriz de progresso do prompt mestre (00–21)
 
@@ -33,6 +34,7 @@ Status se refere à missão de WhatsApp oficial, não ao CRM inteiro. `NÃO VERI
 
 | Seção | Status | Evidência e ambiente | Lacuna, risco e próximo passo mínimo |
 | --- | --- | --- | --- |
+| Estado atual em 2026-10-26 | PARCIAL | Conta ORYNEO e número comercial registrados; `Oryneo_01` inscrito na conta; tabelas e webhook no Supabase ativo; desafio GET válido 200 e token incorreto 403; Meta confirma callback e campo `messages` | App ainda em desenvolvimento, sem evento real recebido, publicação ou envio pelo CRM. As linhas históricas abaixo registram o estado da auditoria inicial e não substituem este checkpoint. |
 | 00 Ordem e resultado | PARCIAL | CRM React/Supabase em `main`; ação `wa.me` existente | Central oficial ainda não existe; preservar fluxos existentes e construir incrementalmente. |
 | 01 Parâmetros de negócio | COMPROVADO E TESTADO | Número e marca constam no prompt; CTA `wa.me` em código | Titularidade Meta não verificada; não associar número sem leitura da conta. |
 | 02 Continuidade | PARCIAL | Esta auditoria, branch isolada, testes baseline | Prosseguir por lotes e registrar commits/testes. |
@@ -56,7 +58,13 @@ Status se refere à missão de WhatsApp oficial, não ao CRM inteiro. `NÃO VERI
 | 20 Fontes atuais | PARCIAL | Endpoint Meta alcançável; código e Supabase lidos | Consultar documentação primária antes de implementar Cloud API. |
 | 21 Comando de início | PARCIAL | Codex CLI identificado e MCP registrado | OAuth, inventário de ativos e implementação seguem pendentes. |
 
-## Ordem de retomada
+## Ordem de retomada atual (2026-10-26)
+
+1. Publicar `Oryneo_01` no Meta Developers; o titular deve concluir os itens que a página Go Live exigir. Revalidar a entrega real de webhooks após publicação.
+2. Homologar um evento recebido do próprio titular, conferir persistência e leitura na central WhatsApp do CRM; não ativar envio antes de token de sistema, controles operacionais e teste autorizado.
+3. Configurar o método de pagamento somente pelo titular, se for usar mensagens faturáveis; revisar CI do PR #53 e manter a landing, o checkout e as demais áreas fora deste lote.
+
+## Ordem de retomada histórica (auditoria inicial)
 
 1. Reconciliar eventual patch do escritório quando disponibilizado. Não criar app, WABA, webhook, migração nem número redundante.
 2. Completar perfil empresarial Meta; confirmar app WhatsApp administrado e localização/titularidade do número. Repetir leituras MCP após isso. A decisão de migração/coexistência permanece bloqueada.
