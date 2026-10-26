@@ -58,7 +58,7 @@ for (const [name, engine, viewport] of browsers) {
     await page.getByLabel('WhatsApp',{exact:true}).fill('21987654321');
     await page.getByLabel('CNPJ',{exact:true}).fill('11222333000181');
     await page.getByText('Empresa identificada: Empresa QA').waitFor();
-    const action = page.getByRole('button', { name: /Continuar para o pagamento/ });
+    const action = page.getByRole('button', { name: /Continuar para o Pix/ });
     assert.equal(await action.isDisabled(), true, 'O aceite da primeira tela é obrigatório');
     await page.getByRole('checkbox', { name: /Li e aceito os termos/ }).check();
     assert.equal(await action.isEnabled(), true);
