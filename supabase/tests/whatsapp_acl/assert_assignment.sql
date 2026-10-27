@@ -1,4 +1,11 @@
 set role service_role;
+do $$begin
+  if not exists (
+    select 1 from pg_indexes
+    where schemaname='public' and tablename='crm_wa_outbox'
+      and indexname='crm_wa_outbox_operator_created'
+  ) then raise exception 'outbox operator index missing'; end if;
+end$$;
 do $$
 declare
   v_id uuid;

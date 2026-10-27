@@ -56,3 +56,5 @@ O workflow de build/Pix do commit `00972d6` falhou porque o Vitest capturou `med
 Fechar G2 antes de habilitar envio. Depois validar entrada/saída controlada com número próprio e somente então avaliar ativação do canal e publicação da UI. Landing page, checkout, financeiro e e-mail permanecem fora do lote WhatsApp, exceto correção isolada do script de QA já presente no PR.
 
 Após integrar `main`, a validação combinada registrou 340/340 testes Vitest, build nas bases `/` e `/Oryneo_CRM/`, testes SQL/RLS e Deno, 30/30 preflights CORS, 9/9 rotas públicas e 4/4 rejeições read-only de token desconhecido. O QA do checkout interceptou integralmente o Supabase e passou em Chromium desktop/mobile sem iniciar cobrança. WebKit e workflows remotos permanecem como evidência pendente da CI.
+
+O advisor de performance apontou a chave estrangeira `crm_wa_outbox.operator_id` sem índice de cobertura. A migração `20261027234834_whatsapp_outbox_operator_index.sql`, ainda não aplicada, adiciona o índice por operador e data; o teste Postgres confirma sua existência junto às provas de ACL e atribuição.
