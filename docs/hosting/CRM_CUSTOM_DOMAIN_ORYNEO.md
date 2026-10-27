@@ -69,3 +69,29 @@
 - Hostinger DNS: https://www.hostinger.com/br/support/4738777-como-gerenciar-registros-cname-na-hostinger/
 
 **Este PR prepara somente o workflow de publicação. A migração de ponta a ponta depende dos ajustes restantes descritos acima.**
+
+## Atualização executiva — mudanças efetivas em 27/10/2026
+
+Preparação em PR #55 (draft), sem merge/deploy/DNS. Além do workflow Pages:
+- Criado `supabase/functions/_shared/hosting/crm-urls.ts`: `crmPublicUrl(path, Deno.env.get('ORYNEO_CRM_PUBLIC_BASE'))`. Na AUSÊNCIA da variável o destino é `https://guilherme-freitas-oryneo.github.io/Oryneo_CRM`. Somente o valor EXATO `https://crm.oryneo.com.br` ativa links novos. Testado por `src/hosting/crm-domain.test.ts`.
+- Checkout `checkout-intake`, `billing-create-order`, `billing-public`, e QA `checkout-intake-noncard-test` passam a usar o helper para links de pagamento e retorno, preservando a origem atual até ativação.
+- `proposal-create` e `landing-admin` usam o mesmo helper para propostas e revisão de LP.
+- CORS estendida sem retirar origem antiga em todos os endpoints identificados: checkout, billing, proposal, delivery, offboarding, landing, company-enrich e mail-api/handler.
+- Guard TypeScript no teste financeiro (não altera valores, métodos ou integração com Stripe) eliminou TS2322 do build da branch.
+- CI no HEAD `cdeb0854`: build/Edge e Pix aprovados; browser QA geral em execução ao final da inspeção. Reconsultar antes de merge.
+
+### Ordem de rollout obrigatório
+1. Antes do cutover, PR #55 precisa de CI VERDE, review e merge controlado em `main`, enquanto **NÃO há CNAME** na `gh-pages`; assim o workflow permanece compilando `/Oryneo_CRM/`. Verificar que a publicação antiga continua íntegra.
+2. Implantar versões das Edge Functions modificadas, em ordem e após QA de integração, com `ORYNEO_CRM_PUBLIC_BASE` **não definida**. Isso libera CORS para ambos os domínios mas conserva retorno/links do CRM antigo. Jamais alterar credenciais Stripe para migrar domínio.
+3. No Supabase Auth URL Configuration, adicionar `https://crm.oryneo.com.br/**` à allowlist e preservar redirect URLs antigas. Só mudar a Site URL quando a nova publicação estiver homologada.
+4. Conferir nameservers da zona autoritativa. No GitHub Settings/Pages definir `crm.oryneo.com.br` e depois criar apenas o registro `CNAME crm -> guilherme-freitas-oryneo.github.io`. Não mudar `@`, `www`, MX ou SPF/DKIM/DMARC.
+5. GitHub Settings/Pages: aguardar DNS check e certificado, habilitar Enforce HTTPS. Verificar `gh-pages/CNAME`. Rodar manualmente workflow `Publicar ORYNEO CRM no GitHub Pages` da `main` preparada, para emitir assets na raiz `/assets/`. Atenção: rodar o workflow ANTIGO sobrescreveria CNAME.
+6. Validar HTTPS, login, pipeline, e-mail, caminhos JS/CSS e todas as rotas públicas `/pagar/`, `/contratar/`, `/proposta/`, `/implantacao/`, `/revisao-lp/`, `/encerramento/`, `/qa/pr-46/`. Conferir URLs de checkout e retorno legado/novo com sessão Stripe TEST e navegador real.
+7. Configurar `ORYNEO_CRM_PUBLIC_BASE=https://crm.oryneo.com.br` em Supabase Edge Secrets SOMENTE após verificar site novo. Reimplantar as funções de links/retornos; confirmar que clientes com sessões antigas continuam podendo concluir sem alterar seu pedido e que novos links apontam ao domínio novo.
+8. Revisar logos absolutos de e-mails antigos e novos, links em template, domínio do portal Stripe se aplicável e links da landing. A criação e o recebimento de webhooks de pagamento Stripe continuam no Supabase, mas precisam de smoke próprio.
+9. Somente após testes E2E de checkout/Stripe test, email, Auth, observabilidade, DNS e HTTPS, aceitar e publicar o domínio como endereço oficial. Não usar pagamento REAL como teste sem aprovação.
+10. Rollback: `ORYNEO_CRM_PUBLIC_BASE` ausente restaura links legados em novos pedidos; reverter deployment Pages de forma controlada; **não** cancelar sessões de pagamento existentes nem alterar eventos contábeis. Reconfigurações DNS/Pages exigem reversão coordenada, e há risco de cache. 
+
+### Limitações deste agente
+Não existem ações autenticadas de escrita para DNS da Hostinger nem Settings > Pages do GitHub nas conexões disponíveis. O proprietário precisa executar essas ações nos respectivos painéis (ou usar Work com navegador conectado). Não afirmar que domínio foi ativado antes do HTTP, TLS e E2E passarem.
+
