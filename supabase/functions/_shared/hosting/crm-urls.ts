@@ -11,7 +11,7 @@ export function crmPublicBase(configured?: string | null): string {
 }
 
 export function crmPublicUrl(path: string, configured?: string | null): string {
-  if (!/^\/[a-z0-9-]+\/(?:\?.*)?$/i.test(path) && !/^\/[a-z0-9-]+\/[a-z0-9-_./?=&%]*$/i.test(path)) {
+  if (!path.startsWith('/') || path.startsWith('//') || /[\r\n]/.test(path)) {
     throw new Error('CRM_PUBLIC_PATH_INVALID');
   }
   return crmPublicBase(configured) + path;
