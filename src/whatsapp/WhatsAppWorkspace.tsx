@@ -4,6 +4,7 @@ import type { DealRow } from '../data';
 import { buildWhatsAppUrl } from '../firstContact/whatsapp';
 import { loadWhatsAppInbox, loadWhatsAppMessages, sendWhatsAppMessage, type Channel, type Conversation, type Message } from './api';
 import { WhatsAppComposer, type WhatsAppDraft } from './WhatsAppComposer';
+import { WhatsAppMediaAttachment } from './WhatsAppMediaAttachment';
 import './whatsapp.css';
 
 const contactName = (deal: DealRow) => deal.data.contact || deal.data.company || deal.data.title;
@@ -107,5 +108,5 @@ export function WhatsAppWorkspace({ deals, loading, loadError, onOpenDeal }: { d
 
 export function WhatsAppMessageView({ message }: { message: Message }) {
   const outbound = message.direction === 'outbound';
-  return <article className={'wa-message ' + (outbound ? 'outbound' : 'inbound')}><div className="wa-message-bubble"><p>{message.body || mediaLabel[message.kind]}</p><footer><time dateTime={message.occurred_at}>{new Date(message.occurred_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time>{outbound && <span>{message.delivery_status === 'failed' ? 'Falhou' : message.delivery_status === 'read' ? 'Lida' : message.delivery_status === 'delivered' ? 'Entregue' : message.delivery_status === 'sent' ? 'Enviada' : 'Pendente'}</span>}</footer></div></article>;
+  return <article className={'wa-message ' + (outbound ? 'outbound' : 'inbound')}><div className="wa-message-bubble"><p>{message.body || mediaLabel[message.kind]}</p><WhatsAppMediaAttachment message={message}/><footer><time dateTime={message.occurred_at}>{new Date(message.occurred_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time>{outbound && <span>{message.delivery_status === 'failed' ? 'Falhou' : message.delivery_status === 'read' ? 'Lida' : message.delivery_status === 'delivered' ? 'Entregue' : message.delivery_status === 'sent' ? 'Enviada' : 'Pendente'}</span>}</footer></div></article>;
 }
