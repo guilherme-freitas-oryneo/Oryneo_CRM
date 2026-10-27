@@ -4,14 +4,19 @@ import { getBillingEnvironmentConfig } from '../_shared/billing/environment.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
 const origin='https://guilherme-freitas-oryneo.github.io';
-const headers={'Content-Type':'application/json','Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store'};
-const respond=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
+const defaultCorsHeaders={'Content-Type':'application/json','Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store'};
+
 const hash=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(v=>v.toString(16).padStart(2,'0')).join('');
 const token=()=>{const bytes=crypto.getRandomValues(new Uint8Array(32));return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
 const reference=()=>`ORY-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${crypto.randomUUID().slice(0,6).toUpperCase()}`;
 const integrationIdentifier=()=>{const bytes=crypto.getRandomValues(new Uint8Array(8));return 'oryneo_'+Array.from(bytes,v=>String.fromCharCode(97+v%26)).join('')};
 
 Deno.serve(async req=>{
+ const requestOrigin=req.headers.get('origin')||'';
+ const approvedOrigins=new Set([origin,'https://crm.oryneo.com.br']);
+ const headers={...defaultCorsHeaders,'Vary':'Origin','Access-Control-Allow-Origin':approvedOrigins.has(requestOrigin)?requestOrigin:origin};
+ const respond=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
+ if(requestOrigin&&!approvedOrigins.has(requestOrigin))return respond({error:'Origem não autorizada.'},403);
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(req.method!=='POST')return respond({error:'Método não permitido.'},405);
  const jwt=(req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');
