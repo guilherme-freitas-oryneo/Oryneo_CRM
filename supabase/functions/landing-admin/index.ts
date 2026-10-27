@@ -38,7 +38,7 @@ Deno.serve(async(req:Request)=>{
   });
   if(issueError||!issued?.ok)return send({error:'Não foi possível emitir revisão versionada.'},503);
   return send({ok:true,version:issued.version,sha256:checked.sha256,
-   url:'https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/revisao-lp/?token='+encodeURIComponent(secret)});
+   url:'https://crm.oryneo.com.br/revisao-lp/?token='+encodeURIComponent(secret)});
  }
  if(body.action==='publish'){
   if(!Number.isInteger(body.version)||Number(body.version)<1)return send({error:'Versão inválida.'},422);

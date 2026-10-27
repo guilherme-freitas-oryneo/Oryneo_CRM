@@ -63,7 +63,7 @@ Deno.serve(async req=>{
    }else if(current.status!=='expired')return respond({error:'Há uma transação em andamento. Aguarde a confirmação.'},409);
    const identifier='oryneo_'+Array.from(`${previousId}-pix`,char=>String.fromCharCode(97+char.charCodeAt(0)%26)).join('').slice(0,40);
    let form:URLSearchParams;
-   try{form=buildAssistedPixOrderForm({orderId:order.id,environment,customerEmail:order.customer_email,amountCents:selection.amountTotal,description:`Contratação ORYNEO ${selection.plan} · ${order.company}`,returnUrl:`https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`,integrationIdentifier:identifier})}
+   try{form=buildAssistedPixOrderForm({orderId:order.id,environment,customerEmail:order.customer_email,amountCents:selection.amountTotal,description:`Contratação ORYNEO ${selection.plan} · ${order.company}`,returnUrl:`https://crm.oryneo.com.br/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`,integrationIdentifier:identifier})}
    catch{return respond({error:'Não foi possível validar os dados desta cobrança.'},409)}
    const response=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{...headers,'Idempotency-Key':`oryneo-order-${environment}-${order.id}-${previousId}-pix`,'Content-Type':'application/x-www-form-urlencoded'},body:form});
    const next=await response.json();
@@ -91,7 +91,7 @@ Deno.serve(async req=>{
      if(!expired.ok)return respond({error:'Não foi possível substituir a tentativa atual com segurança.'},409);
     }
    }
-   const context={orderId:order.id,environment,customerEmail:order.customer_email,customerName:order.customer_name,returnUrl:`https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`};
+   const context={orderId:order.id,environment,customerEmail:order.customer_email,customerName:order.customer_name,returnUrl:`https://crm.oryneo.com.br/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`};
    let identities:{customerId:string;subscriptionId:string;invoiceId:string|null};
    try{identities=order.stripe_subscription_id&&order.stripe_customer_id&&order.stripe_invoice_id?{customerId:order.stripe_customer_id,subscriptionId:order.stripe_subscription_id,invoiceId:order.stripe_invoice_id}:await createStripeBoletoSubscription(selection,context,config)}catch(error){console.error('boleto subscription setup failed',{code:error instanceof Error?error.message:'unknown'});return respond({error:'Não foi possível preparar a assinatura Boleto.'},502)}
    if(!identities.invoiceId)return respond({error:'A primeira fatura ainda está sendo criada. Tente novamente.'},503);
@@ -120,13 +120,13 @@ Deno.serve(async req=>{
    const expired=await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(currentSessionId)}/expire`,{method:'POST',headers:{Authorization:`Bearer ${config.secretKey}`,'Stripe-Version':'2026-08-26.dahlia','Idempotency-Key':`oryneo-expire-before-funding-${currentSessionId}`}});
    if(!expired.ok)return respond({error:'Não foi possível substituir a sessão de pagamento com segurança.'},409);
   }else if(current.status!=='expired')return respond({error:'A sessão atual está em processamento. Atualize o pedido antes de tentar novamente.'},409);
-  const publicOrigin='https://guilherme-freitas-oryneo.github.io';
+  const publicOrigin='https://crm.oryneo.com.br';
   const choiceKey=`card-${body.card_funding}`;
   const integrationIdentifier='oryneo_'+Array.from(`${currentSessionId}-${choiceKey}`,char=>String.fromCharCode(97+char.charCodeAt(0)%26)).join('').slice(0,40);
   let prices:Awaited<ReturnType<typeof resolveStripeBillingPrices>>,selection:ReturnType<typeof buildBillingSelection>;
   try{prices=await resolveStripeBillingPrices(config);selection=buildBillingSelection({plan:order.selection.plan,cycle:order.selection.cycle,addons:order.selection.addons||[]},prices)}catch{return respond({error:'O catálogo do pedido não pôde ser conferido.'},503)}
   if(selection.amountTotal!==order.amount_total)return respond({error:'O valor do pedido diverge do catálogo aceito.'},409);
-  const form=buildCardSubscriptionCheckoutForm({orderId:order.id,environment,customerEmail:order.customer_email,funding:body.card_funding as 'credit'|'debit',priceIds:selection.stripePriceIds,returnUrl:`${publicOrigin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`,integrationIdentifier,trafficRenewalPriceId:selection.trafficRenewalPriceId});
+  const form=buildCardSubscriptionCheckoutForm({orderId:order.id,environment,customerEmail:order.customer_email,funding:body.card_funding as 'credit'|'debit',priceIds:selection.stripePriceIds,returnUrl:`${publicOrigin}/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`,integrationIdentifier,trafficRenewalPriceId:selection.trafficRenewalPriceId});
   const nextResponse=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{Authorization:`Bearer ${config.secretKey}`,'Stripe-Version':'2026-08-26.dahlia','Idempotency-Key':`oryneo-order-${environment}-${order.id}-${currentSessionId}-${choiceKey}`,'Content-Type':'application/x-www-form-urlencoded'},body:form});
   const next=await nextResponse.json();if(!nextResponse.ok||!next.id||typeof next.client_secret!=='string'||next.livemode!==config.livemode){console.error('billing-public checkout choice session unavailable',{status:nextResponse.status,code:next?.error?.code});return respond({error:'Não foi possível preparar o checkout com esse tipo de cartão.'},502)}
   const saved=await db.from('crm_billing_orders').update({selection:{...order.selection,payment_method:method,card_funding:method==='card'?body.card_funding:null},stripe_checkout_session_id:next.id,updated_at:new Date().toISOString()}).eq('id',order.id).eq('stripe_checkout_session_id',currentSessionId).eq('status','awaiting_payment').select('id').maybeSingle();
