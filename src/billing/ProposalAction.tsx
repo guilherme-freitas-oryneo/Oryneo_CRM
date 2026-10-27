@@ -14,8 +14,9 @@ function safeProposalLink(value:unknown):value is ProposalLink {
  if(!Number.isSafeInteger(candidate.version)||Number(candidate.version)<1||typeof candidate.url!=='string')return false;
  try{
   const url=new URL(candidate.url);
-  return url.protocol==='https:'&&url.hostname==='guilherme-freitas-oryneo.github.io'&&
-    url.pathname==='/Oryneo_CRM/proposta/'&&
+  const isOfficialCustomDomain=url.hostname==='crm.oryneo.com.br'&&url.pathname==='/proposta/';
+  const isLegacyDomain=url.hostname==='guilherme-freitas-oryneo.github.io'&&url.pathname==='/Oryneo_CRM/proposta/';
+  return url.protocol==='https:'&&(isOfficialCustomDomain||isLegacyDomain)&&
     /^[A-Za-z0-9_-]{42,50}$/.test(url.searchParams.get('token')||'');
  }catch{return false}
 }
