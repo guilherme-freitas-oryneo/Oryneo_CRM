@@ -39,8 +39,7 @@ export async function loadWhatsAppMessages(conversationId: string): Promise<Mess
  * Canal oficial: nunca simula envios. A função Edge confirma a mensagem na Meta
  * antes de a resposta retornar ok. Mantém o conteúdo no composer em caso de erro.
  */
-export async function sendWhatsAppMessage(conversationId: string, draft: WhatsAppDraft): Promise<string> {
-  const requestId = crypto.randomUUID();
+export async function sendWhatsAppMessage(conversationId: string, draft: WhatsAppDraft, requestId: string = crypto.randomUUID()): Promise<string> {
   let body: Record<string, string> | FormData;
   if (draft.kind === 'text') {
     body = { action: 'send_text', conversationId, requestId, text: draft.text };
