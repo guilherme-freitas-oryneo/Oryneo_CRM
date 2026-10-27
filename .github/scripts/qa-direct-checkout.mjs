@@ -38,13 +38,14 @@ for (const [name, engine, viewport] of browsers) {
     assert.equal(await page.getByRole('radiogroup', { name: 'Tipo do cartão' }).count(), 0, 'Crédito e débito somem fora do cartão');
     assert.equal(await page.getByText('Seu pagamento via Pix').count(), 0, 'Não apresentar etapa explicativa redundante do Pix');
     const marks=page.locator('.checkout-payment-art img');
-    assert.equal(await marks.count(),4,'Visa, Mastercard, boleto e Pix aparecem uma vez cada');
+    assert.equal(await marks.count(), 2, 'A interface atual usa dois PNGs oficiais: Pix e boleto; cartão é ícone SVG.');
+    assert.equal(await page.locator('.checkout-card-art svg').count(), 1, 'O símbolo do cartão deve ser exibido uma vez.');
     await page.waitForFunction(()=>[...document.querySelectorAll('.checkout-payment-art img')].every(img=>img.complete),null,{timeout:12000});
     const logoDetails=await marks.evaluateAll(images=>images.map(img=>({loaded:img.complete,width:img.naturalWidth,srcPrefix:img.src.slice(0,22)})));
     assert.ok(logoDetails.every(img=>img.loaded && img.width>0 && img.srcPrefix==='data:image/png;base64,'),`os símbolos aprovados precisam carregar: ${JSON.stringify(logoDetails)}`);
     const maxCardHeight=await page.locator('.checkout-payment-options>label').evaluateAll(items=>Math.max(...items.map(item=>item.getBoundingClientRect().height)));
     assert.ok(maxCardHeight<=96,`cards altos demais: ${maxCardHeight}px`);
-    console.log(`${name}: 4 imagens locais de pagamento válidas; cartão mais alto ${Math.round(maxCardHeight)}px`);
+    console.log(`${name}: 2 PNGs aprovados e 1 símbolo SVG de cartão; cartão mais alto ${Math.round(maxCardHeight)}px`);
     assert.equal(await page.getByText('Seu pagamento via Pix').count(),0);
     await page.getByRole('checkbox', { name: /Landing page de conversão/i }).check();
     await page.getByRole('checkbox', { name: /Gestão de tráfego pago/i }).check();
