@@ -7,7 +7,7 @@ import { verifiedPixPresentation, type PublicPixDetails } from '../_shared/billi
 import { boletoInvoiceView } from '../_shared/billing/invoice-public-status.ts';
 import { billingEnvironmentMatchesLivemode, getBillingEnvironmentConfig, parseBillingEnvironment } from '../_shared/billing/environment.ts';
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
-const origins=new Set(['https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br','http://localhost:4175']);
+const origins=new Set(['https://crm.oryneo.com.br','https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br','http://localhost:4175']);
 const hash=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(v=>v.toString(16).padStart(2,'0')).join('');
 const recordPaymentArtifact=async(orderId:string,kind:'pix_ready'|'boleto_issued',providerId:string)=>{
  const {error}=await db.rpc('crm_record_payment_artifact',{p_order_id:orderId,p_kind:kind,p_provider_id:providerId});

@@ -7,7 +7,7 @@ import { getBillingEnvironmentConfig } from '../_shared/billing/environment.ts';
 
 const serviceKey=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const db=createClient(Deno.env.get('SUPABASE_URL')!,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
-const origins=new Set(['https://oryneo-lp-preview.guilherme-frei160023.chatgpt.site','https://oryneo.com.br','https://www.oryneo.com.br','https://guilherme-freitas-oryneo.github.io']);
+const origins=new Set(['https://crm.oryneo.com.br','https://oryneo-lp-preview.guilherme-frei160023.chatgpt.site','https://oryneo.com.br','https://www.oryneo.com.br','https://guilherme-freitas-oryneo.github.io']);
 const publicOrigin='https://guilherme-freitas-oryneo.github.io';
 type Company={cnpj:string;legalName:string;displayName:string;profile:Record<string,unknown>};
 type CompanyLookup={status:'partial'|'invalid'|'not_found'|'unavailable'|'found';company?:Company};
