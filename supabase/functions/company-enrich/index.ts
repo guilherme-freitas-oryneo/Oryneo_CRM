@@ -1,7 +1,7 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 const url=Deno.env.get('SUPABASE_URL')!;
 const db=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
-const origins=new Set(['https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br']);
+const origins=new Set(['https://crm.oryneo.com.br','https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br']);
 const text=(x:unknown,n=180)=>typeof x==='string'?x.trim().slice(0,n):'';
 const digits=(x:unknown)=>text(x,40).replace(/\D/g,'');
 const normalizedCnpj=(x:unknown)=>text(x,40).toUpperCase().replace(/[^A-Z0-9]/g,'');
