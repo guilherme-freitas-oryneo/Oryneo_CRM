@@ -51,3 +51,36 @@ for(const path of publicRoutes){
 }
 console.log(`Static routes: ${publicRoutes.length}, failures: ${pageFailures}`);
 if(pageFailures)process.exitCode=1;
+
+// Acesso de leitura com token propositalmente impossível de ser uma URL emitida
+// no ambiente de QA: não realiza aceite, criação de pedidos ou envio de mensagens.
+// O código envia somente action=read; as funções devolvem 404 antes de qualquer escrita.
+const unknownToken='Z'.repeat(43);
+const readOnlyCases=[
+ {slug:'proposal-public',action:'read',expected:404},
+ {slug:'billing-public',action:'read',expected:404},
+];
+let readonlyFailures=0;
+for(const check of readOnlyCases){
+ for(const origin of origins){
+  try{
+   const response=await fetch(host+check.slug,{
+    method:'POST',
+    headers:{Origin:origin,'Content-Type':'application/json'},
+    body:JSON.stringify({action:check.action,token:unknownToken}),
+    signal:AbortSignal.timeout(15000),
+   });
+   const allowed=response.headers.get('access-control-allow-origin')||'';
+   const payload=await response.json().catch(()=>({}));
+   const ok=response.status===check.expected&&allowed===origin&&typeof payload.error==='string'&&payload.error.length>0;
+   if(!ok)readonlyFailures++;
+   console.log(`readonly ${check.slug} | ${origin} | ${response.status} | ${ok?'INVALID_TOKEN_REJECTED':'FAILED'}`);
+  }catch(error){
+   readonlyFailures++;
+   console.log(`readonly ${check.slug} | ${origin} | ${error instanceof Error?error.name:'error'} | FAILED`);
+  }
+ }
+}
+console.log(`Read-only negative API: ${readOnlyCases.length*origins.length}, failures: ${readonlyFailures}`);
+if(readonlyFailures)process.exitCode=1;
+
