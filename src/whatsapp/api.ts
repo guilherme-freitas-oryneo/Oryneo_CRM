@@ -77,3 +77,19 @@ export async function sendWhatsAppMessage(conversationId: string, draft: WhatsAp
   }
   return data.messageId;
 }
+
+/** Busca mídia privada somente sob uma sessão autenticada. Nunca expõe token Meta no navegador. */
+export async function loadWhatsAppMedia(messageId: string): Promise<Blob> {
+  const { data, error } = await supabase.functions.invoke('whatsapp-media', {
+    body: { messageId },
+  });
+  if (error || !(data instanceof Blob)) {
+    throw new Error('Não foi possível carregar a mídia. Verifique sua conexão e tente novamente.');
+  }
+  const type = data.type.split(';')[0].toLowerCase();
+  const allowed = new Set(['image/jpeg', 'image/png', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'video/mp4', 'application/pdf']);
+  if (!allowed.has(type) || data.size > 16 * 1024 * 1024) {
+    throw new Error('Este formato de mídia não pode ser exibido no CRM.');
+  }
+  return data;
+}
