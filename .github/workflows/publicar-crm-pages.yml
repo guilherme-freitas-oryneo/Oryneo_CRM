@@ -83,6 +83,15 @@ jobs:
         run: |
           set -euo pipefail
           touch dist/.nojekyll
+          # Compatibilidade: Stripe e links externos já emitidos ainda podem usar
+          # /Oryneo_CRM/pagar/?token=... após o redirecionamento do GitHub Pages.
+          # Espelhar apenas artefatos estáticos gerados, sem alterar cobrança.
+          if [[ "${ORYNEO_PAGES_BASE}" == "/" ]]; then
+            mkdir -p dist/Oryneo_CRM
+            rsync -a --exclude '/Oryneo_CRM/' dist/ dist/Oryneo_CRM/
+            test -s dist/Oryneo_CRM/index.html
+            test -s dist/Oryneo_CRM/pagar/index.html
+          fi
           # Esta publicação recria gh-pages; conservar o CNAME de Pages, se existir.
           if [[ -f pages-snapshot/CNAME ]]; then
             cp pages-snapshot/CNAME dist/CNAME
