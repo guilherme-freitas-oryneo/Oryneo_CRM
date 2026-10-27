@@ -2,13 +2,12 @@ import {createClient} from 'npm:@supabase/supabase-js@2.90.1';
 import {buildBillingQuote} from '../_shared/billing/catalog.ts';
 import {buildProposalPresentation} from '../_shared/billing/presentation.ts';
 import {deterministicMailUuid,sendSystemTransactionalEmail} from '../_shared/mail/system-transactional.ts';
-import { crmPublicUrl } from '../_shared/hosting/crm-urls.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
  auth:{persistSession:false,autoRefreshToken:false}
 });
 const allowedOrigins=new Set(['https://crm.oryneo.com.br','https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br','http://localhost:4175']);
-const destination=crmPublicUrl('/proposta/',Deno.env.get('ORYNEO_CRM_PUBLIC_BASE'));
+const destination='https://crm.oryneo.com.br/proposta/';
 const digest=async(input:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(input)))).map(x=>x.toString(16).padStart(2,'0')).join('');
 const token=()=>{const a=crypto.getRandomValues(new Uint8Array(32));return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
 
