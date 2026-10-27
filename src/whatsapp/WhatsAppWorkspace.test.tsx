@@ -56,7 +56,7 @@ describe('WhatsAppWorkspace', () => {
     expect(box).toBeEnabled();
     await user.type(box, 'Olá, Marina');
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
-    expect(sendWhatsAppMessage).toHaveBeenCalledWith('conversation-1', { kind: 'text', text: 'Olá, Marina' });
+    expect(sendWhatsAppMessage).toHaveBeenCalledWith('conversation-1', { kind: 'text', text: 'Olá, Marina' }, expect.stringMatching(/^[0-9a-f-]{36}$/i));
   });
 
   it('impede envio para contato que pediu opt-out, mesmo com canal habilitado', async () => {
