@@ -16,6 +16,7 @@ Fonte de partida: `ORYNEO_CODEX_WHATSAPP_MASTER_AUTONOMIA_20261027.zip`, confron
 | Token sistema | O token fornecido anteriormente acessou via Graph API o usuário de sistema e os ativos corretos; o proprietário informou que salvou o segredo no Supabase. A conexão Supabase não lê o valor nem comprova a execução da função com ele | PARCIAL |
 | Frontend publicado | O PR segue draft e sem merge; não há homologação da central publicada | BLOQUEADO |
 | E2E mensagem real | Após teste solicitado ao proprietário, chegou um evento `messages` com tipo `text` em 27/10 às 15:50 (São Paulo), processado sem erro e persistido como mensagem `inbound/text`. O evento anterior era `unsupported`. Ainda não há resposta, status de entrega, mídia ou login no frontend publicado | PARCIAL |
+| Domínio oficial | `main` em `46b34c2` e `gh-pages` em `b7d7734` publicam o CRM em `https://crm.oryneo.com.br`; raiz e rotas públicas carregam assets na raiz, mantendo `/Oryneo_CRM/` para links antigos. Branch WhatsApp reconciliada com essa linha | CONFIRMADO |
 
 ## Gate G1 — divergências entre branch e ambiente
 
@@ -53,3 +54,5 @@ O workflow de build/Pix do commit `00972d6` falhou porque o Vitest capturou `med
 [Benchmark de 30 critérios](07-BENCHMARK-20261027.md) e [decisão de componentes](08-COMPONENTES-20261027.md) registram releitura direta de cinco produtos-alvo, Front/Zendesk, fontes oficiais de bibliotecas, riscos e três composições. O `BRAND_LOCK.md` foi relido no Drive institucional; nenhuma marca foi redesenhada. Não há screenshots autenticadas dos concorrentes nem avaliação de componentes 21st com login, portanto a pesquisa visual permanece parcial.
 
 Fechar G2 antes de habilitar envio. Depois validar entrada/saída controlada com número próprio e somente então avaliar ativação do canal e publicação da UI. Landing page, checkout, financeiro e e-mail permanecem fora do lote WhatsApp, exceto correção isolada do script de QA já presente no PR.
+
+Após integrar `main`, a validação combinada registrou 340/340 testes Vitest, build nas bases `/` e `/Oryneo_CRM/`, testes SQL/RLS e Deno, 30/30 preflights CORS, 9/9 rotas públicas e 4/4 rejeições read-only de token desconhecido. O QA do checkout interceptou integralmente o Supabase e passou em Chromium desktop/mobile sem iniciar cobrança. WebKit e workflows remotos permanecem como evidência pendente da CI.

@@ -1,5 +1,5 @@
 const ACTIONS = new Set(['list-drafts', 'get-draft', 'export-message', 'quota', 'send', 'save-draft', 'delete-draft', 'set-flags', 'move', 'retry-send', 'attachment-url', 'link-deal', 'unlink-deal', 'sync-now']);
-const ALLOWED_ORIGINS = new Set(['https://guilherme-freitas-oryneo.github.io', 'http://localhost:5173', 'http://127.0.0.1:5173']);
+const ALLOWED_ORIGINS = new Set(['https://crm.oryneo.com.br', 'https://guilherme-freitas-oryneo.github.io', 'http://localhost:5173', 'http://127.0.0.1:5173']);
 
 export type MailApiHandlerDependencies = {
   authenticate(token: string): Promise<string | null>;

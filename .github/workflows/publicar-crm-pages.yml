@@ -41,8 +41,27 @@ jobs:
       - name: Instalar dependencias travadas
         run: npm ci
 
-      - name: Compilar para a subpasta GitHub Pages
-        run: npm run build -- --base=/Oryneo_CRM/
+      - name: Ler domínio personalizado e preservação de homologações
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: pages-snapshot
+          fetch-depth: 1
+
+      - name: Determinar base sem interromper a URL existente
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f pages-snapshot/CNAME ]] && [[ "$(tr -d '\r\n' < pages-snapshot/CNAME)" == "crm.oryneo.com.br" ]]; then
+            echo "ORYNEO_PAGES_BASE=/" >> "$GITHUB_ENV"
+            echo "Domínio crm.oryneo.com.br identificado; build na raiz."
+          else
+            echo "ORYNEO_PAGES_BASE=/Oryneo_CRM/" >> "$GITHUB_ENV"
+            echo "Sem domínio personalizado ativo; preservando base original."
+          fi
+
+      - name: Compilar com base adequada ao domínio ativo
+        run: npm run build -- --base="$ORYNEO_PAGES_BASE"
 
       - name: Verificar artefatos do CRM
         shell: bash
@@ -54,15 +73,8 @@ jobs:
           test -s dist/oryneo-wordmark.png
           test -s dist/oryneo-y.svg
           test -n "$(find dist/assets -type f -name '*.js' -print -quit)"
-          grep -q "/Oryneo_CRM/assets/" dist/index.html
-          grep -q "/Oryneo_CRM/oryneo-y.svg" dist/index.html
-
-      - name: Preservar subpasta privada de homologação
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: pages-snapshot
-          fetch-depth: 1
+          grep -Fq "${ORYNEO_PAGES_BASE}assets/" dist/index.html
+          grep -Fq "${ORYNEO_PAGES_BASE}oryneo-y.svg" dist/index.html
 
       - name: Publicar apenas o frontend compilado na branch gh-pages
         shell: bash
@@ -71,6 +83,19 @@ jobs:
         run: |
           set -euo pipefail
           touch dist/.nojekyll
+          # Compatibilidade: Stripe e links externos já emitidos ainda podem usar
+          # /Oryneo_CRM/pagar/?token=... após o redirecionamento do GitHub Pages.
+          # Espelhar apenas artefatos estáticos gerados, sem alterar cobrança.
+          if [[ "${ORYNEO_PAGES_BASE}" == "/" ]]; then
+            mkdir -p dist/Oryneo_CRM
+            rsync -a --exclude '/Oryneo_CRM/' dist/ dist/Oryneo_CRM/
+            test -s dist/Oryneo_CRM/index.html
+            test -s dist/Oryneo_CRM/pagar/index.html
+          fi
+          # Esta publicação recria gh-pages; conservar o CNAME de Pages, se existir.
+          if [[ -f pages-snapshot/CNAME ]]; then
+            cp pages-snapshot/CNAME dist/CNAME
+          fi
           if [[ -d pages-snapshot/qa/pr-46 ]]; then
             mkdir -p dist/qa/pr-46
             cp -a pages-snapshot/qa/pr-46/. dist/qa/pr-46/

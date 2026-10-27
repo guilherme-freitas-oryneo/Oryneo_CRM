@@ -19,8 +19,9 @@ function contextValid(context:PaymentOrderContext):void{
  if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(context.orderId)||!['test','live'].includes(context.environment))throw Error('INVALID_ORDER_CONTEXT');
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(context.customerEmail)||context.customerName.trim().length<2)throw Error('INVALID_CUSTOMER');
  const url=new URL(context.returnUrl);
- if(url.protocol!=='https:'||url.hostname!=='guilherme-freitas-oryneo.github.io'||url.port||url.username||url.password||url.hash||
-   !['/Oryneo_CRM/','/Oryneo_CRM/pagar/','/Oryneo_CRM/qa/pr-46/'].includes(url.pathname))
+ if(url.protocol!=='https:'||url.port||url.username||url.password||url.hash||
+   !((url.hostname==='crm.oryneo.com.br'&&['/','/pagar/','/qa/pr-46/'].includes(url.pathname))||
+     (url.hostname==='guilherme-freitas-oryneo.github.io'&&['/Oryneo_CRM/','/Oryneo_CRM/pagar/','/Oryneo_CRM/qa/pr-46/'].includes(url.pathname))))
   throw Error('INVALID_RETURN_URL');
 }
 /** Creates a subscription with recurring plan and one-time setup on the first invoice.

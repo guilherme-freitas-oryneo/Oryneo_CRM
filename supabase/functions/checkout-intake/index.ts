@@ -7,8 +7,8 @@ import { getBillingEnvironmentConfig } from '../_shared/billing/environment.ts';
 
 const serviceKey=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const db=createClient(Deno.env.get('SUPABASE_URL')!,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
-const origins=new Set(['https://oryneo-lp-preview.guilherme-frei160023.chatgpt.site','https://oryneo.com.br','https://www.oryneo.com.br','https://guilherme-freitas-oryneo.github.io']);
-const publicOrigin='https://guilherme-freitas-oryneo.github.io';
+const origins=new Set(['https://crm.oryneo.com.br','https://oryneo-lp-preview.guilherme-frei160023.chatgpt.site','https://oryneo.com.br','https://www.oryneo.com.br','https://guilherme-freitas-oryneo.github.io']);
+const publicOrigin='https://crm.oryneo.com.br';
 type Company={cnpj:string;legalName:string;displayName:string;profile:Record<string,unknown>};
 type CompanyLookup={status:'partial'|'invalid'|'not_found'|'unavailable'|'found';company?:Company};
 type CreatedCheckout={order_id:string;reference:string;stripe_checkout_session_id:string|null};
@@ -98,7 +98,7 @@ Deno.serve(async req=>{
     if(!sessionId){
       const form=new URLSearchParams();
       form.set('ui_mode','elements');form.set('customer_email',input.customer_email);form.set('integration_identifier',identifier());form.set('locale','pt-BR');
-      form.set('return_url',`${publicOrigin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(input.payment_token)}&retorno=1`);
+      form.set('return_url',`${publicOrigin}/pagar/?token=${encodeURIComponent(input.payment_token)}&retorno=1`);
       form.set('metadata[oryneo_order_id]',created.order_id);form.set('metadata[oryneo_billing_environment]',environment);
       if(input.payment_method==='card'){
         if(!input.card_funding)throw new Error('INVALID_CARD_FUNDING');
@@ -119,7 +119,7 @@ Deno.serve(async req=>{
       const {error:updateError}=await db.from('crm_billing_orders').update({stripe_checkout_session_id:sessionId,updated_at:new Date().toISOString()}).eq('id',created.order_id).is('stripe_checkout_session_id',null);
       if(updateError)return respond({error:'O pedido foi criado, mas não pode ser vinculado ao pagamento agora.'},503);
     }
-    return respond({ok:true,reference:created.reference,url:`${publicOrigin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(input.payment_token)}`});
+    return respond({ok:true,reference:created.reference,url:`${publicOrigin}/pagar/?token=${encodeURIComponent(input.payment_token)}`});
   }catch(cause){
     const code=cause instanceof Error?cause.message:'unknown';console.error('direct checkout failed',{code});
     return respond({error:'Confira os dados e tente novamente. Nenhuma cobrança foi realizada.'},400);

@@ -10,7 +10,7 @@ import {renderTransactionalEmail} from '../_shared/mail/transactional-templates.
 const url=Deno.env.get('SUPABASE_URL')!,serviceKey=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const db=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
 const mailDb=new SupabaseMailDatabase(db);
-const allowedOrigins=new Set(['https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br','http://localhost:4175']);
+const allowedOrigins=new Set(['https://crm.oryneo.com.br','https://guilherme-freitas-oryneo.github.io','https://oryneo.com.br','https://www.oryneo.com.br','http://localhost:4175']);
 const respond=(body:unknown,status=200,origin='')=>{const headers:Record<string,string>={'Content-Type':'application/json','Cache-Control':'no-store','Vary':'Origin','Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS'};if(allowedOrigins.has(origin))headers['Access-Control-Allow-Origin']=origin;return new Response(JSON.stringify(body),{status,headers})};
 async function activeMailbox(){const r=await db.from('crm_mailboxes').select('id,address').eq('active',true).order('created_at').limit(1).maybeSingle();if(r.error||!r.data?.id||!r.data?.address)throw new Error('BILLING_MAILBOX_UNAVAILABLE');return r.data as{id:string;address:string}}
 const sendDependencies:MailSendDependencies={

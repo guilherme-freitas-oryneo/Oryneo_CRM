@@ -1,0 +1,22 @@
+name: Verificar CORS real do dominio ORYNEO
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/scripts/qa-domain-preflight.mjs'
+      - '.github/workflows/verify-domain-preflight.yml'
+      - 'supabase/functions/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar HTTP OPTIONS das 15 Edge Functions nos dominios novo e antigo
+        run: node .github/scripts/qa-domain-preflight.mjs

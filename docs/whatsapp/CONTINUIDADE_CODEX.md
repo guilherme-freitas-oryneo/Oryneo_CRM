@@ -9,6 +9,7 @@
 > - Em teste solicitado ao proprietário, um evento real `messages/text` chegou às 15:50 (São Paulo), foi processado e persistido como `inbound/text`. A leitura excluiu o corpo da mensagem. Recebimento backend confirmado; UI publicada e envio seguem sem homologação.
 > - O contador de não lidas agora é lido do Supabase no frontend da branch; confirmação de leitura só ocorre quando o canal estiver habilitado. O script browser QA de checkout foi alinhado aos campos atuais sem mudar o produto, e Chromium desktop/mobile passaram localmente. WebKit depende da CI com bibliotecas de sistema; ainda não declarar CI verde até o novo workflow concluir.
 > - Atribuição transacional de um responsável por conversa e auditoria foram codificadas em nova migração e na Edge Function, com teste de transferência e revogação no Postgres descartável. Somente branch; falta UI de seleção de operador/equipes e deploy seguro.
+> - A branch foi reconciliada com `main` em `46b34c2`, preservando o domínio oficial `https://crm.oryneo.com.br`, CORS das 15 Edge Functions, retornos Stripe/Pix e links públicos. A verificação real confirmou 30/30 preflights CORS, 9/9 rotas estáticas e 4/4 rejeições de token desconhecido. O checkout simulado passou em desktop e mobile sem cobrança real; a suíte combinada passou com 340/340 testes. Nenhuma regra financeira foi alterada pelo lote WhatsApp.
 
 > **CHECKPOINT ANTERIOR — 27/10/2026 (superado pela retomada acima quando houver divergência)**
 >

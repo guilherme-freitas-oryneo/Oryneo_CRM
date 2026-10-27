@@ -4,14 +4,20 @@ import { getBillingEnvironmentConfig } from '../_shared/billing/environment.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
 const origin='https://guilherme-freitas-oryneo.github.io';
-const headers={'Content-Type':'application/json','Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store'};
-const respond=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
+const publicBase='https://crm.oryneo.com.br';
+const defaultCorsHeaders={'Content-Type':'application/json','Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store'};
+
 const hash=async(value:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(v=>v.toString(16).padStart(2,'0')).join('');
 const token=()=>{const bytes=crypto.getRandomValues(new Uint8Array(32));return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
 const reference=()=>`ORY-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${crypto.randomUUID().slice(0,6).toUpperCase()}`;
 const integrationIdentifier=()=>{const bytes=crypto.getRandomValues(new Uint8Array(8));return 'oryneo_'+Array.from(bytes,v=>String.fromCharCode(97+v%26)).join('')};
 
 Deno.serve(async req=>{
+ const requestOrigin=req.headers.get('origin')||'';
+ const approvedOrigins=new Set([origin,'https://crm.oryneo.com.br']);
+ const headers={...defaultCorsHeaders,'Vary':'Origin','Access-Control-Allow-Origin':approvedOrigins.has(requestOrigin)?requestOrigin:origin};
+ const respond=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
+ if(requestOrigin&&!approvedOrigins.has(requestOrigin))return respond({error:'Origem não autorizada.'},403);
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(req.method!=='POST')return respond({error:'Método não permitido.'},405);
  const jwt=(req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');
@@ -67,7 +73,7 @@ Deno.serve(async req=>{
  form.set('mode','subscription');form.set('ui_mode','elements');form.set('customer_email',String(data.email));
  form.set('integration_identifier',integrationIdentifier());
  form.set('locale','pt-BR');form.set('billing_address_collection','required');
- form.set('return_url',`${origin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`);
+ form.set('return_url',`${publicBase}/pagar/?token=${encodeURIComponent(publicToken)}&retorno=1`);
  form.set('metadata[oryneo_order_id]',orderId);form.set('metadata[oryneo_deal_id]',deal.id);
  form.set('metadata[oryneo_billing_environment]',config.environment);
  if(selection.trafficRenewalPriceId)form.set('metadata[oryneo_traffic_renewal_price]',selection.trafficRenewalPriceId);
@@ -77,5 +83,5 @@ Deno.serve(async req=>{
  const session=await stripe.json();
  if(!stripe.ok||!session?.id||session.livemode!==config.livemode){await db.from('crm_billing_orders').update({status:'requires_review'}).eq('id',orderId);return respond({error:'O Stripe não conseguiu preparar o pagamento. Revise a configuração da conta.'},502)}
  await db.from('crm_billing_orders').update({stripe_checkout_session_id:session.id,updated_at:new Date().toISOString()}).eq('id',orderId);
- return respond({ok:true,reference:ref,url:`${origin}/Oryneo_CRM/pagar/?token=${encodeURIComponent(publicToken)}`});
+ return respond({ok:true,reference:ref,url:`${publicBase}/pagar/?token=${encodeURIComponent(publicToken)}`});
 });
