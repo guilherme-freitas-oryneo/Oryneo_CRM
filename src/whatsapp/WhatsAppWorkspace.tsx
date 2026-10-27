@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowUpRight, CheckCheck, CircleHelp, Clock3, Headphones, MessageCircle, Phone, Search, ShieldCheck, X } from 'lucide-react';
 import type { DealRow } from '../data';
 import { buildWhatsAppUrl } from '../firstContact/whatsapp';
-import { loadWhatsAppInbox, loadWhatsAppMessages, type Channel, type Conversation, type Message } from './api';
-import { WhatsAppComposer } from './WhatsAppComposer';
+import { loadWhatsAppInbox, loadWhatsAppMessages, sendWhatsAppMessage, type Channel, type Conversation, type Message } from './api';
+import { WhatsAppComposer, type WhatsAppDraft } from './WhatsAppComposer';
 import './whatsapp.css';
 
 const contactName = (deal: DealRow) => deal.data.contact || deal.data.company || deal.data.title;
@@ -27,6 +27,16 @@ export function WhatsAppWorkspace({ deals, loading, loadError, onOpenDeal }: { d
   const recipientName = selectedConversation ? conversationName(selectedConversation) : selectedDeal ? contactName(selectedDeal) : '';
   const recipientPhone = selectedConversation ? '+' + selectedConversation.customer_wa_id : selectedDeal?.data.phone || '';
   const hasSelection = !!selectedConversation || !!selectedDeal;
+  const lastInboundElapsed = selectedConversation?.last_inbound_at ? Date.now() - Date.parse(selectedConversation.last_inbound_at) : Number.POSITIVE_INFINITY;
+  const windowOpen = lastInboundElapsed >= 0 && lastInboundElapsed < 24 * 60 * 60 * 1000;
+  const canReply = Boolean(selectedConversation && channel?.enabled && !selectedConversation.opted_out
+    && (selectedConversation.mode === 'review' || selectedConversation.mode === 'human_locked') && windowOpen);
+  const disabledReason = !selectedConversation
+    ? 'É necessário receber uma mensagem oficial deste contato antes de responder pelo CRM.'
+    : !channel?.enabled ? 'Canal ainda em homologação. O envio permanece bloqueado.'
+      : selectedConversation.opted_out ? 'Contato optou por não receber mensagens.'
+        : !windowOpen ? 'Janela de atendimento encerrada. Utilize um modelo aprovado pela Meta.'
+          : 'Assuma o atendimento humano para enviar mensagens.';
   const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
   const shownConversations = conversations.filter(conversation => [conversationName(conversation), conversation.customer_wa_id, conversation.last_preview].join(' ').toLocaleLowerCase('pt-BR').includes(normalizedQuery));
   const shownContacts = contacts.filter(deal => [deal.data.contact, deal.data.company, deal.data.phone, deal.data.title].join(' ').toLocaleLowerCase('pt-BR').includes(normalizedQuery));
@@ -59,10 +69,24 @@ export function WhatsAppWorkspace({ deals, loading, loadError, onOpenDeal }: { d
   const selectConversation = (id: string) => { setSelectedConversationId(id); setSelectedContactId(null); setContextOpen(false); };
   const selectContact = (id: string) => { setSelectedContactId(id); setSelectedConversationId(null); setContextOpen(false); };
   const close = () => { setSelectedContactId(null); setSelectedConversationId(null); setContextOpen(false); };
+  const sendReply = async (draft: WhatsAppDraft) => {
+    if (!selectedConversation || !canReply) throw new Error('Envio indisponível. Verifique o estado do canal.');
+    // Somente a Edge Function decide e efetua o envio. A UI não registra mensagens fictícias.
+    await sendWhatsAppMessage(selectedConversation.id, draft);
+    try {
+      const [newMessages, refreshed] = await Promise.all([
+        loadWhatsAppMessages(selectedConversation.id), loadWhatsAppInbox(),
+      ]);
+      setMessages(newMessages);
+      setConversations(refreshed.conversations);
+      setChannel(refreshed.channel);
+      setInboxError(false);
+    } catch { setInboxError(true); }
+  };
 
   return <div className={'wa-workspace' + (hasSelection ? ' wa-selected' : '')}>
     <aside className="wa-list" aria-label="Conversas e contatos do WhatsApp">
-      <header className="wa-list-head"><span className="wa-kicker">RELACIONAMENTO</span><h1>WhatsApp</h1><p>Atendimento com o contexto do CRM.</p><div className="wa-channel-status"><span className="wa-status-dot"/><div><strong>{channel?.enabled ? 'Canal conectado' : 'Canal em preparação'}</strong><small>{channel?.enabled ? channel.display_phone_number : 'Recebimento e envio ainda não estão ativos.'}</small></div></div></header>
+      <header className="wa-list-head"><span className="wa-kicker">RELACIONAMENTO</span><h1>WhatsApp</h1><p>Atendimento com o contexto do CRM.</p><div className="wa-channel-status"><span className="wa-status-dot"/><div><strong>{channel?.enabled ? 'Canal habilitado' : 'Canal em preparação'}</strong><small>{channel?.enabled ? channel.display_phone_number : 'Recebimento e envio ainda não estão ativos.'}</small></div></div></header>
       <label className="wa-search"><Search size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar conversa ou contato" aria-label="Buscar conversa ou contato"/>{query && <button type="button" aria-label="Limpar busca" onClick={() => setQuery('')}><X size={15}/></button>}</label>
       {inboxError && <div className="wa-inline-alert" role="alert">Não foi possível atualizar as conversas. Os contatos do CRM continuam disponíveis.</div>}
       <div className="wa-list-count"><span>CONVERSAS</span><span>{shownConversations.length}</span></div>
@@ -75,7 +99,7 @@ export function WhatsAppWorkspace({ deals, loading, loadError, onOpenDeal }: { d
       <footer className="wa-list-footer"><ShieldCheck size={15}/> Mensagens aparecem somente após confirmação do servidor.</footer>
     </aside>
     <section className="wa-thread" aria-label="Área de conversa">
-      {hasSelection ? <><header className="wa-thread-head"><button type="button" className="wa-icon wa-back" aria-label="Voltar às conversas" onClick={close}><ArrowLeft size={19}/></button><span className="wa-avatar">{recipientName.slice(0, 1).toUpperCase()}</span><div className="wa-thread-identity"><strong>{recipientName}</strong><small>{recipientPhone} · {selectedConversation ? modeLabel[selectedConversation.mode] : 'Contato do CRM'}</small></div><button type="button" className="wa-icon" aria-label="Abrir contexto do contato" aria-expanded={contextOpen} onClick={() => setContextOpen(value => !value)}><CircleHelp size={19}/></button></header><div className="wa-messages">{selectedConversation ? messagesLoading ? <div className="wa-conversation-empty" role="status">Carregando mensagens…</div> : messages.length ? <div className="wa-message-list">{messages.map(message => <WhatsAppMessageView key={message.id} message={message}/>)}</div> : <div className="wa-conversation-empty">Nenhuma mensagem disponível.</div> : <div className="wa-conversation-empty"><span className="wa-empty-symbol"><MessageCircle size={27}/></span><h2>Conversa ainda não conectada</h2><p>Este contato está no CRM, mas não há uma conversa oficial vinculada a ele.</p><span><Clock3 size={15}/> Nenhuma mensagem importada</span></div>}</div><WhatsAppComposer key={selectedConversationId || selectedContactId} enabled={false} disabledReason="Envio, áudio e anexos serão liberados após a conexão oficial e as verificações do canal."/>{!selectedConversation && selectedDeal && <a className="wa-external-link" href={buildWhatsAppUrl(selectedDeal.data.phone) ?? '#'} target="_blank" rel="noopener noreferrer">Abrir WhatsApp externo <ArrowUpRight size={13}/></a>}</> : <div className="wa-thread-idle"><span className="wa-empty-symbol"><Headphones size={29}/></span><h2>Atendimento em um só lugar</h2><p>Selecione uma conversa recebida ou um contato do CRM para consultar o contexto.</p><span><CheckCheck size={16}/> Sem conversas simuladas</span></div>}
+      {hasSelection ? <><header className="wa-thread-head"><button type="button" className="wa-icon wa-back" aria-label="Voltar às conversas" onClick={close}><ArrowLeft size={19}/></button><span className="wa-avatar">{recipientName.slice(0, 1).toUpperCase()}</span><div className="wa-thread-identity"><strong>{recipientName}</strong><small>{recipientPhone} · {selectedConversation ? modeLabel[selectedConversation.mode] : 'Contato do CRM'}</small></div><button type="button" className="wa-icon" aria-label="Abrir contexto do contato" aria-expanded={contextOpen} onClick={() => setContextOpen(value => !value)}><CircleHelp size={19}/></button></header><div className="wa-messages">{selectedConversation ? messagesLoading ? <div className="wa-conversation-empty" role="status">Carregando mensagens…</div> : messages.length ? <div className="wa-message-list">{messages.map(message => <WhatsAppMessageView key={message.id} message={message}/>)}</div> : <div className="wa-conversation-empty">Nenhuma mensagem disponível.</div> : <div className="wa-conversation-empty"><span className="wa-empty-symbol"><MessageCircle size={27}/></span><h2>Conversa ainda não conectada</h2><p>Este contato está no CRM, mas não há uma conversa oficial vinculada a ele.</p><span><Clock3 size={15}/> Nenhuma mensagem importada</span></div>}</div><WhatsAppComposer key={selectedConversationId || selectedContactId} enabled={canReply} disabledReason={disabledReason} onSend={sendReply}/>{!selectedConversation && selectedDeal && <a className="wa-external-link" href={buildWhatsAppUrl(selectedDeal.data.phone) ?? '#'} target="_blank" rel="noopener noreferrer">Abrir WhatsApp externo <ArrowUpRight size={13}/></a>}</> : <div className="wa-thread-idle"><span className="wa-empty-symbol"><Headphones size={29}/></span><h2>Atendimento em um só lugar</h2><p>Selecione uma conversa recebida ou um contato do CRM para consultar o contexto.</p><span><CheckCheck size={16}/> Sem conversas simuladas</span></div>}
     </section>
     <aside className={'wa-context' + (contextOpen ? ' open' : '')} aria-label="Contexto do contato"><header><span className="wa-kicker">CONTEXTO</span><button type="button" className="wa-icon wa-context-close" aria-label="Fechar contexto" onClick={() => setContextOpen(false)}><X size={18}/></button><h2>Dados para atender melhor</h2></header>{hasSelection ? <><section><div className="wa-context-name"><span className="wa-avatar">{recipientName.slice(0, 1).toUpperCase()}</span><div><strong>{recipientName}</strong><small>{selectedDeal?.data.company || 'Contato sem vínculo confirmado'}</small></div></div><dl><div><dt>Telefone</dt><dd>{recipientPhone}</dd></div><div><dt>Origem</dt><dd>{selectedDeal?.data.source || 'Não informada'}</dd></div><div><dt>Consentimento</dt><dd>{selectedConversation?.consent_granted ? 'Registrado' : 'A verificar'}</dd></div></dl></section><section><h3>Oportunidade</h3>{selectedDeal ? <div className="wa-deal"><strong>{selectedDeal.data.title}</strong><small>{selectedDeal.data.next_action?.title || 'Sem próxima ação definida'}</small><button type="button" onClick={() => onOpenDeal(selectedDeal.id)}>Abrir no pipeline <ArrowUpRight size={14}/></button></div> : <p className="wa-unlinked">Nenhuma oportunidade foi vinculada a esta conversa.</p>}</section><section><h3>Canais disponíveis</h3><a className="wa-contact-action" href={'tel:' + recipientPhone.replace(/[^\d+]/g, '')}><Phone size={16}/><span>Ligar pelo telefone<small>Usa o discador do dispositivo</small></span><ArrowUpRight size={14}/></a><div className="wa-contact-disabled"><Phone size={16}/><span>Ligação pelo WhatsApp<small>Depende da disponibilidade da Meta</small></span></div></section></> : <div className="wa-context-placeholder">Selecione um contato para consultar a oportunidade e os canais disponíveis.</div>}</aside>
   </div>;
