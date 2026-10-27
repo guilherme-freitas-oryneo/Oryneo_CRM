@@ -27,7 +27,7 @@ describe('proposta individual — email e link seguro no domínio ORYNEO',()=>{
  });
  it('não publica CTA inválido quando a URL comercial não é informada',()=>{
   const message=renderTransactionalEmail('proposal_sent',{
-   firstName:'Cliente de Homologação',company:'Empresa de Homologação',
+   firstName:'Cliente de Homologação',company:'Empresa de Homologação',email:'qa@example.invalid',
    plan:'Start',cycle:'monthly',orderReference:'PROPOSTA-7',
    amountCents:19990,actionUrl:undefined,
   });
