@@ -17,7 +17,7 @@ const browsers=[
   ['checkout-desktop',chromium,{width:1440,height:960}],
   ['checkout-mobile',chromium,{width:390,height:844}],
   ['checkout-webkit',webkit,{width:390,height:844}],
-].filter(([name])=>process.env.ORYNEO_SKIP_WEBKIT!=='1'||name!=='checkout-webkit');
+].filter(([name])=>process.env.ORYNEO_SKIP_WEBKIT !== '1'||name!=='checkout-webkit');
 
 for(const [name,engine,viewport] of browsers){
  const browser=await engine.launch({headless:true});
