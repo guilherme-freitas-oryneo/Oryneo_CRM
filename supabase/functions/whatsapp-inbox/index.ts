@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
+import { evaluateOutboundPolicy } from '../_shared/whatsapp/policy.ts';
 
 const url = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -58,7 +59,7 @@ Deno.serve(async request => {
   const conversationId = typeof input.conversationId === 'string' && /^[0-9a-f-]{36}$/i.test(input.conversationId) ? input.conversationId : '';
   if (!conversationId) return json({ error: 'Conversa inválida.' }, 400);
   const { data: conversation, error: lookupError } = await db.from('crm_wa_conversations')
-    .select('id,customer_wa_id,last_inbound_at,mode,channel_id,crm_wa_channels!inner(enabled,phone_number_id)')
+    .select('id,customer_wa_id,last_inbound_at,mode,opted_out,consent_granted,channel_id,crm_wa_channels!inner(enabled,phone_number_id)')
     .eq('id', conversationId).eq('crm_wa_channels.phone_number_id', phoneId).maybeSingle();
   if (lookupError) return json({ error: 'Falha ao consultar conversa.' }, 503);
   if (!conversation) return json({ error: 'Conversa não encontrada.' }, 404);
@@ -82,12 +83,29 @@ Deno.serve(async request => {
   if (text.length > 4096 || !requestId || (action === 'send_text' && !text)) return json({ error: 'Mensagem ou identificação inválida.' }, 400);
   const kind = mediaFile ? mediaKinds[mediaFile.type.split(';')[0]] : null;
   if (action === 'send_media' && (!mediaFile || !kind || !mediaFile.size || mediaFile.size > 16 * 1024 * 1024)) return json({ error: 'Arquivo incompatível ou acima de 16 MB.' }, 400);
-  if (action === 'send_media' && !kind) return json({ error: 'Arquivo inválido.' }, 400);
+  if (action === 'send_media' && kind === 'image' && mediaFile && mediaFile.size > 5 * 1024 * 1024) return json({ error: 'Imagem acima do limite de 5 MB da Meta.' }, 400);
+  if (mediaFile?.type.split(';')[0] === 'audio/ogg' && !/codecs\s*=\s*opus/i.test(mediaFile.type)) return json({ error: 'O áudio OGG deve usar codec Opus.' }, 400);
   if (kind === 'audio' && text) return json({ error: 'Envie o áudio sem legenda; escreva o texto em uma mensagem separada.' }, 400);
   const channel = conversation.crm_wa_channels as unknown as { enabled: boolean; phone_number_id: string };
-  if (!channel.enabled || !accessToken || !phoneId) return json({ error: 'Envio ainda não está habilitado neste canal.' }, 503);
+  if (!accessToken || !phoneId) return json({ error: 'Credencial operacional ainda não configurada.' }, 503);
   if (conversation.mode !== 'human_locked' && conversation.mode !== 'review') return json({ error: 'A conversa não está em atendimento humano.' }, 409);
-  if (!conversation.last_inbound_at || Date.now() - Date.parse(conversation.last_inbound_at) >= 24 * 60 * 60 * 1000) return json({ error: 'A janela de 24 horas terminou. Use um template aprovado.' }, 409);
+  const elapsedSinceInbound = conversation.last_inbound_at ? Date.now() - Date.parse(conversation.last_inbound_at) : Number.POSITIVE_INFINITY;
+  const serviceWindowOpen = elapsedSinceInbound >= 0 && elapsedSinceInbound < 24 * 60 * 60 * 1000;
+  // Uma mensagem recebida permite uma resposta de atendimento na janela; opt-out explícito sempre prevalece.
+  const decision = evaluateOutboundPolicy({
+    channelEnabled: channel.enabled, actor: 'human', conversationMode: conversation.mode,
+    optedOut: conversation.opted_out, consentGranted: conversation.consent_granted || serviceWindowOpen,
+    serviceWindowOpen, kind: 'freeform', templateApproved: false,
+  });
+  if (!decision.allowed) {
+    const messageByReason: Record<string, string> = {
+      CHANNEL_DISABLED: 'Envio desabilitado neste canal.',
+      OPTED_OUT: 'O contato não aceita mensagens. Envio bloqueado.',
+      CONSENT_REQUIRED: 'É necessário consentimento para enviar mensagens.',
+      SERVICE_WINDOW_CLOSED: 'A janela de 24 horas terminou. Use um template aprovado.',
+    };
+    return json({ error: messageByReason[decision.reason] ?? 'Esta mensagem não está autorizada.' }, 409);
+  }
   const { error: reserveError } = await db.from('crm_wa_outbox').insert({ request_id: requestId, conversation_id: conversationId, operator_id: auth.user.id, kind: kind ?? 'text', state: 'sending' });
   if (reserveError) return json({ error: 'Esta tentativa já existe ou não pôde ser reservada. Confira a conversa antes de reenviar.' }, reserveError.code === '23505' ? 409 : 503);
   try {
