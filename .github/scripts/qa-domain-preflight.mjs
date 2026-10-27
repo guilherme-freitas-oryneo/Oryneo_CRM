@@ -32,3 +32,22 @@ for(const slug of functions){
 }
 console.log(`Domain preflight checks: ${checked}, failures: ${failures}`);
 if(checked!==functions.length*origins.length||failures>0)process.exitCode=1;
+
+// Prova read-only das páginas estáticas após o hotfix de GitHub Pages.
+// NÃO visita URLs com token, não acessa contas e nunca inicia cobranças.
+const publicRoutes=['/','/contratar/','/pagar/','/proposta/','/implantacao/','/revisao-lp/','/encerramento/','/Oryneo_CRM/pagar/','/Oryneo_CRM/proposta/'];
+let pageFailures=0;
+for(const path of publicRoutes){
+ try{
+  const response=await fetch('https://crm.oryneo.com.br'+path,{redirect:'follow',signal:AbortSignal.timeout(15000)});
+  const html=await response.text();
+  const valid=response.status===200&&html.includes('/assets/')&&!html.includes('/Oryneo_CRM/assets/');
+  if(!valid)pageFailures++;
+  console.log(`pages ${path} | ${response.status} | ${valid?'ROOT_ASSETS_OK':'FAILED'}`);
+ }catch(error){
+  pageFailures++;
+  console.log(`pages ${path} | ${error instanceof Error?error.name:'network-error'} | FAILED`);
+ }
+}
+console.log(`Static routes: ${publicRoutes.length}, failures: ${pageFailures}`);
+if(pageFailures)process.exitCode=1;
