@@ -1,5 +1,17 @@
 # ORYNEO WhatsApp — continuidade da execução
 
+> **CHECKPOINT ATUAL — 27/10/2026 (prevalece sobre as etapas históricas abaixo)**
+>
+> - Meta confirmou `ORYNEO | CRM e Marketing` (`1098665735949825`) com **Business Verification aprovada** (`business_verified=true`); o app `Oryneo_01` (`2617801045397651`) está **Live/publicado**. O número oficial `+5521974510932` (phone ID `1322421900964911`) está registrado, callback `messages` e assinatura da conta configurados, pagamento configurado. **Não recriar** esses ativos.
+> - Supabase ativo `ucikrafwfzamxvweuvgk`: funções `whatsapp-webhook` v4, `whatsapp-inbox` v5 e `whatsapp-media` v2; migrações remotas `20261026174429`, `20261026174436`, `20261027003453`, `20261027003948`. As duas últimas migrações **não estão versionadas nesta branch**: recuperar seus SQL exatos antes de gerar qualquer esquema duplicado.
+> - As fontes **implantadas** de `whatsapp-inbox` e `whatsapp-media` foram recuperadas e adicionadas a este PR. O `whatsapp-inbox` **versionado** agora chama a política de envio existente para opt-out/consentimento/janela e limita imagem a 5 MB. **Não foi redeployado**: o backend remoto continua na versão anterior; reconciliar/testar antes de atualizar.
+> - Frontend desta branch: `api.ts` agora invoca o backend de envio autenticado e mídia; `WhatsAppWorkspace.tsx` liga o composer aos estados reais do canal/conversa; mídia é carregada só sob demanda. Gravação WebM incompatível foi bloqueada; áudio com transcodificação universal **não está implementado**. Tudo ainda está apenas no PR draft; a `main` publicada **não contém** essa UI.
+> - Foi adicionado guard de tipo `credit/debit` na função QA do checkout para corrigir o typecheck TS2322, sem modificar fluxo financeiro; rodar CI final.
+> - O canal WhatsApp segue `enabled=false` no banco, envio real não foi homologado e não há garantia de token operacional `WHATSAPP_SYSTEM_USER_TOKEN`. Nenhuma cobrança/envio comercial foi iniciado nesta retomada.
+> - Prioridades agora: (1) CI verde, (2) recuperar SQL das duas migrações remotas; (3) auditoria de RBAC e token operacional; (4) integrar segurança e testes negativos; (5) testar inbound/outbound autorizado; (6) QA visual/acessibilidade; (7) publicar mediante gates e rollback.
+> - **Não inferir que WhatsApp está pronto ou realizar merge/deploy sem os gates de segurança, regressão e E2E.**
+
+
 Data da auditoria: 2026-10-24 UTC. Branch: `feat/whatsapp-forensic-resumption-20261024`, originada de `main` em `62e05be4701c07adf4896ca5904864f7d19e94c6`. PR draft: [#53](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/pull/53). CI do checkpoint anterior concluiu verde; o novo lote de webhook ainda precisa da validação do CI após push.
 
 ## O que foi observado
