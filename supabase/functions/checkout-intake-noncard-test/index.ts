@@ -16,7 +16,7 @@ import type {PaymentOrderContext,ServerBillingSelection} from '../_shared/billin
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
  auth:{persistSession:false,autoRefreshToken:false},
 });
-const origins=new Set(['https://guilherme-freitas-oryneo.github.io','http://localhost:4175','http://localhost:4173','http://localhost:5173']);
+const origins=new Set(['https://crm.oryneo.com.br','https://guilherme-freitas-oryneo.github.io','http://localhost:4175','http://localhost:4173','http://localhost:5173']);
 const StripeApiVersion='2026-08-26.dahlia';
 const qaEmail='qa@example.com';
 const qaName='ORYNEO Homologacao';
