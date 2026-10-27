@@ -6,6 +6,7 @@
 > - Os SQLs exatos das migrações remotas `20261027003453` e `20261027003948` foram recuperados do histórico do Supabase e versionados com hashes MD5 iguais aos remotos. Não foram reaplicados.
 > - Uma migração **ainda não aplicada** substitui o acesso WhatsApp de qualquer membro por concessões explícitas de administrador ou conversa; `whatsapp-inbox` e `whatsapp-media` foram preparados para conferir as mesmas concessões. Teste em Postgres descartável e check Deno passaram.
 > - O canal permanece desligado e a central do PR não está publicada. Não há E2E de resposta/status/mídia. Atribuições, equipes, CI final e revisão visual ainda estão pendentes.
+> - Em teste solicitado ao proprietário, um evento real `messages/text` chegou às 15:50 (São Paulo), foi processado e persistido como `inbound/text`. A leitura excluiu o corpo da mensagem. Recebimento backend confirmado; UI publicada e envio seguem sem homologação.
 
 > **CHECKPOINT ANTERIOR — 27/10/2026 (superado pela retomada acima quando houver divergência)**
 >

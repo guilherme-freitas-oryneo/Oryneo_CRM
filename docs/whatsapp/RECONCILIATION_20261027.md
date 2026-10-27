@@ -15,7 +15,7 @@ Fonte de partida: `ORYNEO_CODEX_WHATSAPP_MASTER_AUTONOMIA_20261027.zip`, confron
 | Banco | 1 canal `enabled=false`, 1 evento webhook, 1 conversa, 1 mensagem, 0 tentativas outbox | CONFIRMADO |
 | Token sistema | O token fornecido anteriormente acessou via Graph API o usuário de sistema e os ativos corretos; o proprietário informou que salvou o segredo no Supabase. A conexão Supabase não lê o valor nem comprova a execução da função com ele | PARCIAL |
 | Frontend publicado | O PR segue draft e sem merge; não há homologação da central publicada | BLOQUEADO |
-| E2E mensagem real | Um evento recebido existe no banco; não há prova de resposta pelo CRM, status de entrega, mídia ou login no frontend publicado | PARCIAL |
+| E2E mensagem real | Após teste solicitado ao proprietário, chegou um evento `messages` com tipo `text` em 27/10 às 15:50 (São Paulo), processado sem erro e persistido como mensagem `inbound/text`. O evento anterior era `unsupported`. Ainda não há resposta, status de entrega, mídia ou login no frontend publicado | PARCIAL |
 
 ## Gate G1 — divergências entre branch e ambiente
 
@@ -37,5 +37,7 @@ Os SQLs recuperados são cópias byte a byte de `supabase_migrations.schema_migr
 O commit seguinte à reconciliação introduz `crm_wa_access`: o administrador recebe concessão para o canal verificado somente quando existe um único membro do CRM; operadores e leitores recebem concessões por conversa. As policies passam a negar a leitura geral baseada apenas em `crm_members`. `whatsapp-inbox` exige `admin` ou `operator` para envio e confirmação de leitura; `whatsapp-media` exige concessão na conversa antes de acessar o arquivo. Os grants são escritos apenas pelo papel de serviço, e o navegador não recebe o token Meta.
 
 Teste reproduzível: `bash supabase/tests/whatsapp_acl/run.sh` (Postgres 17 descartável). Verifica administrador, membro sem concessão, leitor com acesso somente à conversa atribuída, mensagem associada, tentativa de autopromoção e acesso anônimo negado. `deno check` passou nas três funções. A migração e as alterações de Edge estão **somente na branch**; não há publicação nem ativação do canal. Permanece pendente a operação de atribuição auditada, a política por equipe, o teste de idempotência concorrente e o E2E com número próprio.
+
+O proxy de mídia recebeu validação de MIME permitido e leitura de stream limitada a 16 MB, inclusive quando a Meta não fornece `Content-Length`; `mediaGuard.test.ts` cobre MIME divergente/HTML e estouro de limite. Também permanece somente na branch.
 
 Fechar G2 antes de habilitar envio. Depois validar entrada/saída controlada com número próprio e somente então avaliar ativação do canal e publicação da UI. Landing page, checkout, financeiro e e-mail permanecem fora do lote WhatsApp, exceto correção isolada do script de QA já presente no PR.

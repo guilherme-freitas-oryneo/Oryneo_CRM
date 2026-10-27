@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
+import { MAX_WHATSAPP_MEDIA_BYTES, readBoundedMedia, safeMediaMime } from '../_shared/whatsapp/mediaGuard.ts';
 
 const url = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -48,10 +49,11 @@ Deno.serve(async request => {
     const mediaUrl = new URL(metadata.url);
     if (mediaUrl.protocol !== 'https:' || !(mediaUrl.hostname === 'lookaside.fbsbx.com' || mediaUrl.hostname.endsWith('.fbsbx.com') || mediaUrl.hostname.endsWith('.fbcdn.net'))) return fail(502);
     const file = await fetch(mediaUrl, { headers: { Authorization: `Bearer ${accessToken}` }, redirect: 'error', signal: AbortSignal.timeout(20000) });
-    if (!file.ok || Number(file.headers.get('content-length') ?? 0) > 16 * 1024 * 1024) return fail(502);
-    const bytes = await file.arrayBuffer();
-    if (bytes.byteLength > 16 * 1024 * 1024) return fail(413);
-    const mime = metadata.mime_type || message.mime_type || 'application/octet-stream';
+    if (!file.ok) return fail(502);
+    if (Number(file.headers.get('content-length') ?? 0) > MAX_WHATSAPP_MEDIA_BYTES) return fail(413);
+    const mime = safeMediaMime(metadata.mime_type, message.mime_type);
+    if (!mime) return fail(415);
+    const bytes = await readBoundedMedia(file.body);
     return new Response(bytes, { headers: { ...cors, 'Content-Type': mime, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
-  } catch { return fail(503); }
+  } catch (error) { return fail(error instanceof Error && error.message === 'MEDIA_TOO_LARGE' ? 413 : 503); }
 });
