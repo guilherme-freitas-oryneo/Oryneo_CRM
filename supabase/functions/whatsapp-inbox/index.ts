@@ -63,6 +63,18 @@ Deno.serve(async request => {
     .eq('id', conversationId).eq('crm_wa_channels.phone_number_id', phoneId).maybeSingle();
   if (lookupError) return json({ error: 'Falha ao consultar conversa.' }, 503);
   if (!conversation) return json({ error: 'Conversa não encontrada.' }, 404);
+  // The service-role client bypasses RLS. Check the operator's explicit grant
+  // before reading or changing any conversation, including read receipts.
+  const [adminGrant, conversationGrant] = await Promise.all([
+    db.from('crm_wa_access').select('role').eq('user_id', auth.user.id)
+      .eq('channel_id', conversation.channel_id).is('conversation_id', null).eq('role', 'admin').maybeSingle(),
+    db.from('crm_wa_access').select('role').eq('user_id', auth.user.id)
+      .eq('conversation_id', conversationId).maybeSingle(),
+  ]);
+  if (adminGrant.error || conversationGrant.error) return json({ error: 'Falha ao verificar permissão.' }, 503);
+  const accessRole = adminGrant.data?.role ?? conversationGrant.data?.role;
+  if (!accessRole) return json({ error: 'Conversa não encontrada.' }, 404);
+  if (accessRole === 'viewer') return json({ error: 'Sem permissão para responder ou confirmar leitura.' }, 403);
   const action = input.action;
   if (action === 'read') {
     if (!accessToken || !phoneId) return json({ error: 'Canal ainda sem credencial operacional.' }, 503);

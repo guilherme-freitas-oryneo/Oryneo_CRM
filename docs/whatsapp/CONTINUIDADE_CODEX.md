@@ -1,6 +1,13 @@
 # ORYNEO WhatsApp — continuidade da execução
 
-> **CHECKPOINT ATUAL — 27/10/2026 (prevalece sobre as etapas históricas abaixo)**
+> **RETOMADA DO PACOTE MESTRE — 27/10/2026, após HEAD `8a5ed2d`**
+>
+> - Consulte [a reconciliação atual](RECONCILIATION_20261027.md) antes das notas históricas abaixo. GitHub, Meta e Supabase foram relidos: app Live, empresa verificada, funções v4/v5/v2 e canal `enabled=false`.
+> - Os SQLs exatos das migrações remotas `20261027003453` e `20261027003948` foram recuperados do histórico do Supabase e versionados com hashes MD5 iguais aos remotos. Não foram reaplicados.
+> - Uma migração **ainda não aplicada** substitui o acesso WhatsApp de qualquer membro por concessões explícitas de administrador ou conversa; `whatsapp-inbox` e `whatsapp-media` foram preparados para conferir as mesmas concessões. Teste em Postgres descartável e check Deno passaram.
+> - O canal permanece desligado e a central do PR não está publicada. Não há E2E de resposta/status/mídia. Atribuições, equipes, CI final e revisão visual ainda estão pendentes.
+
+> **CHECKPOINT ANTERIOR — 27/10/2026 (superado pela retomada acima quando houver divergência)**
 >
 > - Meta confirmou `ORYNEO | CRM e Marketing` (`1098665735949825`) com **Business Verification aprovada** (`business_verified=true`); o app `Oryneo_01` (`2617801045397651`) está **Live/publicado**. O número oficial `+5521974510932` (phone ID `1322421900964911`) está registrado, callback `messages` e assinatura da conta configurados, pagamento configurado. **Não recriar** esses ativos.
 > - Supabase ativo `ucikrafwfzamxvweuvgk`: funções `whatsapp-webhook` v4, `whatsapp-inbox` v5 e `whatsapp-media` v2; migrações remotas `20261026174429`, `20261026174436`, `20261027003453`, `20261027003948`. As duas últimas migrações **não estão versionadas nesta branch**: recuperar seus SQL exatos antes de gerar qualquer esquema duplicado.

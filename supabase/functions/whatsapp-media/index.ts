@@ -22,10 +22,22 @@ Deno.serve(async request => {
   let input: { messageId?: string };
   try { input = await request.json(); } catch { return fail(400); }
   if (typeof input?.messageId !== 'string' || !/^[0-9a-f-]{36}$/i.test(input.messageId)) return fail(400);
-  const { data: message, error: messageError } = await db.from('crm_wa_messages').select('media_id,mime_type')
+  const { data: message, error: messageError } = await db.from('crm_wa_messages').select('media_id,mime_type,conversation_id')
     .eq('id', input.messageId).maybeSingle();
   if (messageError) return fail(503);
   if (!message?.media_id || !/^[A-Za-z0-9_-]{1,200}$/.test(message.media_id)) return fail(404);
+  const { data: conversation, error: conversationError } = await db.from('crm_wa_conversations')
+    .select('id,channel_id').eq('id', message.conversation_id).maybeSingle();
+  if (conversationError) return fail(503);
+  if (!conversation) return fail(404);
+  const [adminGrant, conversationGrant] = await Promise.all([
+    db.from('crm_wa_access').select('id').eq('user_id', auth.user.id)
+      .eq('channel_id', conversation.channel_id).is('conversation_id', null).eq('role', 'admin').maybeSingle(),
+    db.from('crm_wa_access').select('id').eq('user_id', auth.user.id)
+      .eq('conversation_id', conversation.id).maybeSingle(),
+  ]);
+  if (adminGrant.error || conversationGrant.error) return fail(503);
+  if (!adminGrant.data && !conversationGrant.data) return fail(404);
   try {
     const meta = await fetch(`https://graph.facebook.com/v26.0/${message.media_id}?phone_number_id=${phoneId}`, {
       headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(12000),

@@ -32,4 +32,10 @@ Os SQLs recuperados são cópias byte a byte de `supabase_migrations.schema_migr
 
 ## Próximo gate
 
-Fechar G2: autorização por operador/equipe e política server-side, testes negativos, ausência de token no browser, idempotência concorrente. Depois validar entrada/saída controlada com número próprio e somente então avaliar ativação do canal e publicação da UI. Landing page, checkout, financeiro e e-mail permanecem fora do lote WhatsApp, exceto correção isolada do script de QA já presente no PR.
+### G2 em andamento — isolamento de acesso
+
+O commit seguinte à reconciliação introduz `crm_wa_access`: o administrador recebe concessão para o canal verificado somente quando existe um único membro do CRM; operadores e leitores recebem concessões por conversa. As policies passam a negar a leitura geral baseada apenas em `crm_members`. `whatsapp-inbox` exige `admin` ou `operator` para envio e confirmação de leitura; `whatsapp-media` exige concessão na conversa antes de acessar o arquivo. Os grants são escritos apenas pelo papel de serviço, e o navegador não recebe o token Meta.
+
+Teste reproduzível: `bash supabase/tests/whatsapp_acl/run.sh` (Postgres 17 descartável). Verifica administrador, membro sem concessão, leitor com acesso somente à conversa atribuída, mensagem associada, tentativa de autopromoção e acesso anônimo negado. `deno check` passou nas três funções. A migração e as alterações de Edge estão **somente na branch**; não há publicação nem ativação do canal. Permanece pendente a operação de atribuição auditada, a política por equipe, o teste de idempotência concorrente e o E2E com número próprio.
+
+Fechar G2 antes de habilitar envio. Depois validar entrada/saída controlada com número próprio e somente então avaliar ativação do canal e publicação da UI. Landing page, checkout, financeiro e e-mail permanecem fora do lote WhatsApp, exceto correção isolada do script de QA já presente no PR.
