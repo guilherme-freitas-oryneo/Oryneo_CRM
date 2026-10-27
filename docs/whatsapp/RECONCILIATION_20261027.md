@@ -46,4 +46,8 @@ O proxy de mídia recebeu validação de MIME permitido e leitura de stream limi
 
 O workflow de build/Pix do commit `00972d6` falhou porque o Vitest capturou `mediaGuard.test.ts`, escrito para Deno (`Deno is not defined`). O teste foi movido para `mediaGuard.deno.ts` e passou com `deno test`; a suíte completa voltou a passar com 305 testes. O browser QA continuou falhando em `getByLabel('E-mail corporativo')`, um seletor antigo. Apenas `.github/scripts/qa-direct-checkout.mjs` foi alinhado aos campos atuais `E-mail`, `WhatsApp` e `CNPJ` e aos dois passos `draft`/`checkout`; o checkout não foi alterado. Chromium desktop/mobile passaram localmente. Aguardando resultado de WebKit e CI do novo commit.
 
+### G4 — pesquisa de produto e componentes
+
+[Benchmark de 30 critérios](07-BENCHMARK-20261027.md) e [decisão de componentes](08-COMPONENTES-20261027.md) registram releitura direta de cinco produtos-alvo, Front/Zendesk, fontes oficiais de bibliotecas, riscos e três composições. O `BRAND_LOCK.md` foi relido no Drive institucional; nenhuma marca foi redesenhada. Não há screenshots autenticadas dos concorrentes nem avaliação de componentes 21st com login, portanto a pesquisa visual permanece parcial.
+
 Fechar G2 antes de habilitar envio. Depois validar entrada/saída controlada com número próprio e somente então avaliar ativação do canal e publicação da UI. Landing page, checkout, financeiro e e-mail permanecem fora do lote WhatsApp, exceto correção isolada do script de QA já presente no PR.
