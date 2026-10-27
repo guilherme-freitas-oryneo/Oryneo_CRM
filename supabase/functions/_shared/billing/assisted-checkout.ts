@@ -8,6 +8,14 @@ export type AssistedCheckoutInput=Readonly<{
 
 export type CardFundingChoice='credit'|'debit';
 
+/** Only these two official paths may receive payment-return tokens. */
+export const trustedPaymentReturnUrl=(url:URL):boolean=>
+ url.protocol==='https:'&&!url.port&&!url.username&&!url.password&&!url.hash&&(
+  (url.hostname==='crm.oryneo.com.br'&&url.pathname==='/pagar/')||
+  (url.hostname==='guilherme-freitas-oryneo.github.io'&&url.pathname==='/Oryneo_CRM/pagar/')
+ );
+
+
 /** Checkout Session enforcement for the customer's explicit credit/debit choice. */
 export function applyCardFundingRestriction(form:URLSearchParams,choice:CardFundingChoice):void{
  if(choice!=='credit'&&choice!=='debit')throw new Error('INVALID_CARD_FUNDING');
@@ -25,7 +33,7 @@ export function buildCardSubscriptionCheckoutForm(input:CardSubscriptionCheckout
  if(!/^[0-9a-f-]{36}$/i.test(input.orderId)||!input.priceIds.length||input.priceIds.some(id=>!/^price_[A-Za-z0-9]+$/.test(id)))throw new Error('INVALID_CHECKOUT_ITEMS');
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.customerEmail)||!/^oryneo_[a-z]+$/.test(input.integrationIdentifier))throw new Error('INVALID_CHECKOUT_CUSTOMER');
  const returnUrl=new URL(input.returnUrl);
- if(returnUrl.protocol!=='https:'||returnUrl.hostname!=='guilherme-freitas-oryneo.github.io'||returnUrl.port||returnUrl.username||returnUrl.password||returnUrl.hash||returnUrl.pathname!=='/Oryneo_CRM/pagar/')throw new Error('INVALID_RETURN_URL');
+ if(!trustedPaymentReturnUrl(returnUrl))throw new Error('INVALID_RETURN_URL');
  const form=new URLSearchParams();form.set('mode','subscription');form.set('ui_mode','elements');form.set('customer_email',input.customerEmail);form.set('integration_identifier',input.integrationIdentifier);form.set('locale','pt-BR');form.set('billing_address_collection','required');form.set('return_url',input.returnUrl);
  form.set('metadata[oryneo_order_id]',input.orderId);form.set('metadata[oryneo_billing_environment]',input.environment);form.set('metadata[oryneo_card_funding]',input.funding);
  form.set('subscription_data[metadata][oryneo_order_id]',input.orderId);form.set('subscription_data[billing_mode][type]','flexible');
@@ -44,7 +52,7 @@ export function buildOneTimeBoletoCheckoutForm(input:OneTimeBoletoCheckoutInput)
  if(!/^[0-9a-f-]{36}$/i.test(input.orderId)||!Number.isSafeInteger(input.amountCents)||input.amountCents<=0)throw new Error('INVALID_CHECKOUT_AMOUNT');
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.customerEmail)||input.description.trim().length<3||!/^oryneo_[a-z]+$/.test(input.integrationIdentifier))throw new Error('INVALID_CHECKOUT_CONTEXT');
  const returnUrl=new URL(input.returnUrl);
- if(returnUrl.protocol!=='https:'||returnUrl.hostname!=='guilherme-freitas-oryneo.github.io'||returnUrl.port||returnUrl.username||returnUrl.password||returnUrl.hash||returnUrl.pathname!=='/Oryneo_CRM/pagar/')throw new Error('INVALID_RETURN_URL');
+ if(!trustedPaymentReturnUrl(returnUrl))throw new Error('INVALID_RETURN_URL');
  const form=new URLSearchParams();form.set('mode','payment');form.set('ui_mode','elements');form.set('allowed_payment_method_types[0]','boleto');form.set('customer_creation','always');form.set('customer_email',input.customerEmail);form.set('integration_identifier',input.integrationIdentifier);form.set('locale','pt-BR');form.set('billing_address_collection','required');form.set('return_url',input.returnUrl);
  form.set('line_items[0][price_data][currency]','brl');form.set('line_items[0][price_data][unit_amount]',String(input.amountCents));form.set('line_items[0][price_data][product_data][name]',input.description);form.set('line_items[0][quantity]','1');
  form.set('metadata[oryneo_order_id]',input.orderId);form.set('metadata[oryneo_billing_environment]',input.environment);form.set('metadata[oryneo_payment_method]','boleto');
@@ -81,7 +89,7 @@ export function buildAssistedPixOrderForm(input:AssistedPixOrderInput):URLSearch
  if(!/^[0-9a-f-]{36}$/i.test(input.orderId)||!Number.isSafeInteger(input.amountCents)||input.amountCents<=0)throw new Error('INVALID_PIX_AMOUNT');
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.customerEmail)||input.description.trim().length<3||!/^oryneo_[a-z]+$/.test(input.integrationIdentifier))throw new Error('INVALID_PIX_CONTEXT');
  const url=new URL(input.returnUrl);
- if(url.protocol!=='https:'||url.hostname!=='guilherme-freitas-oryneo.github.io'||url.port||url.username||url.password||url.hash||url.pathname!=='/Oryneo_CRM/pagar/')throw new Error('INVALID_RETURN_URL');
+ if(!trustedPaymentReturnUrl(url))throw new Error('INVALID_RETURN_URL');
  const form=new URLSearchParams();
  form.set('mode','payment');form.set('ui_mode','elements');form.set('allowed_payment_method_types[0]','pix');
  form.set('customer_email',input.customerEmail);form.set('integration_identifier',input.integrationIdentifier);form.set('locale','pt-BR');
