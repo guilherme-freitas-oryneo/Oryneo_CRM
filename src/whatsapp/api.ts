@@ -6,6 +6,7 @@ export type Conversation = {
   id: string; channel_id: string; customer_wa_id: string; customer_name: string | null;
   deal_id: string | null; mode: 'sdr_active' | 'review' | 'human_locked' | 'resolved';
   opted_out: boolean; consent_granted: boolean; last_inbound_at?: string | null; last_message_at: string | null; last_preview: string;
+  unread_count?: number; last_read_at?: string | null;
 };
 export type Message = {
   id: string; conversation_id: string; direction: 'inbound' | 'outbound';
@@ -21,7 +22,7 @@ export async function loadWhatsAppInbox(): Promise<{ channel: Channel | null; co
   if (channelError) throw channelError;
   if (!channel) return { channel: null, conversations: [] };
   const { data, error } = await supabase.from('crm_wa_conversations')
-    .select('id,channel_id,customer_wa_id,customer_name,deal_id,mode,opted_out,consent_granted,last_inbound_at,last_message_at,last_preview')
+    .select('id,channel_id,customer_wa_id,customer_name,deal_id,mode,opted_out,consent_granted,last_inbound_at,last_message_at,last_preview,unread_count,last_read_at')
     .eq('channel_id', channel.id).order('last_message_at', { ascending: false, nullsFirst: false }).limit(100);
   if (error) throw error;
   return { channel: channel as Channel, conversations: (data ?? []) as Conversation[] };
@@ -33,6 +34,12 @@ export async function loadWhatsAppMessages(conversationId: string): Promise<Mess
     .eq('conversation_id', conversationId).order('occurred_at', { ascending: false }).limit(100);
   if (error) throw error;
   return ((data ?? []) as Message[]).reverse();
+}
+
+/** Confirms the latest inbound message as read only through the authenticated backend. */
+export async function markWhatsAppRead(conversationId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('whatsapp-inbox', { body: { action: 'read', conversationId } });
+  if (error || data?.ok !== true) throw new Error('Não foi possível confirmar a leitura na Meta.');
 }
 
 /**

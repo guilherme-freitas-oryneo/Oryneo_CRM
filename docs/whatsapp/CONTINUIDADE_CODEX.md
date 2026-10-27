@@ -7,6 +7,7 @@
 > - Uma migração **ainda não aplicada** substitui o acesso WhatsApp de qualquer membro por concessões explícitas de administrador ou conversa; `whatsapp-inbox` e `whatsapp-media` foram preparados para conferir as mesmas concessões. Teste em Postgres descartável e check Deno passaram.
 > - O canal permanece desligado e a central do PR não está publicada. Não há E2E de resposta/status/mídia. Atribuições, equipes, CI final e revisão visual ainda estão pendentes.
 > - Em teste solicitado ao proprietário, um evento real `messages/text` chegou às 15:50 (São Paulo), foi processado e persistido como `inbound/text`. A leitura excluiu o corpo da mensagem. Recebimento backend confirmado; UI publicada e envio seguem sem homologação.
+> - O contador de não lidas agora é lido do Supabase no frontend da branch; confirmação de leitura só ocorre quando o canal estiver habilitado. O script browser QA de checkout foi alinhado aos campos atuais sem mudar o produto, e Chromium desktop/mobile passaram localmente. WebKit depende da CI com bibliotecas de sistema; ainda não declarar CI verde até o novo workflow concluir.
 
 > **CHECKPOINT ANTERIOR — 27/10/2026 (superado pela retomada acima quando houver divergência)**
 >

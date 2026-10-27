@@ -18,10 +18,17 @@ for (const [name, engine, viewport] of browsers) {
     const page = await browser.newPage({ viewport, isMobile: viewport.width < 500, hasTouch: viewport.width < 500 });
     const errors = [];
     let checkoutRequest;
+    let draftRequest;
     page.on('pageerror', error => errors.push(error.message));
     await page.route(supabase, async route => {
-      checkoutRequest = JSON.parse(route.request().postData() || '{}');
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: `${root}#checkout-qa-controlado` }) });
+      const body = JSON.parse(route.request().postData() || '{}');
+      if (body.action === 'draft') {
+        draftRequest = body;
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ cnpj_status: 'found', company: { legal_name: 'Empresa de Homologação Ltda.' } }) });
+        return;
+      }
+      checkoutRequest = body;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: new URL(`../pagar/?token=${'A'.repeat(43)}`, root).href }) });
     });
     const response = await page.goto(root + '?plan=Scale&cycle=annual', { waitUntil: 'domcontentloaded' });
     assert.equal(response.status(), 200);
@@ -50,25 +57,29 @@ for (const [name, engine, viewport] of browsers) {
     await page.getByRole('checkbox', { name: /Landing page de conversão/i }).check();
     await page.getByRole('checkbox', { name: /Gestão de tráfego pago/i }).check();
     await page.getByLabel('Nome completo').fill('Cliente de Homologação');
-    await page.getByLabel('E-mail corporativo').fill('cliente.qa@example.invalid');
-    await page.getByLabel('Empresa').fill('Oryneo QA Controlado');
-    await page.getByLabel('CPF ou CNPJ').fill('52998224725');
+    await page.getByLabel('E-mail', { exact: true }).fill('cliente.qa@example.invalid');
+    await page.getByLabel('WhatsApp', { exact: true }).fill('21987654321');
+    await page.getByLabel('CNPJ', { exact: true }).fill('11222333000181');
+    await page.getByText('Empresa identificada: Empresa de Homologação Ltda.').waitFor();
     const action = page.getByRole('button', { name: /Continuar para o Pix/ });
     assert.equal(await action.isDisabled(), true, 'O aceite da primeira tela é obrigatório');
     await page.getByRole('checkbox', { name: /Li e aceito os termos/ }).check();
     assert.equal(await action.isEnabled(), true);
     await page.screenshot({ path: `qa-results/${name}.png`, fullPage: true });
-    const checkoutResponse = page.waitForResponse(response => response.url() === supabase && response.request().method() === 'POST');
-    const returnedToCheckout = page.waitForURL(`${root}#checkout-qa-controlado`);
+    const checkoutResponse = page.waitForResponse(response => response.url() === supabase && response.request().postDataJSON()?.action === 'checkout');
+    const paymentNavigation = page.waitForURL(/\/pagar\/\?token=/);
     await action.click();
     await checkoutResponse;
-    await returnedToCheckout;
+    await paymentNavigation;
     assert.equal(checkoutRequest.plan, 'Scale');
     assert.equal(checkoutRequest.cycle, 'annual');
     assert.deepEqual(checkoutRequest.addons, ['landing-page', 'traffic']);
     assert.equal(checkoutRequest.customer_email, 'cliente.qa@example.invalid');
-    assert.equal(checkoutRequest.tax_id, '52998224725');
+    assert.equal(checkoutRequest.cnpj, '11222333000181');
+    assert.equal(checkoutRequest.customer_phone, '+5521987654321');
     assert.equal(checkoutRequest.payment_method, 'pix');
+    assert.equal(checkoutRequest.action, 'checkout');
+    assert.equal(draftRequest?.cnpj, '11222333000181');
     assert.match(checkoutRequest.request_id, /^[0-9a-f-]{36}$/i);
     assert.match(checkoutRequest.payment_token, /^[A-Za-z0-9_-]{43}$/);
     const stored = await page.evaluate(() => sessionStorage.getItem('oryneo.direct-checkout.request'));

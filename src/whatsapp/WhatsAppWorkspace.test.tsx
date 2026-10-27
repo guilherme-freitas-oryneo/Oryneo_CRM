@@ -2,10 +2,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DealRow } from '../data';
-import { loadWhatsAppInbox, loadWhatsAppMessages, sendWhatsAppMessage } from './api';
+import { loadWhatsAppInbox, loadWhatsAppMessages, markWhatsAppRead, sendWhatsAppMessage } from './api';
 import { WhatsAppWorkspace } from './WhatsAppWorkspace';
 
-vi.mock('./api', () => ({ loadWhatsAppInbox: vi.fn(), loadWhatsAppMessages: vi.fn(), sendWhatsAppMessage: vi.fn() }));
+vi.mock('./api', () => ({ loadWhatsAppInbox: vi.fn(), loadWhatsAppMessages: vi.fn(), markWhatsAppRead: vi.fn(), sendWhatsAppMessage: vi.fn() }));
 
 const deal: DealRow = {
   id: '11111111-1111-4111-8111-111111111111', kind: 'deal', revision: 1, deleted: false,
@@ -18,6 +18,7 @@ describe('WhatsAppWorkspace', () => {
     vi.clearAllMocks();
     vi.mocked(loadWhatsAppInbox).mockResolvedValue({ channel: { id: 'channel-1', enabled: false, display_phone_number: '+5521974510932' }, conversations: [] });
     vi.mocked(loadWhatsAppMessages).mockResolvedValue([]);
+    vi.mocked(markWhatsAppRead).mockResolvedValue();
   });
   it('mostra contato real e contexto sem criar conversa fictícia ou habilitar envio', async () => {
     const onOpenDeal = vi.fn();
@@ -83,5 +84,18 @@ describe('WhatsAppWorkspace', () => {
     expect(await screen.findByText('Olá', { selector: '.wa-message-bubble p' })).toBeInTheDocument();
     expect(screen.getByText('Nenhuma oportunidade foi vinculada a esta conversa.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Enviar/ })).toBeDisabled();
+  });
+
+  it('mostra não lidas sem confirmar leitura na Meta enquanto o canal está desligado', async () => {
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({
+      channel: { id: 'channel-1', enabled: false, display_phone_number: '+5521974510932' },
+      conversations: [{ id: 'conversation-1', channel_id: 'channel-1', customer_wa_id: '5511999998888',
+        customer_name: 'Marina', deal_id: null, mode: 'review', opted_out: false, consent_granted: false,
+        last_inbound_at: new Date().toISOString(), last_message_at: new Date().toISOString(), last_preview: 'Olá', unread_count: 2 }],
+    });
+    render(<WhatsAppWorkspace deals={[]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
+    expect(await screen.findByLabelText('2 mensagens não lidas')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir conversa de Marina' }));
+    expect(markWhatsAppRead).not.toHaveBeenCalled();
   });
 });

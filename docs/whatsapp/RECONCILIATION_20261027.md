@@ -38,6 +38,12 @@ O commit seguinte à reconciliação introduz `crm_wa_access`: o administrador r
 
 Teste reproduzível: `bash supabase/tests/whatsapp_acl/run.sh` (Postgres 17 descartável). Verifica administrador, membro sem concessão, leitor com acesso somente à conversa atribuída, mensagem associada, tentativa de autopromoção e acesso anônimo negado. `deno check` passou nas três funções. A migração e as alterações de Edge estão **somente na branch**; não há publicação nem ativação do canal. Permanece pendente a operação de atribuição auditada, a política por equipe, o teste de idempotência concorrente e o E2E com número próprio.
 
-O proxy de mídia recebeu validação de MIME permitido e leitura de stream limitada a 16 MB, inclusive quando a Meta não fornece `Content-Length`; `mediaGuard.test.ts` cobre MIME divergente/HTML e estouro de limite. Também permanece somente na branch.
+O proxy de mídia recebeu validação de MIME permitido e leitura de stream limitada a 16 MB, inclusive quando a Meta não fornece `Content-Length`; `mediaGuard.deno.ts` cobre MIME divergente/HTML e estouro de limite. Também permanece somente na branch.
+
+### G5/G9 em andamento — não lidas e CI
+
+`src/whatsapp/api.ts` e `WhatsAppWorkspace.tsx` agora consultam `unread_count` e exibem o contador real. A confirmação de leitura chama a Edge Function autenticada somente quando o canal estiver habilitado; o teste garante que abrir uma conversa durante a homologação não envia esse sinal à Meta. A UI segue no PR draft.
+
+O workflow de build/Pix do commit `00972d6` falhou porque o Vitest capturou `mediaGuard.test.ts`, escrito para Deno (`Deno is not defined`). O teste foi movido para `mediaGuard.deno.ts` e passou com `deno test`; a suíte completa voltou a passar com 305 testes. O browser QA continuou falhando em `getByLabel('E-mail corporativo')`, um seletor antigo. Apenas `.github/scripts/qa-direct-checkout.mjs` foi alinhado aos campos atuais `E-mail`, `WhatsApp` e `CNPJ` e aos dois passos `draft`/`checkout`; o checkout não foi alterado. Chromium desktop/mobile passaram localmente. Aguardando resultado de WebKit e CI do novo commit.
 
 Fechar G2 antes de habilitar envio. Depois validar entrada/saída controlada com número próprio e somente então avaliar ativação do canal e publicação da UI. Landing page, checkout, financeiro e e-mail permanecem fora do lote WhatsApp, exceto correção isolada do script de QA já presente no PR.
