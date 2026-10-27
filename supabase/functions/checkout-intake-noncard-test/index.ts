@@ -12,11 +12,12 @@ import {createStripeBoletoSubscription,createStripePixCheckout,finalizeStripeBol
 import {buildFinancialQaCardCheckoutForm} from '../_shared/billing/financial-qa-checkout.ts';
 import {pixReconciliationDecision} from '../_shared/billing/financial-qa-webhook-policy.ts';
 import type {PaymentOrderContext,ServerBillingSelection} from '../_shared/billing/stripe-payment-forms.ts';
+import { crmPublicUrl } from '../_shared/hosting/crm-urls.ts';
 
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{
  auth:{persistSession:false,autoRefreshToken:false},
 });
-const origins=new Set(['https://guilherme-freitas-oryneo.github.io','http://localhost:4175','http://localhost:4173','http://localhost:5173']);
+const origins=new Set(['https://crm.oryneo.com.br','https://guilherme-freitas-oryneo.github.io','http://localhost:4175','http://localhost:4173','http://localhost:5173']);
 const StripeApiVersion='2026-08-26.dahlia';
 const qaEmail='qa@example.com';
 const qaName='ORYNEO Homologacao';
@@ -179,7 +180,7 @@ Deno.serve(async(req:Request)=>{
   if(created.state==='paid')return respond({ok:true,environment:'test',state:'paid',order_id:created.id});
   const context:PaymentOrderContext={
    orderId:created.id,environment:'test',customerEmail:qaEmail,customerName:qaName,
-   returnUrl:'https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/qa/pr-46/?qa_return=1',
+   returnUrl:crmPublicUrl('/qa/pr-46/?qa_return=1',Deno.env.get('ORYNEO_CRM_PUBLIC_BASE')),
   };
   if(input.payment_method==='card'){
    const funding=input.card_funding;
