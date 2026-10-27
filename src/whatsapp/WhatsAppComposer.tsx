@@ -8,7 +8,7 @@ export type WhatsAppDraft =
 
 const MAX_ATTACHMENT_BYTES = 16 * 1024 * 1024;
 const MAX_AUDIO_MS = 2 * 60 * 1000;
-const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'audio/ogg', 'audio/mpeg', 'audio/mp4', 'video/mp4']);
+const allowedTypes = new Set(['image/jpeg', 'image/png', 'application/pdf', 'audio/ogg', 'audio/mpeg', 'audio/mp4', 'video/mp4']);
 
 export function WhatsAppComposer({ enabled, disabledReason, onSend }: { enabled: boolean; disabledReason: string; onSend?: (draft: WhatsAppDraft) => Promise<void> }) {
   const [text, setText] = useState('');
@@ -34,8 +34,9 @@ export function WhatsAppComposer({ enabled, disabledReason, onSend }: { enabled:
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (!mountedRef.current) { stream.getTracks().forEach(track => track.stop()); return; }
       streamRef.current = stream;
-      const mimeType = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/mp4'].find(type => MediaRecorder.isTypeSupported(type));
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const mimeType = ['audio/ogg;codecs=opus', 'audio/mp4'].find(type => MediaRecorder.isTypeSupported(type));
+      if (!mimeType) throw new Error('Este navegador grava apenas em formatos de áudio que a Meta não aceita. Anexe um áudio OGG/Opus ou M4A.');
+      const recorder = new MediaRecorder(stream, { mimeType });
       recorderRef.current = recorder;
       const chunks: BlobPart[] = [];
       recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
@@ -45,10 +46,10 @@ export function WhatsAppComposer({ enabled, disabledReason, onSend }: { enabled:
         streamRef.current = null;
         if (!mountedRef.current) return;
         setRecording(false);
-        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/ogg' });
+        const blob = new Blob(chunks, { type: recorder.mimeType || mimeType });
         if (!blob.size) return;
         if (blob.size > MAX_ATTACHMENT_BYTES) { setError('O áudio excede 16 MB.'); return; }
-        const extension = blob.type.includes('webm') ? 'webm' : blob.type.includes('mp4') ? 'm4a' : 'ogg';
+        const extension = blob.type.includes('mp4') ? 'm4a' : 'ogg';
         setAudio(new File([blob], 'audio-' + Date.now() + '.' + extension, { type: blob.type }));
       };
       recorder.start(1000);
@@ -60,7 +61,8 @@ export function WhatsAppComposer({ enabled, disabledReason, onSend }: { enabled:
     if (!chosen) return;
     setError('');
     if (!allowedTypes.has(chosen.type)) { setError('Formato não aceito. Use imagem, PDF, áudio ou vídeo MP4.'); return; }
-    if (chosen.size > MAX_ATTACHMENT_BYTES) { setError('O arquivo excede 16 MB.'); return; }
+    if (chosen.size > (chosen.type.startsWith('image/') ? 5 * 1024 * 1024 : MAX_ATTACHMENT_BYTES)) { setError(chosen.type.startsWith('image/') ? 'Imagem acima de 5 MB.' : 'O arquivo excede 16 MB.'); return; }
+    if (chosen.type === 'audio/ogg' && !chosen.name.toLowerCase().endsWith('.ogg')) { setError('Anexe um arquivo .ogg codificado em Opus.'); return; }
     setAudio(null); setFile(chosen);
   };
   const send = async () => {
@@ -77,7 +79,7 @@ export function WhatsAppComposer({ enabled, disabledReason, onSend }: { enabled:
     {error && <div className="wa-compose-error" role="alert">{error}<button type="button" aria-label="Fechar erro" onClick={() => setError('')}><X size={14}/></button></div>}
     {file && <div className="wa-draft-media"><Paperclip size={15}/><span>{file.name}</span><button type="button" aria-label="Remover anexo" onClick={() => setFile(null)}><X size={16}/></button></div>}
     {audio && <div className="wa-draft-media"><audio controls src={audioUrl ?? undefined} aria-label="Prévia do áudio"/><button type="button" aria-label="Descartar áudio" onClick={() => setAudio(null)}><Trash2 size={16}/></button></div>}
-    <div className="wa-compose-row"><input ref={inputRef} type="file" hidden accept="image/jpeg,image/png,image/webp,application/pdf,audio/ogg,audio/mpeg,audio/mp4,video/mp4" onChange={event => { chooseFile(event.target.files?.[0]); event.target.value = ''; }}/><button type="button" className="wa-icon" disabled={!canCompose || sending || recording || !!audio} aria-label="Anexar arquivo" onClick={() => inputRef.current?.click()}><Paperclip size={19}/></button><textarea aria-label="Mensagem" placeholder={canCompose ? 'Escreva uma mensagem' : 'Conecte o canal para escrever uma mensagem'} disabled={!canCompose || sending || recording || !!audio} value={text} onChange={event => setText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} rows={1}/><button type="button" className="wa-icon" disabled={!canCompose || sending || !!file || !!audio} aria-label={recording ? 'Parar gravação' : 'Gravar áudio'} onClick={() => recording ? stopRecording() : void startRecording()}>{recording ? <Square size={17}/> : <Mic size={19}/>}</button><button type="button" className="wa-send" disabled={!canCompose || sending || recording || !(text.trim() || file || audio)} onClick={() => void send()}><Send size={17}/><span>{sending ? 'Enviando…' : 'Enviar'}</span></button></div>
+    <div className="wa-compose-row"><input ref={inputRef} type="file" hidden accept="image/jpeg,image/png,application/pdf,audio/ogg,audio/mpeg,audio/mp4,video/mp4" onChange={event => { chooseFile(event.target.files?.[0]); event.target.value = ''; }}/><button type="button" className="wa-icon" disabled={!canCompose || sending || recording || !!audio} aria-label="Anexar arquivo" onClick={() => inputRef.current?.click()}><Paperclip size={19}/></button><textarea aria-label="Mensagem" placeholder={canCompose ? 'Escreva uma mensagem' : 'Conecte o canal para escrever uma mensagem'} disabled={!canCompose || sending || recording || !!audio} value={text} onChange={event => setText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} rows={1}/><button type="button" className="wa-icon" disabled={!canCompose || sending || !!file || !!audio} aria-label={recording ? 'Parar gravação' : 'Gravar áudio'} onClick={() => recording ? stopRecording() : void startRecording()}>{recording ? <Square size={17}/> : <Mic size={19}/>}</button><button type="button" className="wa-send" disabled={!canCompose || sending || recording || !(text.trim() || file || audio)} onClick={() => void send()}><Send size={17}/><span>{sending ? 'Enviando…' : 'Enviar'}</span></button></div>
     <div className="wa-compose-actions"><span>{recording ? 'Gravando áudio · máximo 2 minutos' : 'Enter envia · Shift+Enter quebra linha'}</span></div>
   </div>;
 }
