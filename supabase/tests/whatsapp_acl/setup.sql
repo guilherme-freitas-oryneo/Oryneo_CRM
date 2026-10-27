@@ -9,6 +9,7 @@ $$;
 create table public.crm_members(user_id uuid primary key references auth.users(id));
 alter table public.crm_members enable row level security;
 grant select on public.crm_members to authenticated;
+grant select on public.crm_members to service_role;
 create policy member_self on public.crm_members for select to authenticated using(user_id=(select auth.uid()));
 create table public.crm_records(id uuid primary key);
 insert into auth.users values ('00000000-0000-4000-8000-000000000001');

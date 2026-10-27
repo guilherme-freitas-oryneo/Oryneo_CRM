@@ -23,4 +23,9 @@ for file in \
   "$repo_root/supabase/tests/whatsapp_acl/assert_more.sql"; do
   docker exec -i "$container_name" psql -q -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
 done
+for file in \
+  "$repo_root/supabase/migrations/20261027190050_crm_whatsapp_assignment.sql" \
+  "$repo_root/supabase/tests/whatsapp_acl/assert_assignment.sql"; do
+  docker exec -i "$container_name" psql -q -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
+done
 printf 'WhatsApp ACL: tests passed\n'

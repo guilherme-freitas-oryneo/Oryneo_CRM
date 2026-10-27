@@ -76,6 +76,17 @@ Deno.serve(async request => {
   if (!accessRole) return json({ error: 'Conversa não encontrada.' }, 404);
   if (accessRole === 'viewer') return json({ error: 'Sem permissão para responder ou confirmar leitura.' }, 403);
   const action = input.action;
+  if (action === 'assign') {
+    if (!adminGrant.data) return json({ error: 'Somente o administrador pode atribuir conversas.' }, 403);
+    const target = input.targetUserId === null ? null
+      : typeof input.targetUserId === 'string' && /^[0-9a-f-]{36}$/i.test(input.targetUserId) ? input.targetUserId : '';
+    if (target === '') return json({ error: 'Operador inválido.' }, 400);
+    const { error } = await db.rpc('crm_wa_assign_conversation', {
+      p_conversation_id: conversationId, p_actor_id: auth.user.id, p_assignee_id: target,
+    });
+    if (error) return json({ error: 'Não foi possível atribuir a conversa.' }, error.code === '42501' ? 403 : error.code === '22023' ? 400 : 503);
+    return json({ ok: true });
+  }
   if (action === 'read') {
     if (!accessToken || !phoneId) return json({ error: 'Canal ainda sem credencial operacional.' }, 503);
     const { data: latest, error: latestError } = await db.from('crm_wa_messages').select('provider_message_id,occurred_at')
