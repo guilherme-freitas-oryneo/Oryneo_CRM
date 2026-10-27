@@ -31,6 +31,8 @@ for (const [name, engine, viewport] of browsers) {
     assert.match(await selection.innerText(), /ORYNEO Scale/);
     assert.match(await selection.innerText(), /Anual/);
     assert.equal(await page.locator('.checkout-payment-options input[type="radio"]').count(), 3, 'Cartão, boleto e Pix são as únicas formas de pagamento');
+    // Verificar a condição após selecionar cartão; não pressupor modalidade inicial.
+    await page.getByRole('radio', { name: /Cartão/i }).check();
     assert.equal(await page.getByRole('radiogroup', { name: 'Tipo do cartão' }).getByRole('radio').count(), 2, 'Crédito e débito aparecem condicionados ao cartão');
     await page.getByRole('radio', { name: /Pix/ }).check();
     assert.equal(await page.getByRole('radiogroup', { name: 'Tipo do cartão' }).count(), 0, 'Crédito e débito somem fora do cartão');
