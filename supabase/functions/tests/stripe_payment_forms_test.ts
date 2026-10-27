@@ -46,6 +46,19 @@ Deno.test('invalid customer and untrusted return URLs rejected',()=>{
  assertThrows(()=>buildPixCheckoutForm(selection,{...context,returnUrl:'https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/admin/'}),Error,'INVALID_RETURN_URL');
  assertThrows(()=>buildPixCheckoutForm(selection,{...context,returnUrl:'https://guilherme-freitas-oryneo.github.io:444/Oryneo_CRM/qa/pr-46/'}),Error,'INVALID_RETURN_URL');
 });
+Deno.test('official CRM HTTPS return URL is accepted for both Pix and boleto without changing payment mode',()=>{
+ const official='https://crm.oryneo.com.br/pagar/?token=qa';
+ const ctx={...context,returnUrl:official};
+ const pix=buildPixCheckoutForm(selection,ctx);
+ const boleto=buildBoletoSubscriptionForm(selection,ctx,'cus_1234567890');
+ assertEquals(pix.get('return_url'),official);
+ assertEquals(pix.get('mode'),'payment');
+ assertEquals(boleto.get('collection_method'),'send_invoice');
+});
+Deno.test('forged CRM hostname and unauthorized path fail closed',()=>{
+ assertThrows(()=>buildPixCheckoutForm(selection,{...context,returnUrl:'https://crm.oryneo.com.br.attacker.example/pagar/'}),Error,'INVALID_RETURN_URL');
+ assertThrows(()=>buildPixCheckoutForm(selection,{...context,returnUrl:'https://crm.oryneo.com.br/admin/'}),Error,'INVALID_RETURN_URL');
+});
 Deno.test('QA preview return URL is allowed and retained on Pix Checkout',()=>{
  const preview='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/qa/pr-46/?qa_return=1';
  const f=buildPixCheckoutForm(selection,{...context,returnUrl:preview});
