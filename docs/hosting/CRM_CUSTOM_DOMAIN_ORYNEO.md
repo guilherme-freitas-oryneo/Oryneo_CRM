@@ -1,5 +1,21 @@
 # ORYNEO CRM — migração controlada para `crm.oryneo.com.br`
 
+> ## CHECKPOINT DE PRONTIDÃO — 27/10/2026 (prevalece sobre os passos históricos abaixo)
+>
+> **Domínio já ativo:** o usuário confirmou login em `https://crm.oryneo.com.br`; `gh-pages/CNAME` e build `/assets/` corrigidos pelo hotfix #56 (merge `3f458785`, publicação Pages `40572882926`). Não solicitar novo CNAME/DNS nem refazer a migração de frontend.
+>
+> **Regressões observadas no Supabase:** funções já implantadas ainda não incluem `https://crm.oryneo.com.br` no CORS. Logs da janela de 24h apontaram **3 preflights `OPTIONS /proposal-create` HTTP 403** e **1 `OPTIONS /billing-center` HTTP 403**. `proposal-public`, `billing-public`, `billing-create-order`, `mail-api/handler` e outros componentes inspecionados também estão com origem antiga. As correções no PR #55 **NÃO FORAM IMPLANTADAS**.
+>
+> **Dados sem efeitos colaterais:** `crm_proposals` possui 5 registros anteriores ao dia 20/10 (1 accepted, 1 sent, 3 superseded); nenhuma nova proposta identificada na tentativa após domínio novo. `crm_mail_outbox` tem 32 registros sent, 22 system e 10 user; nenhum com assunto de proposta. `crm_billing_orders` tem 23 pedidos (22 expired, 1 payment_failed), sem pagamento confirmado. Isso não é prova de falha de pagamentos atuais, mas **não** autoriza declarar E2E de checkout aprovado.
+>
+> **Preservação prioritária:** CORS cumulativa — antigo + novo; links antigos em `/Oryneo_CRM/` continuam espelhados no Pages; workers SMTP/IMAP, preços, ciclos de cobrança, consentimento, Pix, boleto, cartão e webhooks Stripe sem mudanças não autorizadas. Não executar cobrança real nem disparar e-mail de teste a lead sem aprovação. Não alterar site `oryneo.com.br`.
+>
+> **PR #55 atualizado nesta revisão:** `ProposalAction.tsx` passou a reconhecer **ambos** domínios oficiais com token validado; testes para domínio novo/legado e domínio falso; teste estrutural do CORS para 15 endpoints; workflow de Pages reconciliado com hotfix #56. HEAD de código `0ed8f052` mostrou CI Build + Edge e Pix **aprovados** (`40577735459`, `40577735344`), Browser QA **reprovado** (`40577735217`): teste Playwright do checkout está desatualizado quanto à seleção inicial de cartão (espera 2 subopções sem escolher cartão). Antes de corrigir o script, confrontar todos os seletores com UI atual (CNPJ, WhatsApp, e-mail, mídia). **Não mudar checkout real só para deixar teste verde.**
+>
+> **Próximos gates:** 1) QA Browser consistente e verde; 2) snapshot e diff exato das Edge Functions implantadas; 3) publicar somente CORS/URLs aprovados com `ORYNEO_CRM_PUBLIC_BASE` em fallback inicial, preservar comportamento antigo; 4) testar preflight HTTP real dos dois origins, autenticação, visualização de proposta, envio transacional *autorizado*, aceite; 5) testar cada forma de pagamento em Stripe TEST e retornos legados/novos; 6) só então migrar URL canônica de links novos e homologar publicação. **Não merge/deploy do PR inteiro sem gates.**
+>
+> ---
+>
 **Estado: preparação em PR draft; NÃO é um deploy nem uma alteração DNS.**
 
 ## Arquitetura confirmada
