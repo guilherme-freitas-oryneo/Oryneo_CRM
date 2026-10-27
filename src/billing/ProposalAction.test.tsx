@@ -68,6 +68,18 @@ describe('acesso aos links individuais de proposta',()=>{
   await screen.findByText(/Versão 2 aguardando aceite do cliente/);
   await waitFor(()=>expect(screen.queryByRole('link',{name:'Abrir proposta em nova aba'})).not.toBeInTheDocument());
  });
+ it('só permite preparar a cobrança depois do aceite e mantém o link no domínio oficial',async()=>{
+  const user=userEvent.setup();
+  const prepare=vi.fn().mockResolvedValue({reference:'ORY-QA-ACCEPTED',url:'https://crm.oryneo.com.br/pagar/?token='+token});
+  mocks.latest.mockResolvedValue({data:{status:'accepted',version:3,expires_at:'2027-01-02T00:00:00Z'},error:null});
+  render(<ProposalAction dealId="deal-accepted" canPrepare onPrepareBilling={prepare}/>);
+  expect(await screen.findByText('Versão 3 aceita pelo cliente.')).toBeInTheDocument();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(screen.getByRole('button',{name:'Preparar cobrança'})).toBeEnabled();
+  await user.click(screen.getByRole('button',{name:'Preparar cobrança'}));
+  expect(prepare).toHaveBeenCalledOnce();
+  expect(await screen.findByRole('link',{name:'Abrir checkout em nova aba'})).toHaveAttribute('href','https://crm.oryneo.com.br/pagar/?token='+token);
+ });
  it('avisa quando a proposta foi criada mas o e-mail precisa de revisão',async()=>{
   const user=userEvent.setup();
   mocks.invoke.mockResolvedValue({data:{ok:true,version:1,url:proposalUrl,email_sent:false},error:null});
