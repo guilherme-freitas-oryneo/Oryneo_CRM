@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowUpRight, CheckCheck, CircleHelp, Clock3, Headphones, MessageCircle, Phone, Search, ShieldCheck, X } from 'lucide-react';
 import type { DealRow } from '../data';
 import { buildWhatsAppUrl } from '../firstContact/whatsapp';
@@ -14,6 +14,7 @@ const modeLabel: Record<Conversation['mode'], string> = { sdr_active: 'Automaç�
 
 export function WhatsAppWorkspace({ deals, loading, loadError, onOpenDeal }: { deals: DealRow[]; loading: boolean; loadError: string; onOpenDeal(id: string): void }) {
   const [query, setQuery] = useState('');
+  const pendingSendRef = useRef<{ conversationId: string; fingerprint: string; requestId: string } | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
@@ -67,13 +68,19 @@ export function WhatsAppWorkspace({ deals, loading, loadError, onOpenDeal }: { d
     const timer = setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 10000);
     return () => { active = false; clearInterval(timer); };
   }, [selectedConversationId]);
-  const selectConversation = (id: string) => { setSelectedConversationId(id); setSelectedContactId(null); setContextOpen(false); };
+  const selectConversation = (id: string) => { pendingSendRef.current = null; setSelectedConversationId(id); setSelectedContactId(null); setContextOpen(false); };
   const selectContact = (id: string) => { setSelectedContactId(id); setSelectedConversationId(null); setContextOpen(false); };
-  const close = () => { setSelectedContactId(null); setSelectedConversationId(null); setContextOpen(false); };
+  const close = () => { pendingSendRef.current = null; setSelectedContactId(null); setSelectedConversationId(null); setContextOpen(false); };
   const sendReply = async (draft: WhatsAppDraft) => {
     if (!selectedConversation || !canReply) throw new Error('Envio indisponível. Verifique o estado do canal.');
-    // Somente a Edge Function decide e efetua o envio. A UI não registra mensagens fictícias.
-    await sendWhatsAppMessage(selectedConversation.id, draft);
+    // Mesma tentativa => mesma chave em eventual retry; impedimos envio duplo por falha ambígua.
+    const fingerprint = draft.kind === 'text' ? 'text:' + draft.text
+      : [draft.kind, draft.file.name, draft.file.size, draft.file.lastModified, draft.kind === 'attachment' ? draft.caption : ''].join(':');
+    if (!pendingSendRef.current || pendingSendRef.current.conversationId !== selectedConversation.id || pendingSendRef.current.fingerprint !== fingerprint) {
+      pendingSendRef.current = { conversationId: selectedConversation.id, fingerprint, requestId: crypto.randomUUID() };
+    }
+    await sendWhatsAppMessage(selectedConversation.id, draft, pendingSendRef.current.requestId);
+    pendingSendRef.current = null;
     try {
       const [newMessages, refreshed] = await Promise.all([
         loadWhatsAppMessages(selectedConversation.id), loadWhatsAppInbox(),
