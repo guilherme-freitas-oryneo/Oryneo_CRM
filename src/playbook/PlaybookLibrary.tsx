@@ -83,7 +83,7 @@ function Selectable({slideId,blockKey,text,annotations,onPick,className=''}:{
       onPick({slide_id:slideId,block_key:blockKey,start_offset:start,end_offset:end,quote});
     }catch{ /* Ignore selections spanning non-text UI. */ }
   };
-  return <p ref={ref} className={'pb-selectable '+className} onMouseUp={select} onKeyUp={select}>
+  return <p ref={ref} className={'pb-selectable '+className} onMouseUp={select} onKeyUp={select} onTouchEnd={()=>window.setTimeout(select,150)}>
     {pieces.map((piece,i)=>piece.mark?<mark className={'pb-mark pb-mark-'+piece.mark.color} key={i} title={piece.mark.note||'Trecho destacado'}>{piece.text}</mark>:<span key={i}>{piece.text}</span>)}
   </p>;
 }
@@ -97,11 +97,12 @@ export function PlaybookLibrary(){
   const root=useRef<HTMLDivElement>(null);
   const {fullscreen,toggle:toggleFullscreen}=useFullscreen(root);
   const [current,setCurrent]=useState(-1),[playing,setPlaying]=useState(false);
-  const [showIndex,setShowIndex]=useState(true),[showNotes,setShowNotes]=useState(true);
+  const [showIndex,setShowIndex]=useState(false),[showNotes,setShowNotes]=useState(false);
   const [filter,setFilter]=useState('');
   const [marks,setMarks]=useState<PlaybookAnnotation[]>([]);
   const [userId,setUserId]=useState<string|null>(null);
   const [resumeId,setResumeId]=useState<string|null>(null);
+  const progressQueue=useRef<Promise<void>>(Promise.resolve());
   const [status,setStatus]=useState(''),[busy,setBusy]=useState(false);
   const [choice,setChoice]=useState<PlaybookSelection|null>(null);
   const [note,setNote]=useState(''),[visibility,setVisibility]=useState<MarkVisibility>('private'),[color,setColor]=useState<MarkColor>('yellow');
@@ -111,7 +112,7 @@ export function PlaybookLibrary(){
   const slide=current<0?null:slides[current];
   const slideMarks=slide?marks.filter(mark=>mark.slide_id===slide.id):[];
   const move=useCallback((next:number)=>{setCurrent(Math.max(-1,Math.min(slides.length-1,next)));setChoice(null);setNote('');setEditing(null)},[]);
-  useEffect(()=>{if(current>=0&&userId)void saveProgress(userId,slides[current].id).catch(()=>setStatus('Não foi possível sincronizar o progresso.'))},[current,userId]);
+  useEffect(()=>{if(current>=0&&userId){const id=slides[current].id;setResumeId(id);progressQueue.current=progressQueue.current.catch(()=>undefined).then(()=>saveProgress(userId,id)).catch(()=>setStatus('Não foi possível sincronizar o progresso.'))}},[current,userId]);
   useEffect(()=>{if(!playing||current<0)return;const timer=window.setInterval(()=>setCurrent(pos=>{if(pos>=slides.length-1){setPlaying(false);return pos}return pos+1}),22000);return()=>window.clearInterval(timer)},[playing,current]);
   useEffect(()=>{
     const listener=(event:KeyboardEvent)=>{
