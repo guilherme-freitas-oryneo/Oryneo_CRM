@@ -51,6 +51,7 @@ async function run(){
    await page.screenshot({path:join(root,'qa-results',label+'-slide01.png'),fullPage:true});
    await page.getByRole('button',{name:'Próximo slide'}).click();
    await page.getByRole('heading',{name:'A proposta de valor'}).waitFor();
+   await page.getByRole('button',{name:'Mostrar índice'}).click();
    const width=await page.evaluate(()=>({screen:window.innerWidth,page:document.documentElement.scrollWidth}));
    if(width.page>width.screen+4)throw Error(label+' unexpected horizontal page overflow: '+JSON.stringify(width));
    for(const [n,title,suffix] of [
@@ -64,6 +65,7 @@ async function run(){
      await page.screenshot({path:join(root,'qa-results',label+'-'+suffix+'.png'),fullPage:true});
    }
    await page.getByRole('heading',{name:'Biblioteca de referências'}).waitFor();
+   await page.getByRole('button',{name:'Mostrar anotações'}).click();
    await page.getByRole('button',{name:/Anotar decisão deste slide/i}).click();
    await page.getByPlaceholder('O que vale lembrar ou aplicar?').fill('QA: anotação vinculada à seleção.');
    await page.getByRole('button',{name:'Salvar destaque'}).click();
