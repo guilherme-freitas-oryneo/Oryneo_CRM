@@ -59,11 +59,11 @@
 - Produces: tables `crm_wa_ai_jobs` and `crm_wa_ai_outbox`; RPCs `crm_wa_enqueue_ai_job`, `crm_wa_claim_ai_jobs`, `crm_wa_complete_ai_generation`, `crm_wa_claim_ai_outbox`, `crm_wa_finish_ai_send`.
 - Consumes: `crm_wa_channels`, `crm_wa_conversations`, `crm_wa_messages`, `crm_members`, service-role-only execution.
 
-- [ ] **Step 1: Write SQL QA transactions proving dedupe, lease exclusivity, state constraints, conversation serialization, retry scheduling, takeover cancellation and RLS denial.**
-- [ ] **Step 2: Run the QA against an isolated disposable PostgreSQL database and verify failure because the objects do not exist.**
-- [ ] **Step 3: Add the additive migration with service-role-only grants, RLS, unique inbound/outbox keys and bounded attempts.**
-- [ ] **Step 4: Re-run SQL QA and Supabase advisors against the isolated schema; do not apply it to production.**
-- [ ] **Step 5: Commit the durable schema and QA gate.**
+- [x] **Step 1: Write SQL QA transactions proving dedupe, lease exclusivity, state constraints, conversation serialization, retry scheduling, takeover cancellation and RLS denial.**
+- [x] **Step 2: Run the QA against an isolated disposable PostgreSQL database and verify failure because the objects do not exist.**
+- [x] **Step 3: Add the additive migration with service-role-only grants, RLS, unique inbound/outbox keys and bounded attempts.**
+- [x] **Step 4: Re-run SQL QA in isolated PostgreSQL; remote advisors are deferred until a release-authorized preview/application because production was not modified.**
+- [x] **Step 5: Commit the durable schema and QA gate.**
 
 ### Task 3: Webhook enqueue boundary
 
