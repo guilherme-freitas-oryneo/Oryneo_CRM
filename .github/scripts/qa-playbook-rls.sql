@@ -13,7 +13,8 @@ GRANT SELECT ON public.crm_members TO authenticated;
 INSERT INTO public.crm_members (user_id) VALUES
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
-\i supabase/migrations/20261028200000_crm_playbook_annotations.sql
+\i supabase/migrations/20261028194251_crm_playbook_annotations.sql
+\i supabase/migrations/20261028194349_crm_playbook_restrict_member_privileges.sql
 
 SET ROLE authenticated;
 SET request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
