@@ -39,12 +39,22 @@ describe('PlaybookLibrary',()=>{
     render(<PlaybookLibrary/>);
     await user.click(await screen.findByRole('button',{name:/Retomar no slide 02/i}));
     expect(screen.getByRole('heading',{name:slides[1].title})).toBeInTheDocument();
+    await user.click(screen.getByRole('button',{name:'Mostrar índice'}));
     expect(within(screen.getByLabelText('Índice do playbook')).getAllByRole('button').length).toBe(64);
+  });
+  it('atualiza a retomada ao voltar à capa na mesma sessão',async()=>{
+    const user=userEvent.setup();
+    render(<PlaybookLibrary/>);
+    await user.click(screen.getByRole('button',{name:'Iniciar apresentação'}));
+    await user.click(screen.getByRole('button',{name:'Próximo slide'}));
+    await user.click(screen.getByRole('button',{name:'Voltar ao início'}));
+    expect(await screen.findByRole('button',{name:/Retomar no slide 02/})).toBeInTheDocument();
   });
   it('cria nota privada por padrão sobre a decisão do slide',async()=>{
     const user=userEvent.setup();
     render(<PlaybookLibrary/>);
     await user.click(screen.getByRole('button',{name:'Iniciar apresentação'}));
+    await user.click(screen.getByRole('button',{name:'Mostrar anotações'}));
     await waitFor(()=>expect(screen.getByRole('button',{name:/Anotar decisão deste slide/i})).toBeEnabled());
     await user.click(screen.getByRole('button',{name:/Anotar decisão deste slide/i}));
     expect(screen.getByText(slides[0].decision,{selector:'blockquote'})).toBeInTheDocument();
