@@ -41,7 +41,8 @@ VALUES
  ('30000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','wamid.1','inbound','text','2026-10-28T18:00:00Z'),
  ('30000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000001','wamid.2','inbound','text','2026-10-28T18:00:01Z'),
  ('30000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000001','wamid.3','inbound','text','2026-10-28T18:00:02Z'),
- ('30000000-0000-4000-8000-000000000004','20000000-0000-4000-8000-000000000001','wamid.4','inbound','text','2026-10-28T18:00:03Z');
+ ('30000000-0000-4000-8000-000000000004','20000000-0000-4000-8000-000000000001','wamid.4','inbound','text','2026-10-28T18:00:03Z'),
+ ('30000000-0000-4000-8000-000000000005','20000000-0000-4000-8000-000000000001','wamid.5','inbound','text','2026-10-28T18:00:04Z');
 
 SET ROLE service_role;
 SELECT public.crm_wa_enqueue_ai_job(
@@ -174,6 +175,25 @@ BEGIN
  WHERE state='retry_wait' AND attempts=1 AND next_attempt_at>now()
    AND error_code='AI_PROVIDER_RATE_LIMITED';
  IF retrying <> 1 THEN RAISE EXCEPTION 'retryable generation failure was not scheduled'; END IF;
+END $$;
+
+SET ROLE service_role;
+SELECT public.crm_wa_enqueue_ai_job(
+ '20000000-0000-4000-8000-000000000001',
+ '30000000-0000-4000-8000-000000000005'
+);
+SELECT id FROM public.crm_wa_claim_ai_jobs(1,60);
+SELECT public.crm_wa_cancel_ai_job(
+ id,lease_token,'cancelled','CONSENT_REQUIRED'
+) FROM public.crm_wa_ai_jobs WHERE state='leased';
+RESET ROLE;
+
+DO $$
+DECLARE cancelled integer;
+BEGIN
+ SELECT count(*) INTO cancelled FROM public.crm_wa_ai_jobs
+ WHERE state='cancelled' AND error_code='CONSENT_REQUIRED' AND lease_token IS NULL;
+ IF cancelled <> 1 THEN RAISE EXCEPTION 'leased job was not safely cancelled'; END IF;
 END $$;
 
 SET ROLE authenticated;

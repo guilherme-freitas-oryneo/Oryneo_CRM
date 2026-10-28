@@ -182,6 +182,30 @@ begin
 end;
 $$;
 
+create or replace function public.crm_wa_cancel_ai_job(
+  p_job_id uuid,
+  p_lease_token uuid,
+  p_state text,
+  p_reason text
+) returns text
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if p_state not in ('cancelled','superseded') then
+    raise exception 'Invalid cancellation state' using errcode='22023';
+  end if;
+  if length(trim(coalesce(p_reason,''))) not between 1 and 100 then
+    raise exception 'Cancellation reason is required' using errcode='22023';
+  end if;
+  update public.crm_wa_ai_jobs
+  set state=p_state,lease_token=null,lease_until=null,error_code=left(p_reason,100),updated_at=now()
+  where id=p_job_id and state='leased' and lease_token=p_lease_token;
+  if not found then return 'stale'; end if;
+  return p_state;
+end;
+$$;
+
 create or replace function public.crm_wa_claim_ai_outbox(
   p_limit integer default 5,
   p_lease_seconds integer default 60
@@ -265,10 +289,12 @@ $$;
 revoke all on function public.crm_wa_enqueue_ai_job(uuid,uuid) from public,anon,authenticated;
 revoke all on function public.crm_wa_claim_ai_jobs(integer,integer) from public,anon,authenticated;
 revoke all on function public.crm_wa_complete_ai_generation(uuid,uuid,text,text,text,boolean) from public,anon,authenticated;
+revoke all on function public.crm_wa_cancel_ai_job(uuid,uuid,text,text) from public,anon,authenticated;
 revoke all on function public.crm_wa_claim_ai_outbox(integer,integer) from public,anon,authenticated;
 revoke all on function public.crm_wa_finish_ai_send(uuid,uuid,text,text,text) from public,anon,authenticated;
 grant execute on function public.crm_wa_enqueue_ai_job(uuid,uuid) to service_role;
 grant execute on function public.crm_wa_claim_ai_jobs(integer,integer) to service_role;
 grant execute on function public.crm_wa_complete_ai_generation(uuid,uuid,text,text,text,boolean) to service_role;
+grant execute on function public.crm_wa_cancel_ai_job(uuid,uuid,text,text) to service_role;
 grant execute on function public.crm_wa_claim_ai_outbox(integer,integer) to service_role;
 grant execute on function public.crm_wa_finish_ai_send(uuid,uuid,text,text,text) to service_role;
