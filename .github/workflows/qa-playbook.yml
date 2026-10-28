@@ -6,6 +6,8 @@ on:
       - 'src/playbook/**'
       - 'src/App.tsx'
       - '.github/scripts/qa-playbook.mjs'
+      - '.github/scripts/qa-playbook-rls.sql'
+      - 'supabase/migrations/*crm_playbook*'
       - '.github/scripts/playbook-fixture-api.ts'
       - '.github/workflows/qa-playbook.yml'
   workflow_dispatch:
@@ -37,3 +39,25 @@ jobs:
           name: oryneo-playbook-qa
           path: qa-results/*.png
           if-no-files-found: ignore
+  playbook-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: playbook_qa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d playbook_qa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar políticas de isolamento em banco descartável
+        env:
+          PGPASSWORD: test-only-password
+        run: psql -h 127.0.0.1 -p 5432 -U postgres -d playbook_qa -v ON_ERROR_STOP=1 -f .github/scripts/qa-playbook-rls.sql
