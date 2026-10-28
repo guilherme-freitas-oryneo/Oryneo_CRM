@@ -8,7 +8,7 @@ const phoneId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') ?? '';
 const accessToken = Deno.env.get('WHATSAPP_SYSTEM_USER_TOKEN') ?? '';
 const db = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 const graphVersion = 'v26.0';
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
+const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 async function metaMessage(body: Record<string, unknown>) {

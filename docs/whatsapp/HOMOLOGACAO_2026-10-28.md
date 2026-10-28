@@ -41,3 +41,16 @@ O teste real deve usar o CRM autenticado e um segundo aparelho: enviar e receber
 ## Evidência real de mídia
 
 Em 2026-10-28, o número oficial recebeu e processou sem erro uma imagem JPEG, um vídeo MP4, uma resposta citando a imagem e uma reação `👏` associada à mesma mensagem. A interface passou a carregar imagens e vídeos automaticamente quando entram na área visível da conversa. O vídeo usa controles nativos, carrega somente os metadados necessários e exibe a duração em `minutos:segundos`.
+
+## Acabamento da caixa de entrada
+
+- A thread separa mensagens por dia e formata data e hora no fuso `America/Sao_Paulo`.
+- Reações abrem detalhes com emoji, autor inferível pelo evento e horário completo. Eventos recebidos identificam o contato; eventos enviados identificam a equipe ORYNEO, pois a Meta não informa um operador individual.
+- A fila pode ser filtrada por todas, não lidas, em revisão e com atendente, preservando a busca existente.
+
+## Elegibilidade Meta verificada em 28/10/2026
+
+- A Calling API de voz está disponível no Brasil, mas exige limite diário de pelo menos 2.000 destinatários, assinatura do webhook `calls`, habilitação no telefone e infraestrutura WebRTC ou SIP. O MCP conectado não expõe o limite nem o controle de habilitação do telefone.
+- Vídeo e compartilhamento de tela permanecem marcados pela Meta como planejados ou em desenvolvimento.
+- A API de Grupos exige Conta Comercial Oficial. A solicitação desse status exige ao menos 30 dias na plataforma, nome aprovado e confirmação em duas etapas; para o número registrado em 26/10/2026, a primeira data provável é 25/11/2026.
+- A conta ainda não possui templates. Três templates transacionais em `pt_BR` foram preparados para proposta, link de pagamento e confirmação de pagamento; a submissão aguarda a confirmação obrigatória do conector e depois a revisão da Meta.
