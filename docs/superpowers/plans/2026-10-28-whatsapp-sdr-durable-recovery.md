@@ -75,11 +75,11 @@
 - Consumes: `crm_wa_enqueue_ai_job(conversation_id, inbound_message_id)` from Task 2.
 - Produces: webhook persistence that records/enqueues before setting the raw event to `processed`, with no provider or Meta calls.
 
-- [ ] **Step 1: Write failing tests proving eligible text enqueues before processed, review/reaction/media do not enqueue, and enqueue failure leaves the raw event retryable.**
-- [ ] **Step 2: Run the focused test and verify the old inline reply path fails the assertions.**
-- [ ] **Step 3: Remove inline generation/sending and enqueue through the service RPC after message persistence.**
-- [ ] **Step 4: Run focused and full suites plus Deno check for `whatsapp-webhook`.**
-- [ ] **Step 5: Commit the webhook boundary.**
+- [x] **Step 1: Write failing tests proving inbound text enqueues before processed, reactions do not enqueue, and enqueue failure leaves the raw event retryable. Eligibility remains centralized in the RPC.**
+- [x] **Step 2: Run the focused test and verify the old inline reply path fails the assertions.**
+- [x] **Step 3: Remove inline generation/sending and enqueue through the service RPC after message persistence.**
+- [x] **Step 4: Run focused and full suites plus Deno check for `whatsapp-webhook`.**
+- [x] **Step 5: Commit the webhook boundary.**
 
 ### Task 4: AI generation worker
 
