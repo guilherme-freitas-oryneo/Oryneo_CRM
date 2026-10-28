@@ -7,6 +7,14 @@ const db=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToke
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}});
 const uuid=(value:unknown)=>typeof value==='string'&&/^[0-9a-f-]{36}$/i.test(value)?value:'';
+const trainingFields=['business_context','tone','objective','qualification_questions','guardrails','handoff_rule'] as const;
+const trainingConfig=(value:unknown)=>{
+  if(!value||typeof value!=='object'||Array.isArray(value))return null;
+  const source=value as Record<string,unknown>;const result:Record<string,string>={};
+  for(const field of trainingFields){const text=typeof source[field]==='string'?source[field].trim():'';if(text.length<5||text.length>4000)return null;result[field]=text;}
+  return result;
+};
+const trainedPrompt=(base:string,training:Record<string,string>)=>`${base}\n\nCONTEXTO DO NEGÓCIO\n${training.business_context}\n\nTOM DE VOZ\n${training.tone}\n\nOBJETIVO\n${training.objective}\n\nPERGUNTAS DE QUALIFICAÇÃO\n${training.qualification_questions}\n\nREGRAS\n${training.guardrails}\n\nTRANSFERÊNCIA PARA HUMANO\n${training.handoff_rule}`;
 
 Deno.serve(async req=>{
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
@@ -23,7 +31,7 @@ Deno.serve(async req=>{
   const action=input.action;
   if(action==='get'){
     if(!admin)return json({error:'Ajustes restritos ao administrador.'},403);
-    const {data,error}=await db.from('crm_wa_ai_settings').select('provider,model,mode,system_prompt,api_key_last_four,updated_at').eq('channel_id',channel.id).maybeSingle();
+    const {data,error}=await db.from('crm_wa_ai_settings').select('provider,model,mode,system_prompt,training_config,api_key_last_four,updated_at').eq('channel_id',channel.id).maybeSingle();
     return error?json({error:'Não foi possível carregar os ajustes.'},503):json({ok:true,settings:data??{provider:'openai',model:'gpt-5-mini',mode:'off',system_prompt:'',api_key_last_four:null}});
   }
   if(action==='save'){
@@ -32,11 +40,12 @@ Deno.serve(async req=>{
     const model=typeof input.model==='string'?input.model.trim():'';
     const mode=['off','suggest'].includes(String(input.mode))?String(input.mode):'';
     const systemPrompt=typeof input.systemPrompt==='string'?input.systemPrompt.trim():'';
+    const training=trainingConfig(input.trainingConfig);
     const apiKey=typeof input.apiKey==='string'?input.apiKey.trim():'';
-    if(!provider||!model||model.length>100||!mode||systemPrompt.length<40||systemPrompt.length>5000)return json({error:'Revise o provedor, o modelo e as instruções.'},400);
+    if(!provider||!model||model.length>100||!mode||systemPrompt.length<40||systemPrompt.length>5000||!training)return json({error:'Revise o provedor, o modelo e o treinamento do SDR.'},400);
     const {data:existing}=await db.from('crm_wa_ai_settings').select('api_secret_id').eq('channel_id',channel.id).maybeSingle();
     if(mode!=='off'&&!apiKey&&!existing?.api_secret_id)return json({error:'Informe uma chave de API antes de ativar a IA.'},400);
-    const {error}=await db.from('crm_wa_ai_settings').upsert({channel_id:channel.id,provider,model,mode,system_prompt:systemPrompt,updated_by:auth.user.id,updated_at:new Date().toISOString()});
+    const {error}=await db.from('crm_wa_ai_settings').upsert({channel_id:channel.id,provider,model,mode,system_prompt:systemPrompt,training_config:training,updated_by:auth.user.id,updated_at:new Date().toISOString()});
     if(error)return json({error:'Não foi possível salvar os ajustes.'},503);
     if(apiKey){const stored=await db.rpc('crm_wa_ai_store_secret',{p_channel_id:channel.id,p_secret:apiKey});if(stored.error)return json({error:'Não foi possível proteger a chave de API.'},503);}
     return json({ok:true});
@@ -50,7 +59,7 @@ Deno.serve(async req=>{
     const {data:grant}=await db.from('crm_wa_access').select('id').eq('user_id',auth.user.id).eq('conversation_id',conversationId).maybeSingle();
     if(!admin&&!grant)return json({error:'Conversa não encontrada.'},404);
   }else if(!admin)return json({error:'Teste restrito ao administrador.'},403);
-  const {data:settings,error:settingsError}=await db.from('crm_wa_ai_settings').select('provider,model,mode,system_prompt,api_secret_id').eq('channel_id',channel.id).maybeSingle();
+  const {data:settings,error:settingsError}=await db.from('crm_wa_ai_settings').select('provider,model,mode,system_prompt,training_config,api_secret_id').eq('channel_id',channel.id).maybeSingle();
   if(settingsError||!settings?.api_secret_id)return json({error:'Configure e salve uma chave de API primeiro.'},409);
   const {data:apiKey,error:keyError}=await db.rpc('crm_wa_ai_get_secret',{p_channel_id:channel.id});
   if(keyError||typeof apiKey!=='string')return json({error:'A chave de API não está disponível.'},503);
@@ -62,7 +71,7 @@ Deno.serve(async req=>{
     if(!messages.length)return json({error:'Ainda não há texto suficiente para sugerir uma resposta.'},409);
   }
   try{
-    const reply=await requestAiReply({provider:settings.provider as AiProvider,apiKey,model:settings.model,systemPrompt:settings.system_prompt,messages});
+    const reply=await requestAiReply({provider:settings.provider as AiProvider,apiKey,model:settings.model,systemPrompt:trainedPrompt(settings.system_prompt,settings.training_config as Record<string,string>),messages});
     return json({ok:true,reply});
   }catch(error){console.error('whatsapp ai provider failed',{code:error instanceof Error?error.message:'unknown'});return json({error:'O provedor de IA recusou a solicitação. Confira a chave e o modelo.'},502);}
 });
