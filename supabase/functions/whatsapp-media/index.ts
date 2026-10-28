@@ -6,7 +6,7 @@ const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const accessToken = Deno.env.get('WHATSAPP_SYSTEM_USER_TOKEN') ?? '';
 const phoneId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') ?? '';
 const db = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
+const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const fail = (status: number) => new Response(JSON.stringify({ error: 'Mídia indisponível.' }), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 Deno.serve(async request => {

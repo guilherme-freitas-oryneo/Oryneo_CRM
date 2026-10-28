@@ -11,6 +11,15 @@
 @media(max-width:420px){.wa-send span{display:none}.wa-send{padding:10px}.wa-compose-row{gap:5px}.wa-compose-actions{justify-content:flex-end}}
 @media(prefers-reduced-motion:reduce){.wa-context{transition:none}}
 
+/* Message actions follow the WhatsApp interaction model: one compact menu on hover/tap. */
+.wa-message-bubble{position:relative}
+.wa-message-menu-trigger{position:absolute;z-index:2;right:5px;top:5px;display:grid;place-items:center;width:25px;height:25px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.92);box-shadow:0 1px 4px #1d2d4217;color:#718096;opacity:0;transform:translateY(-2px);transition:opacity .12s,transform .12s}
+.wa-message-bubble:hover>.wa-message-menu-trigger,.wa-message-menu-trigger:focus-visible,.wa-message-menu-trigger[aria-expanded=true]{opacity:1;transform:none}
+.wa-message-actions{position:absolute;z-index:5;right:4px;top:34px;display:flex;justify-content:flex-end;gap:2px;margin:0;padding:5px;border:1px solid #dfe5ec;border-radius:9px;background:#fff;box-shadow:0 8px 24px #1d2d421f}
+.wa-message-actions button{min-width:29px;height:29px;font-size:14px}
+@media(pointer:coarse){.wa-message-menu-trigger{opacity:1;transform:none}}
+.wa-media-image-button{display:block;max-width:100%;padding:0;border:0;background:transparent;cursor:zoom-in}.wa-media-image-button img{display:block}.wa-media-viewer{position:fixed;z-index:90;inset:0;display:grid;place-items:center;padding:52px 24px 24px;background:rgba(8,13,20,.92);backdrop-filter:blur(4px)}.wa-media-viewer>button{position:absolute;right:22px;top:16px;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;font-size:27px;line-height:1}.wa-media-viewer>img{max-width:min(1200px,96vw);max-height:90vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 80px #0008}
+
 /* Arquivos reais, exibidos sob demanda; evita downloads automáticos de anexos privados. */
 .wa-media{display:grid;gap:8px;margin-top:8px;min-width:0}
 .wa-media-load{justify-self:start;border:1px solid #ccd8e5;border-radius:9px;background:#fff;color:#243d60;padding:8px 12px;font:inherit;font-size:.83rem;cursor:pointer;text-decoration:none}

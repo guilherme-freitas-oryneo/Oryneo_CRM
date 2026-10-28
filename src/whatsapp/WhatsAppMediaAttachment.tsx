@@ -8,6 +8,7 @@ export function WhatsAppMediaAttachment({ message }: { message: Message }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [duration, setDuration] = useState<number | null>(null);
+  const [imageOpen, setImageOpen] = useState(false);
   const requested = useRef(false);
   const container = useRef<HTMLDivElement>(null);
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
@@ -44,7 +45,7 @@ export function WhatsAppMediaAttachment({ message }: { message: Message }) {
     </button> : message.kind === 'audio'
       ? <audio controls preload="none" src={url} aria-label="Áudio da conversa"/>
       : message.kind === 'image'
-        ? <img loading="lazy" src={url} alt="Imagem recebida na conversa"/>
+        ? <><button type="button" className="wa-media-image-button" aria-label="Abrir imagem" onClick={()=>setImageOpen(true)}><img loading="lazy" src={url} alt="Imagem recebida na conversa"/></button>{imageOpen && <div className="wa-media-viewer" role="dialog" aria-modal="true" aria-label="Visualizar imagem" onClick={()=>setImageOpen(false)}><button type="button" aria-label="Fechar imagem" onClick={()=>setImageOpen(false)}>×</button><img src={url} alt="Imagem ampliada da conversa" onClick={event=>event.stopPropagation()}/></div>}</>
         : message.kind === 'video'
           ? <div className="wa-video-wrap"><video controls playsInline preload="metadata" src={url} aria-label="Vídeo da conversa" onLoadedMetadata={event => {
             const seconds = event.currentTarget.duration;

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DealRow } from '../data';
 import { deleteWhatsAppMessageForMe, loadWhatsAppInbox, loadWhatsAppMedia, loadWhatsAppMessages, markWhatsAppRead, sendWhatsAppMessage, sendWhatsAppReaction } from './api';
-import { WhatsAppWorkspace } from './WhatsAppWorkspace';
+import { WhatsAppMessageView, WhatsAppWorkspace } from './WhatsAppWorkspace';
 
 vi.mock('./api', () => ({ loadWhatsAppInbox: vi.fn(), loadWhatsAppMessages: vi.fn(), loadWhatsAppMedia: vi.fn(), markWhatsAppRead: vi.fn(), sendWhatsAppMessage: vi.fn(), sendWhatsAppReaction: vi.fn(), deleteWhatsAppMessageForMe: vi.fn() }));
 
@@ -114,13 +114,16 @@ describe('WhatsAppWorkspace', () => {
     render(<WhatsAppWorkspace deals={[]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
     await user.click(await screen.findByRole('button', { name: 'Abrir conversa de Marina' }));
     await screen.findByText('Olá', { selector: '.wa-message-bubble p' });
+    await user.click(screen.getByRole('button', { name: 'Ações da mensagem' }));
     await user.click(screen.getByRole('button', { name: 'Responder à mensagem' }));
     expect(screen.getByText(/Respondendo a: Olá/)).toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: 'Mensagem' }), 'Tudo certo');
     await user.click(screen.getByRole('button', { name: 'Enviar' }));
     expect(sendWhatsAppMessage).toHaveBeenCalledWith('conversation-1', { kind: 'text', text: 'Tudo certo' }, expect.any(String), 'message-1');
+    await user.click(screen.getByRole('button', { name: 'Ações da mensagem' }));
     await user.click(screen.getByRole('button', { name: 'Reagir com 👍' }));
     expect(sendWhatsAppReaction).toHaveBeenCalledWith('conversation-1', 'message-1', '👍', expect.any(String));
+    await user.click(screen.getByRole('button', { name: 'Ações da mensagem' }));
     await user.click(screen.getByRole('button', { name: 'Apagar para mim' }));
     expect(deleteWhatsAppMessageForMe).toHaveBeenCalledWith('conversation-1', 'message-1');
   });
@@ -183,5 +186,22 @@ describe('WhatsAppWorkspace', () => {
     await user.click(screen.getByRole('button', { name: 'Com atendente' }));
     expect(screen.queryByRole('button', { name: 'Abrir conversa de Ana' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Abrir conversa de Bruno' })).toBeInTheDocument();
+  });
+});
+
+describe('WhatsAppMessageView', () => {
+  const message = {
+    id: 'message-1', provider_message_id: 'wamid.1', conversation_id: 'conversation-1', direction: 'inbound' as const,
+    kind: 'text' as const, body: 'Olá', media_id: null, mime_type: null, delivery_status: null,
+    occurred_at: '2026-10-28T12:57:09Z',
+  };
+
+  it('keeps reactions and message actions hidden until the operator opens the actions menu', async () => {
+    render(<WhatsAppMessageView message={message} canInteract onReply={vi.fn()} onReact={vi.fn()} onDelete={vi.fn()}/>);
+    expect(screen.queryByRole('button', { name: 'Reagir com 👍' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Responder à mensagem' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Ações da mensagem' }));
+    expect(screen.getByRole('button', { name: 'Reagir com 👍' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Responder à mensagem' })).toBeInTheDocument();
   });
 });
