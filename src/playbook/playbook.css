@@ -19,3 +19,6 @@
 .pb-stage{container-type:inline-size}
 @container (max-width:1000px){.pb-three{grid-template-columns:1fr;gap:7px}.pb-three .pb-diagram-card{min-height:58px;flex-direction:row;align-items:center;gap:12px;padding:11px 14px}.pb-three .pb-diagram-card small{flex:none}.pb-three .pb-diagram-card strong{flex:1;font-size:13px;overflow-wrap:normal;word-break:normal}.pb-three .pb-diagram-card span{font-size:11px;text-align:right;max-width:45%}}
 @media(max-width:760px){.pb-three .pb-diagram-card{min-height:50px}}
+
+/* Readable word labels across all slide widths, without splitting in the middle of words. */
+.pb-three .pb-diagram-card strong{font-size:13px;overflow-wrap:normal;word-break:normal;hyphens:none}
