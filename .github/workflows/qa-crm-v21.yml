@@ -46,6 +46,7 @@ jobs:
           node .github/scripts/qa-direct-checkout.mjs
           node .github/scripts/qa-pix-generated.mjs
           node .github/scripts/qa-crm-v21.mjs
+          node .github/scripts/qa-playbook.mjs
       - name: Publicar capturas de QA
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,0 +1,63 @@
+name: Homologar Playbook ORYNEO
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/playbook/**'
+      - 'src/App.tsx'
+      - '.github/scripts/qa-playbook.mjs'
+      - '.github/scripts/qa-playbook-rls.sql'
+      - 'supabase/migrations/*crm_playbook*'
+      - '.github/scripts/playbook-fixture-api.ts'
+      - '.github/workflows/qa-playbook.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  playbook-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Instalar dependências e compilar CRM
+        run: |
+          npm ci
+          npm run build -- --base=/Oryneo_CRM/
+          npm install --no-save --ignore-scripts playwright@1.56.1
+      - name: Instalar Chromium e WebKit
+        run: npx playwright install --with-deps chromium webkit
+      - name: Inspecionar player e marcações sem acessar produção
+        run: node .github/scripts/qa-playbook.mjs
+      - name: Publicar capturas de QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oryneo-playbook-qa
+          path: qa-results/*.png
+          if-no-files-found: ignore
+  playbook-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: playbook_qa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d playbook_qa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar políticas de isolamento em banco descartável
+        env:
+          PGPASSWORD: test-only-password
+        run: psql -h 127.0.0.1 -p 5432 -U postgres -d playbook_qa -v ON_ERROR_STOP=1 -f .github/scripts/qa-playbook-rls.sql
