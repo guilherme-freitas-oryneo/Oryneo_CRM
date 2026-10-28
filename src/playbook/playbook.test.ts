@@ -22,7 +22,7 @@ describe('currículo executivo',()=>{
     expect(references.every(ref=>ref.url.startsWith('https://'))).toBe(true);
   });
   it('explicita que complementos são vinculados ao CRM',()=>{
-    expect(slides.find(s=>s.id==='10')?.decision).toMatch(/isolado/i);
+    expect(slides.find(s=>s.id==='10')?.decision).toMatch(/avulsos/i);
     expect(slides.find(s=>s.id==='46')?.decision).toMatch(/isolada/i);
   });
 });
