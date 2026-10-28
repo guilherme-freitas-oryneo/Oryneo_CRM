@@ -36,11 +36,20 @@ Deno.serve(async req=>{
   const action=input.action;
   if(action==='get'){
     if(!admin)return json({error:'Ajustes restritos ao administrador.'},403);
-    const [{data,error},{data:attachments, error:attachmentsError}]=await Promise.all([
+    const [{data,error},{data:attachments,error:attachmentsError},queuedJobs,retryingJobs,retryingSends,uncertainSends,reviewJobs,reviewSends]=await Promise.all([
       db.from('crm_wa_ai_settings').select('provider,model,mode,system_prompt,training_prompt,training_config,api_key_last_four,updated_at').eq('channel_id',channel.id).maybeSingle(),
       db.from('crm_wa_ai_attachments').select('id,file_name,mime_type,size_bytes,created_at').eq('channel_id',channel.id).order('created_at',{ascending:false}),
+      db.from('crm_wa_ai_jobs').select('id',{count:'exact',head:true}).eq('channel_id',channel.id).in('state',['queued','leased']),
+      db.from('crm_wa_ai_jobs').select('id',{count:'exact',head:true}).eq('channel_id',channel.id).eq('state','retry_wait'),
+      db.from('crm_wa_ai_outbox').select('id,crm_wa_ai_jobs!inner(channel_id)',{count:'exact',head:true}).eq('crm_wa_ai_jobs.channel_id',channel.id).eq('state','retry_wait'),
+      db.from('crm_wa_ai_outbox').select('id,crm_wa_ai_jobs!inner(channel_id)',{count:'exact',head:true}).eq('crm_wa_ai_jobs.channel_id',channel.id).eq('state','uncertain'),
+      db.from('crm_wa_ai_jobs').select('id',{count:'exact',head:true}).eq('channel_id',channel.id).eq('state','human_review'),
+      db.from('crm_wa_ai_outbox').select('id,crm_wa_ai_jobs!inner(channel_id)',{count:'exact',head:true}).eq('crm_wa_ai_jobs.channel_id',channel.id).eq('state','human_review'),
     ]);
-    return error||attachmentsError?json({error:'Não foi possível carregar os ajustes.'},503):json({ok:true,settings:{...(data??{provider:'openai',model:'gpt-5-mini',mode:'off',system_prompt:'',training_prompt:'',training_config:{},api_key_last_four:null}),attachments:attachments??[]}});
+    const healthQueries=[queuedJobs,retryingJobs,retryingSends,uncertainSends,reviewJobs,reviewSends];
+    return error||attachmentsError||healthQueries.some(result=>result.error)
+      ?json({error:'Não foi possível carregar os ajustes.'},503)
+      :json({ok:true,settings:{...(data??{provider:'openai',model:'gpt-5-mini',mode:'off',system_prompt:'',training_prompt:'',training_config:{},api_key_last_four:null}),attachments:attachments??[],health:{queued:queuedJobs.count??0,retrying:(retryingJobs.count??0)+(retryingSends.count??0),uncertain:uncertainSends.count??0,human_review:(reviewJobs.count??0)+(reviewSends.count??0)}}});
   }
   if(action==='save'){
     if(!admin)return json({error:'Ajustes restritos ao administrador.'},403);

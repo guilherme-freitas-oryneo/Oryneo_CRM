@@ -129,9 +129,9 @@
 - Consumes: queue/outbox aggregate states with no message bodies or customer identifiers.
 - Produces: an administrator-only health summary and documented deployment/rollback gate.
 
-- [ ] **Step 1: Write failing UI/API tests for queued, retrying, uncertain and human-review counts and a no-PII response contract.**
-- [ ] **Step 2: Run focused tests and verify the diagnosis section is absent.**
-- [ ] **Step 3: Add the aggregate endpoint and compact settings panel without adding a new sidebar section.**
-- [ ] **Step 4: Document architecture, invariants, migration order, rollback and the fact that production remains unchanged.**
-- [ ] **Step 5: Run Vitest, build, Deno checks, SQL QA and existing payment/proposal/email regression suites.**
-- [ ] **Step 6: Review the complete diff against `origin/main`, record remaining release gates and commit.**
+- [x] **Step 1: Write failing UI/API tests for queued, retrying, uncertain and human-review counts and a no-PII response contract.**
+- [x] **Step 2: Run focused tests and verify the diagnosis section is absent.**
+- [x] **Step 3: Add the aggregate endpoint and compact settings panel without adding a new sidebar section.**
+- [x] **Step 4: Document architecture, invariants, migration order, rollback and the fact that production remains unchanged.**
+- [x] **Step 5: Run Vitest, build, Deno checks, SQL QA and existing payment/proposal/email regression suites.**
+- [x] **Step 6: Review the complete diff against `origin/main`, record remaining release gates and commit.**
