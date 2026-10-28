@@ -142,4 +142,46 @@ describe('WhatsAppWorkspace', () => {
     expect(screen.getByText('Imagem recebida', { selector: '.wa-message-quote' })).toBeInTheDocument();
     expect(screen.getByText('👏', { selector: '.wa-message-reactions' })).toBeInTheDocument();
   });
+
+  it('separa mensagens por data e identifica quem reagiu e quando', async () => {
+    const now = new Date().toISOString();
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({
+      channel: { id: 'channel-1', enabled: true, display_phone_number: '+5521974510932' },
+      conversations: [{ id: 'conversation-1', channel_id: 'channel-1', customer_wa_id: '5511999998888', customer_name: 'Marina', deal_id: null, mode: 'review', opted_out: false, consent_granted: true, last_inbound_at: now, last_message_at: now, last_preview: 'Tudo certo' }],
+    });
+    vi.mocked(loadWhatsAppMessages).mockResolvedValue([
+      { id: 'message-1', provider_message_id: 'wamid.message', conversation_id: 'conversation-1', direction: 'outbound', kind: 'text', body: 'Proposta enviada', media_id: null, mime_type: null, delivery_status: 'read', occurred_at: '2026-10-27T23:58:00Z' },
+      { id: 'message-2', provider_message_id: 'wamid.reply', conversation_id: 'conversation-1', direction: 'inbound', kind: 'text', body: 'Tudo certo', media_id: null, mime_type: null, delivery_status: null, occurred_at: '2026-10-28T10:20:00Z' },
+      { id: 'reaction-1', provider_message_id: 'wamid.reaction', conversation_id: 'conversation-1', direction: 'inbound', kind: 'other', body: '', media_id: null, mime_type: null, delivery_status: null, occurred_at: '2026-10-28T10:22:29Z', reaction_to_provider_message_id: 'wamid.message', reaction_emoji: '👏' },
+    ]);
+    const user = userEvent.setup();
+    render(<WhatsAppWorkspace deals={[]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
+    await user.click(await screen.findByRole('button', { name: 'Abrir conversa de Marina' }));
+    expect(await screen.findByText('27 de outubro de 2026')).toBeInTheDocument();
+    expect(screen.getByText('28 de outubro de 2026')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Ver detalhes de 1 reação' }));
+    expect(screen.getByText(/Marina reagiu com 👏/)).toBeInTheDocument();
+    expect(screen.getByText(/28\/10\/2026, 07:22/)).toBeInTheDocument();
+  });
+
+  it('filtra a fila por não lidas, revisão e atendimento humano', async () => {
+    const now = new Date().toISOString();
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({
+      channel: { id: 'channel-1', enabled: true, display_phone_number: '+5521974510932' },
+      conversations: [
+        { id: 'review-1', channel_id: 'channel-1', customer_wa_id: '5511111111111', customer_name: 'Ana', deal_id: null, mode: 'review', opted_out: false, consent_granted: true, last_inbound_at: now, last_message_at: now, last_preview: 'Preciso de ajuda', unread_count: 2 },
+        { id: 'human-1', channel_id: 'channel-1', customer_wa_id: '5522222222222', customer_name: 'Bruno', deal_id: null, mode: 'human_locked', opted_out: false, consent_granted: true, last_inbound_at: now, last_message_at: now, last_preview: 'Obrigado', unread_count: 0 },
+      ],
+    });
+    const user = userEvent.setup();
+    render(<WhatsAppWorkspace deals={[]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
+    expect(await screen.findByRole('button', { name: 'Abrir conversa de Ana' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrir conversa de Bruno' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Não lidas' }));
+    expect(screen.getByRole('button', { name: 'Abrir conversa de Ana' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abrir conversa de Bruno' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Com atendente' }));
+    expect(screen.queryByRole('button', { name: 'Abrir conversa de Ana' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrir conversa de Bruno' })).toBeInTheDocument();
+  });
 });
