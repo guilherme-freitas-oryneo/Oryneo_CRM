@@ -89,6 +89,16 @@ async function run(){
     console.log('PASS '+label+' — all 64 slides have decision and footer in bounds.');
    }
    await page.getByRole('button',{name:new RegExp('^64\\s')}).first().click();
+   // Exercise an actual text-range highlight rather than only the one-click decision shortcut.
+   await page.locator('.pb-lead').evaluate(el=>{
+    const node=el.querySelector('span')?.firstChild;
+    if(!node||node.nodeType!==Node.TEXT_NODE)throw Error('Selected text node unavailable');
+    const range=document.createRange();range.setStart(node,0);range.setEnd(node,Math.min(14,node.textContent?.length||0));
+    const selection=window.getSelection();selection?.removeAllRanges();selection?.addRange(range);
+    el.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));
+   });
+   await page.getByText('Nova marcação').waitFor();
+   await page.getByRole('button',{name:'Cancelar marcação'}).click();
    await page.getByRole('button',{name:/Anotar decisão deste slide/i}).click();
    await page.getByPlaceholder('O que vale lembrar ou aplicar?').fill('QA: anotação vinculada à seleção.');
    await page.getByRole('button',{name:'Salvar destaque'}).click();
