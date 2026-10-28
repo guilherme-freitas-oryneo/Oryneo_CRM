@@ -60,3 +60,25 @@
 - https://trailhead.salesforce.com/pt-BR/content/learn/modules/customer-centric-discovery-strategies
 - https://www.gong.io/blog/best-discovery-call-tips
 - https://business.whatsapp.com/policy
+
+
+## Homologação técnica atualizada — 28/10/2026
+
+- Conteúdo: 64 slides, cinco partes, matrizes e fluxos; fontes referenciadas no próprio módulo.
+- Identidade: wordmarks PNG e símbolos SVG originais do Drive/Brand Kit v1.1; tagline e frase-chave conferidas no `VOICE_AND_COPY.md` oficial.
+- Testes de navegador: Chromium desktop/tablet/mobile e WebKit mobile; apresentação, navegação, autoplay, retomada, marcações, notas e nenhuma chamada ao Supabase de produção.
+- Auditoria integral de 64 slides no Chromium desktop e mobile com verificações de transbordamento, área 'Decisão em campo' e rodapé.
+- RLS: execução com PostgreSQL 16 descartável, dois usuários, terceiro não membro e papel anon. Leitura compartilhada permitida apenas a membros, escrita limitada ao autor, progresso individual.
+- Verificação de catálogo: mensalidades e implantação coincidem com `supabase/functions/_shared/billing/catalog.ts`.
+- Melhoria de robustez: erro de sincronização visível no cabeçalho, com tentativa explícita de recuperação.
+- QA adicional: seleção real de trecho de texto em navegador, além do atalho para destacar a decisão.
+
+### Limites do aceite
+
+- **Não foi aplicado SQL no projeto de produção `ucikrafwfzamxvweuvgk`.** Consultada ausência das tabelas `crm_playbook_annotations` e `crm_playbook_progress`.
+- **Nenhuma branch de staging disponível.** A tentativa de criar a branch foi bloqueada pela exigência de confirmação de custo do Supabase; não devemos contornar essa autorização.
+- **Não há teste de persistência com GoTrue/PostgREST reais em projeto de staging.** Os testes existentes cobrem RLS SQL e UI com mock, separadamente.
+- **Não fazer merge enquanto essa validação integrada não for concluída**: o workflow `publicar-crm-pages.yml` publica automaticamente o CRM em produção a cada push na main que modifique `src/**`.
+- Recomenda-se revisão editorial por responsável antes do deploy, inclusive dos limites comerciais e franquias citados.
+
+**Status:** homologação técnica automatizada aprovada no commit indicado no PR, integração staging pendente e produção protegida.
