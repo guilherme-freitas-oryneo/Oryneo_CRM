@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { normalizeWhatsAppWebhook } from './normalize.ts';
 import type { WebhookEvent } from './webhookHandler.ts';
 
