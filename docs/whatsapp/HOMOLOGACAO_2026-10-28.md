@@ -37,3 +37,7 @@
 ## Teste operacional final
 
 O teste real deve usar o CRM autenticado e um segundo aparelho: enviar e receber texto, imagem, vídeo e áudio; responder e reagir; conferir os estados enviado, entregue e lido; e validar a exclusão local. Uma compra real em BRL depende da conclusão do checkout pelo titular do cartão ou da conta Pix. O sistema não cria cobrança real silenciosamente.
+
+## Evidência real de mídia
+
+Em 2026-10-28, o número oficial recebeu e processou sem erro uma imagem JPEG, um vídeo MP4, uma resposta citando a imagem e uma reação `👏` associada à mesma mensagem. A interface passou a carregar imagens e vídeos automaticamente quando entram na área visível da conversa. O vídeo usa controles nativos, carrega somente os metadados necessários e exibe a duração em `minutos:segundos`.

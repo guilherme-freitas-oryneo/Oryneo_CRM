@@ -2,10 +2,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DealRow } from '../data';
-import { deleteWhatsAppMessageForMe, loadWhatsAppInbox, loadWhatsAppMessages, markWhatsAppRead, sendWhatsAppMessage, sendWhatsAppReaction } from './api';
+import { deleteWhatsAppMessageForMe, loadWhatsAppInbox, loadWhatsAppMedia, loadWhatsAppMessages, markWhatsAppRead, sendWhatsAppMessage, sendWhatsAppReaction } from './api';
 import { WhatsAppWorkspace } from './WhatsAppWorkspace';
 
-vi.mock('./api', () => ({ loadWhatsAppInbox: vi.fn(), loadWhatsAppMessages: vi.fn(), markWhatsAppRead: vi.fn(), sendWhatsAppMessage: vi.fn(), sendWhatsAppReaction: vi.fn(), deleteWhatsAppMessageForMe: vi.fn() }));
+vi.mock('./api', () => ({ loadWhatsAppInbox: vi.fn(), loadWhatsAppMessages: vi.fn(), loadWhatsAppMedia: vi.fn(), markWhatsAppRead: vi.fn(), sendWhatsAppMessage: vi.fn(), sendWhatsAppReaction: vi.fn(), deleteWhatsAppMessageForMe: vi.fn() }));
 
 const deal: DealRow = {
   id: '11111111-1111-4111-8111-111111111111', kind: 'deal', revision: 1, deleted: false,
@@ -18,6 +18,7 @@ describe('WhatsAppWorkspace', () => {
     vi.clearAllMocks();
     vi.mocked(loadWhatsAppInbox).mockResolvedValue({ channel: { id: 'channel-1', enabled: false, display_phone_number: '+5521974510932' }, conversations: [] });
     vi.mocked(loadWhatsAppMessages).mockResolvedValue([]);
+    vi.mocked(loadWhatsAppMedia).mockResolvedValue(new Blob(['image'], { type: 'image/jpeg' }));
     vi.mocked(markWhatsAppRead).mockResolvedValue();
     vi.mocked(sendWhatsAppReaction).mockResolvedValue('wamid.reaction');
     vi.mocked(deleteWhatsAppMessageForMe).mockResolvedValue();
@@ -122,5 +123,23 @@ describe('WhatsAppWorkspace', () => {
     expect(sendWhatsAppReaction).toHaveBeenCalledWith('conversation-1', 'message-1', '👍', expect.any(String));
     await user.click(screen.getByRole('button', { name: 'Apagar para mim' }));
     expect(deleteWhatsAppMessageForMe).toHaveBeenCalledWith('conversation-1', 'message-1');
+  });
+
+  it('associa resposta e reação recebidas à foto original', async () => {
+    const now = new Date().toISOString();
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({
+      channel: { id: 'channel-1', enabled: true, display_phone_number: '+5521974510932' },
+      conversations: [{ id: 'conversation-1', channel_id: 'channel-1', customer_wa_id: '5511999998888', customer_name: 'Marina', deal_id: null, mode: 'review', opted_out: false, consent_granted: true, last_inbound_at: now, last_message_at: now, last_preview: 'Mensagem responde à foto' }],
+    });
+    vi.mocked(loadWhatsAppMessages).mockResolvedValue([
+      { id: 'photo-1', provider_message_id: 'wamid.photo', conversation_id: 'conversation-1', direction: 'inbound', kind: 'image', body: '', media_id: 'media-photo', mime_type: 'image/jpeg', delivery_status: null, occurred_at: '2026-10-28T10:21:34Z' },
+      { id: 'reply-1', provider_message_id: 'wamid.reply', conversation_id: 'conversation-1', direction: 'inbound', kind: 'text', body: 'Mensagem responde à foto', media_id: null, mime_type: null, delivery_status: null, occurred_at: '2026-10-28T10:22:19Z', reply_to_provider_message_id: 'wamid.photo' },
+      { id: 'reaction-1', provider_message_id: 'wamid.reaction', conversation_id: 'conversation-1', direction: 'inbound', kind: 'other', body: '', media_id: null, mime_type: null, delivery_status: null, occurred_at: '2026-10-28T10:22:29Z', reaction_to_provider_message_id: 'wamid.photo', reaction_emoji: '👏' },
+    ]);
+    render(<WhatsAppWorkspace deals={[]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir conversa de Marina' }));
+    expect(await screen.findByText('Mensagem responde à foto', { selector: '.wa-message-bubble p' })).toBeInTheDocument();
+    expect(screen.getByText('Imagem recebida', { selector: '.wa-message-quote' })).toBeInTheDocument();
+    expect(screen.getByText('👏', { selector: '.wa-message-reactions' })).toBeInTheDocument();
   });
 });
