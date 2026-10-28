@@ -103,6 +103,6 @@ Deno.serve(async req=>{
   }
   try{
     const reply=await requestAiReply({provider:settings.provider as AiProvider,apiKey,model:settings.model,systemPrompt:`${settings.system_prompt}\n\nTREINAMENTO GERAL DO SDR\n${settings.training_prompt}\n\n${trainedPrompt('',settings.training_config as Record<string,string>)}`,messages});
-    return json({ok:true,reply});
+    return json({ok:true,reply:reply.text});
   }catch(error){console.error('whatsapp ai provider failed',{code:error instanceof Error?error.message:'unknown'});return json({error:'O provedor de IA recusou a solicitação. Confira a chave e o modelo.'},502);}
 });

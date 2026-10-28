@@ -29,7 +29,7 @@ async function autoReply(client: SupabaseClient, channelId: string, conversation
   const attachmentText = (attachments ?? []).filter(item => item.extracted_text).map(item => `\n[${item.file_name}]\n${item.extracted_text.slice(0, 20000)}`).join('');
   const systemPrompt = `${settings.system_prompt}\n\nTREINAMENTO GERAL DO SDR\n${settings.training_prompt}\n\nMATERIAL ANEXADO${attachmentText || ': nenhum texto extraído disponível.'}`;
   let reply: string;
-  try { reply = await requestAiReply({ provider: settings.provider as AiProvider, apiKey, model: settings.model, systemPrompt, messages }); } catch (error) { console.error('whatsapp auto reply provider failed', { code: error instanceof Error ? error.message : 'unknown' }); return; }
+  try { reply = (await requestAiReply({ provider: settings.provider as AiProvider, apiKey, model: settings.model, systemPrompt, messages })).text; } catch (error) { console.error('whatsapp auto reply provider failed', { code: error instanceof Error ? error.message : 'unknown' }); return; }
   if (!reply.trim()) return;
   const graph = await fetch(`https://graph.facebook.com/v26.0/${phoneId}/messages`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ messaging_product: 'whatsapp', to: customerWaId, type: 'text', text: { body: reply.trim().slice(0, 4096) } }), signal: AbortSignal.timeout(15000) });
   const result = await graph.json().catch(() => null) as { messages?: { id?: string }[] } | null;
