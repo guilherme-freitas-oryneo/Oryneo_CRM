@@ -25,18 +25,19 @@ describe('navegação da caixa ORYNEO', () => {
     const navigation = await screen.findByRole('complementary');
     const buttons = within(navigation).getAllByRole('button').filter(button => ['Pipeline', 'E-mail', 'Atividades'].includes(button.getAttribute('aria-label') ?? ''));
     expect(buttons.map(button => button.getAttribute('aria-label'))).toEqual(['Pipeline', 'E-mail', 'Atividades']);
-    expect(screen.getByRole('button', { name: 'Pipeline' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'Pipeline' }).getAttribute('aria-current')).toBe('page');
     expect(Mailbox).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole('button', { name: 'E-mail' }));
-    expect(await screen.findByText('Caixa ORYNEO')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'E-mail' })).toHaveAttribute('aria-current', 'page');
+    expect(await screen.findByText('Caixa ORYNEO')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'E-mail' }).getAttribute('aria-current')).toBe('page');
     expect(Mailbox).toHaveBeenCalledOnce();
   });
 
   it('recarrega o pipeline quando o banco publica uma alteração de oportunidade',async()=>{
     render(<App/>);
     await screen.findByRole('complementary');
-    expect(getBoard).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(getBoard).toHaveBeenCalledTimes(1));
+    expect(realtime.handler).toBeTypeOf('function');
     await act(async()=>{realtime.handler?.()});
     await waitFor(()=>expect(getBoard).toHaveBeenCalledTimes(2));
   });

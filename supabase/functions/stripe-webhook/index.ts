@@ -7,6 +7,7 @@ import {runPaidOrderPostpayment} from '../_shared/billing/postpayment.ts';
 import {billingEnvironmentMatchesLivemode,getBillingEnvironmentConfig,parseBillingEnvironment} from '../_shared/billing/environment.ts';
 import { verifiedWebhookEnvironment } from '../_shared/billing/webhook-environment.ts';
 import { classifyAssistedPaymentEvent } from '../_shared/billing/assisted-payment-webhook.ts';
+import { classifyRefundEvent } from '../_shared/billing/refund-event-policy.ts';
 import {sendSystemTransactionalEmail,deterministicMailUuid} from '../_shared/mail/system-transactional.ts';
 declare const EdgeRuntime:{waitUntil(p:Promise<unknown>):void};
 
@@ -93,10 +94,75 @@ Deno.serve(async (req: Request) => {
   ]);
   const invoiceEvents=new Set(['invoice.finalized','invoice.paid','invoice.payment_failed']);
   const subscriptionEvents=new Set(['customer.subscription.updated','customer.subscription.deleted']);
-  if(!checkoutEvents.has(event.type)&&!invoiceEvents.has(event.type)&&!subscriptionEvents.has(event.type))
+  const refundEvents=new Set(['refund.created','refund.updated','refund.failed']);
+  if(!checkoutEvents.has(event.type)&&!invoiceEvents.has(event.type)&&!subscriptionEvents.has(event.type)&&!refundEvents.has(event.type))
     return json({received:true,ignored:true});
   const source=event.data?.object;
   if(!source || typeof source.id!=='string')return json({error:'Invalid Stripe event object'},400);
+
+  if(refundEvents.has(event.type)){
+    const disposition=classifyRefundEvent(event.type,source);
+    if(disposition==='reject')return json({error:'Invalid refund snapshot'},422);
+    if(disposition==='ignore')return json({received:true,ignored:true});
+    const config=getBillingEnvironmentConfig(environment,name=>Deno.env.get(name));
+    const stripeGet=async(path:string)=>{
+      const response=await fetch('https://api.stripe.com/v1/'+path,{headers:{Authorization:'Bearer '+config.secretKey,'Stripe-Version':'2026-08-26.dahlia'}});
+      if(!response.ok)throw new Error('STRIPE_LOOKUP_FAILED');
+      return await response.json() as Record<string,any>;
+    };
+    try{
+      let orderId=typeof source.metadata?.oryneo_order_id==='string'?source.metadata.oryneo_order_id:null;
+      let paymentIntentId=typeof source.payment_intent==='string'?source.payment_intent:null;
+      const chargeId=typeof source.charge==='string'?source.charge:null;
+      let invoiceId:string|null=null,subscriptionId:string|null=null;
+      if(paymentIntentId){
+        const intent=await stripeGet('payment_intents/'+encodeURIComponent(paymentIntentId));
+        if(intent.livemode!==livemode)return json({error:'Refund environment mismatch'},422);
+        orderId=orderId||intent.metadata?.oryneo_order_id||null;
+      }
+      if(chargeId){
+        const charge=await stripeGet('charges/'+encodeURIComponent(chargeId));
+        if(charge.livemode!==livemode)return json({error:'Refund environment mismatch'},422);
+        paymentIntentId=paymentIntentId||(typeof charge.payment_intent==='string'?charge.payment_intent:null);
+        orderId=orderId||charge.metadata?.oryneo_order_id||null;
+        invoiceId=typeof charge.invoice==='string'?charge.invoice:null;
+      }
+      if(invoiceId){
+        const invoice=await stripeGet('invoices/'+encodeURIComponent(invoiceId));
+        const parent=invoice.parent?.subscription_details?.subscription;
+        subscriptionId=typeof invoice.subscription==='string'?invoice.subscription:typeof parent==='string'?parent:typeof parent?.id==='string'?parent.id:null;
+      }
+      let query=db.from('crm_billing_orders').select('id,billing_environment,amount_total,customer_name,customer_email,company,selection');
+      if(orderId&&/^[0-9a-f-]{36}$/i.test(orderId))query=query.eq('id',orderId);
+      else if(invoiceId)query=query.eq('stripe_invoice_id',invoiceId);
+      else if(subscriptionId)query=query.eq('stripe_subscription_id',subscriptionId);
+      else return json({received:true,unlinked:true});
+      let {data:order,error:orderError}=await query.maybeSingle();
+      if(!order&&subscriptionId){
+        const fallback=await db.from('crm_billing_orders').select('id,billing_environment,amount_total,customer_name,customer_email,company,selection').eq('stripe_subscription_id',subscriptionId).maybeSingle();
+        order=fallback.data;orderError=orderError||fallback.error;
+      }
+      if(orderError)return json({error:'Refund order lookup unavailable'},503);
+      if(!order)return json({received:true,unlinked:true});
+      if((order.billing_environment==='live')!==livemode)return json({error:'Refund order environment mismatch'},422);
+      const {data:result,error}=await db.rpc('crm_record_stripe_refund_event',{
+        p_event_id:event.id,p_event_type:event.type,p_refund_id:source.id,p_order_id:order.id,
+        p_status:String(source.status),p_amount:Number(source.amount),p_currency:String(source.currency),p_livemode:livemode,
+        p_payment_intent_id:paymentIntentId,p_charge_id:chargeId,p_failure_reason:typeof source.failure_reason==='string'?source.failure_reason:null,
+      });
+      if(error||!result?.ok)return json({error:'Refund reconciliation unavailable'},503);
+      if(source.status==='succeeded'&&!result.duplicate){
+        const recipient=livemode?order.customer_email:null;
+        if(livemode&&!recipient)return json({error:'Refund customer email unavailable'},503);
+        const data={firstName:String(order.customer_name||'cliente').split(' ')[0],company:order.company||order.customer_name||'sua empresa',email:recipient||'',plan:order.selection?.plan,cycle:order.selection?.cycle,orderReference:order.id,amountCents:Number(source.amount)};
+        await sendSystemTransactionalEmail(db,{idempotencyKey:await deterministicMailUuid('stripe:'+source.id+':refund_confirmed'),template:'refund_confirmed',data,recipient,recipientName:livemode?order.customer_name:'Homologação ORYNEO'});
+      }
+      return json({received:true,duplicate:!!result.duplicate,full_refund:!!result.full_refund});
+    }catch(err){
+      console.error('Stripe refund reconciliation pending',{code:err instanceof Error?err.message:'unknown'});
+      return json({error:'Refund reconciliation pending'},503);
+    }
+  }
 
   if(checkoutEvents.has(event.type)){
     if(source.object!=='checkout.session')return json({error:'Expected Checkout Session'},400);

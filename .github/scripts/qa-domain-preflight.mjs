@@ -83,4 +83,3 @@ for(const check of readOnlyCases){
 }
 console.log(`Read-only negative API: ${readOnlyCases.length*origins.length}, failures: ${readonlyFailures}`);
 if(readonlyFailures)process.exitCode=1;
-
