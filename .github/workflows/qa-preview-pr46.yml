@@ -1,0 +1,71 @@
+name: Publicar preview isolado da homologação financeira
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: oryneo-crm-pages
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/feat/payment-method-policy-20261020'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Obter a branch isolada do PR #46
+        uses: actions/checkout@v4
+        with:
+          ref: feat/payment-method-policy-20261020
+          persist-credentials: false
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependências e compilar exclusivamente para o preview
+        run: |
+          npm ci
+          npm run build -- --base=/Oryneo_CRM/qa/pr-46/
+
+      - name: Validar artefato isolado
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          grep -q '/Oryneo_CRM/qa/pr-46/assets/' dist/index.html
+          test -n "$(find dist/assets -type f -name '*.js' -print -quit)"
+          if grep -R -E 'sk_(test|live)_[A-Za-z0-9]+' dist; then
+            echo 'Secret Stripe encontrado no artefato; publicação cancelada.'
+            exit 1
+          fi
+          touch dist/.nojekyll
+
+      - name: Obter a publicação atual sem alterar a raiz
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: pages
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Atualizar somente /qa/pr-46/
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p pages/qa/pr-46
+          cp -a dist/. pages/qa/pr-46/
+          git -C pages config user.name 'github-actions[bot]'
+          git -C pages config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C pages add qa/pr-46
+          if git -C pages diff --cached --quiet; then
+            echo 'O preview já corresponde ao artefato verificado.'
+            exit 0
+          fi
+          git -C pages commit -m "deploy: financial QA preview PR #46 ${GITHUB_SHA}"
+          git -C pages push origin HEAD:gh-pages

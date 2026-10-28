@@ -1,0 +1,24 @@
+.financial-qa-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.8fr);align-items:start;gap:24px;flex:1;background:#fff}
+.financial-qa-copy{min-width:0;max-width:720px}
+.financial-qa-copy>p{max-width:680px;line-height:1.6}
+.qa-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:22px 0 14px;padding:16px;border:1px solid #e5e8ec;border-radius:9px;min-width:0}
+.qa-options legend{padding:0 7px;color:#313945;font-size:12px;font-weight:650}
+.qa-options>label:not(.qa-addon):not(.qa-method){font-size:12px;color:#4a515d}
+.qa-options select{margin-top:6px;min-height:40px}
+.qa-addon,.qa-method{display:flex;align-items:flex-start;gap:9px;color:#424955;font-size:12px;line-height:1.5}
+.qa-addon{grid-column:1/-1}
+.qa-options input[type=checkbox],.qa-options input[type=radio]{width:16px;height:16px;margin:1px 0 0;flex:0 0 auto;accent-color:#4357e8}
+.qa-amount,.qa-disabled-addon{grid-column:1/-1;margin:0;font-size:11px!important}
+.qa-amount{color:#323a46!important}.qa-amount strong{color:#0f1115;font-size:15px}
+.qa-disabled-addon{color:#7a5f40!important;padding:9px 10px;background:#fbf7ef;border-radius:6px}
+.qa-options .qa-method{grid-column:1/-1}
+.financial-qa-copy .primary{font-size:12px!important;padding:11px 15px!important;margin-top:4px!important}
+.financial-qa-copy a{color:#4357e8;font-size:13px;font-weight:650}
+.qa-result-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
+.qa-result-actions button,.qa-pix-checkout button{font-size:12px}
+.qa-pix-checkout{min-width:0;padding:20px;border:1px solid #e5e8ec;border-radius:10px;background:#fbfbfa}
+.qa-pix-checkout h2{margin:0 0 16px;font-size:17px;color:#20252d}
+.qa-pix-checkout p{font-size:12px;line-height:1.6;color:#6c737e}
+.qa-pix-checkout button+button{margin-left:8px}
+@media(max-width:900px){.financial-qa-panel{grid-template-columns:1fr}.qa-pix-checkout{max-width:720px;width:100%}}
+@media(max-width:500px){.financial-qa-panel{gap:12px}.qa-options{grid-template-columns:1fr;padding:12px}.qa-options>label:not(.qa-addon):not(.qa-method){grid-column:1/-1}.qa-pix-checkout{padding:14px}.qa-pix-checkout button+button{margin:8px 0 0}}

@@ -1,0 +1,67 @@
+name: Homologacao publica CRM v2.1
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/public-smoke-v21.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Browser testing
+        run: |
+          npm ci
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium webkit
+      - name: Smoke public endpoints
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {chromium,webkit} from 'playwright';
+          import fs from 'node:fs';
+          fs.mkdirSync('qa-public',{recursive:true});
+          const crm='https://guilherme-freitas-oryneo.github.io/Oryneo_CRM/';
+          const lp='https://guilherme-freitas-oryneo.github.io/Oryneo_Landing_Page/';
+          for(const [engine,label] of [[chromium,'chromium'],[webkit,'webkit']]){
+            const browser=await engine.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:label==='webkit'?390:1366,height:830},isMobile:label==='webkit',hasTouch:label==='webkit'});
+            const errors=[];
+            page.on('pageerror',e=>errors.push(e.message));
+            page.on('requestfailed',r=>{if(/\.(js|css|png|svg)(\?|$)/.test(r.url()))errors.push('failed:'+r.url())});
+            const r=await page.goto(crm+'?v=20261011-v21',{waitUntil:'domcontentloaded',timeout:60000});
+            await page.locator('input[name="email"]').waitFor({timeout:30000});
+            const login=await page.locator('input[name="password"]').count();
+            const code=await page.evaluate(async()=>{
+              const res=await fetch('oryneo-wordmark.png?verify-v21');
+              const logoSize=(await res.arrayBuffer()).byteLength;
+              const symbol=await fetch('oryneo-symbol.svg?verify-v21');
+              const js=document.querySelector('script[type=module]')?.src;
+              const body=js?await (await fetch(js,{cache:'no-store'})).text():'';
+              return {logo:res.status,logoSize,symbol:symbol.status,js:!!js,activities:body.includes('Atividades'),diagnosis:body.includes('Diagnóstico inicial')};
+            });
+            console.log(label,'CRM',r.status(),JSON.stringify(code),'password inputs',login);
+            if(r.status()!==200||login!==1||code.logo!==200||code.logoSize!==91902||code.symbol!==200||!code.js||!code.activities||!code.diagnosis||errors.length)throw new Error('CRM public smoke failed '+label+' '+JSON.stringify({code,errors}));
+            await page.screenshot({path:'qa-public/'+label+'-login.png'});
+            const land=await page.goto(lp+'?v=20261011-v21',{waitUntil:'domcontentloaded',timeout:60000});
+            await page.waitForFunction(()=>!!window.OryneoPricing&&!!window.OryneoLeadIntake,{timeout:30000});
+            const quote=await page.evaluate(()=>window.OryneoPricing.orderQuote('Growth','monthly',['landing-page']).firstCharge);
+            if(land.status()!==200||quote!==337970||errors.length)throw new Error('Landing smoke failed '+label+' '+JSON.stringify({quote,errors}));
+            await page.screenshot({path:'qa-public/'+label+'-landing.png'});
+            console.log(label,'Landing',land.status(),'Growth+LP',quote,'OK');
+            await browser.close();
+          }
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oryneo-crm-v21-live-qa
+          path: qa-public/*.png
+          if-no-files-found: ignore

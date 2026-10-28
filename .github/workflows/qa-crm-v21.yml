@@ -1,0 +1,55 @@
+name: Homologar interface CRM v2.1
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'contratar/**'
+      - 'public/**'
+      - '.github/scripts/qa-crm-v21.mjs'
+      - '.github/scripts/qa-login-brand.mjs'
+      - '.github/scripts/qa-direct-checkout.mjs'
+      - '.github/scripts/qa-pix-generated.mjs'
+      - '.github/workflows/qa-crm-v21.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Dependencias e compilacao
+        run: |
+          npm ci
+          npm run build -- --base=/Oryneo_CRM/
+          npm install --no-save --ignore-scripts playwright@1.56.1
+      - name: Instalar navegadores
+        run: npx playwright install --with-deps chromium webkit
+      - name: Iniciar preview
+        run: |
+          npx vite preview --host 127.0.0.1 --port 4173 --base=/Oryneo_CRM/ > /tmp/oryneo-qa-v21.log 2>&1 &
+          for n in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:4173/Oryneo_CRM/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/oryneo-qa-v21.log
+          exit 1
+      - name: Executar testes funcionais sem acesso ao Supabase
+        run: |
+          node .github/scripts/qa-login-brand.mjs
+          node .github/scripts/qa-direct-checkout.mjs
+          node .github/scripts/qa-pix-generated.mjs
+          node .github/scripts/qa-crm-v21.mjs
+      - name: Publicar capturas de QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oryneo-crm-v21-qa
+          path: qa-results/*.png
+          if-no-files-found: ignore

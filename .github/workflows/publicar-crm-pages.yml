@@ -1,0 +1,110 @@
+name: Publicar ORYNEO CRM no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'pagar/**'
+      - 'contratar/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - '.github/workflows/publicar-crm-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: oryneo-crm-pages
+  cancel-in-progress: false
+
+jobs:
+  build-e-publicacao:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter codigo verificado
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependencias travadas
+        run: npm ci
+
+      - name: Ler domínio personalizado e preservação de homologações
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: pages-snapshot
+          fetch-depth: 1
+
+      - name: Determinar base sem interromper a URL existente
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f pages-snapshot/CNAME ]] && [[ "$(tr -d '\r\n' < pages-snapshot/CNAME)" == "crm.oryneo.com.br" ]]; then
+            echo "ORYNEO_PAGES_BASE=/" >> "$GITHUB_ENV"
+            echo "Domínio crm.oryneo.com.br identificado; build na raiz."
+          else
+            echo "ORYNEO_PAGES_BASE=/Oryneo_CRM/" >> "$GITHUB_ENV"
+            echo "Sem domínio personalizado ativo; preservando base original."
+          fi
+
+      - name: Compilar com base adequada ao domínio ativo
+        run: npm run build -- --base="$ORYNEO_PAGES_BASE"
+
+      - name: Verificar artefatos do CRM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -s dist/pagar/index.html
+          test -s dist/contratar/index.html
+          test -s dist/oryneo-wordmark.png
+          test -s dist/oryneo-y.svg
+          test -n "$(find dist/assets -type f -name '*.js' -print -quit)"
+          grep -Fq "${ORYNEO_PAGES_BASE}assets/" dist/index.html
+          grep -Fq "${ORYNEO_PAGES_BASE}oryneo-y.svg" dist/index.html
+
+      - name: Publicar apenas o frontend compilado na branch gh-pages
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          touch dist/.nojekyll
+          # Compatibilidade: Stripe e links externos já emitidos ainda podem usar
+          # /Oryneo_CRM/pagar/?token=... após o redirecionamento do GitHub Pages.
+          # Espelhar apenas artefatos estáticos gerados, sem alterar cobrança.
+          if [[ "${ORYNEO_PAGES_BASE}" == "/" ]]; then
+            mkdir -p dist/Oryneo_CRM
+            rsync -a --exclude '/Oryneo_CRM/' dist/ dist/Oryneo_CRM/
+            test -s dist/Oryneo_CRM/index.html
+            test -s dist/Oryneo_CRM/pagar/index.html
+          fi
+          # Esta publicação recria gh-pages; conservar o CNAME de Pages, se existir.
+          if [[ -f pages-snapshot/CNAME ]]; then
+            cp pages-snapshot/CNAME dist/CNAME
+          fi
+          if [[ -d pages-snapshot/qa/pr-46 ]]; then
+            mkdir -p dist/qa/pr-46
+            cp -a pages-snapshot/qa/pr-46/. dist/qa/pr-46/
+          fi
+          cd dist
+          git init --initial-branch=gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit -m "deploy: ORYNEO CRM ${GITHUB_SHA}"
+          HEADER="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w 0)"
+          git -c http.extraheader="AUTHORIZATION: basic $HEADER" push --force "https://github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
