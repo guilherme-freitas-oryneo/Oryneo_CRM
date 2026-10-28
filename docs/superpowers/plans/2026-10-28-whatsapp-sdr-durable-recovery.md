@@ -93,11 +93,11 @@
 - Consumes: Task 1 provider contract and Task 2 claim/complete RPCs.
 - Produces: `processAiJob(job, dependencies): Promise<AiJobDecision>` and an authenticated worker endpoint that uses bounded batches.
 
-- [ ] **Step 1: Write failing tests for `sdr_active`, review, human takeover, opted out, stale job supersession, retryable provider errors and terminal review.**
-- [ ] **Step 2: Run the focused test and verify failure because the processor does not exist.**
-- [ ] **Step 3: Implement guard revalidation, sanitized context assembly, generation and durable outbox creation without sending.**
-- [ ] **Step 4: Add the Edge Function entry point with existing cron-secret authentication pattern and a maximum batch size.**
-- [ ] **Step 5: Run focused/full tests and Deno check, then commit.**
+- [x] **Step 1: Write failing tests for `sdr_active`, review, human takeover, opted out, stale job supersession, retryable provider errors and terminal review.**
+- [x] **Step 2: Run the focused test and verify failure because the processor does not exist.**
+- [x] **Step 3: Implement guard revalidation, sanitized context assembly, generation and durable outbox creation without sending.**
+- [x] **Step 4: Add the Edge Function entry point with existing cron-secret authentication pattern and a maximum batch size.**
+- [x] **Step 5: Run focused/full tests and Deno check, then commit.**
 
 ### Task 5: Meta outbox dispatcher and reconciliation
 
@@ -110,10 +110,10 @@
 - Consumes: Task 2 outbox claims and existing `buildOutboundMessage`.
 - Produces: `processAiOutboxItem(item, dependencies): Promise<AiSendDecision>` with sent, retry, uncertain, cancelled and human-review outcomes.
 
-- [ ] **Step 1: Write failing tests for successful send, policy cancellation, 429/5xx backoff, authentication failure and timeout-after-dispatch uncertainty.**
-- [ ] **Step 2: Run the focused test and verify failure because the dispatcher does not exist.**
-- [ ] **Step 3: Implement a single guarded Meta attempt per lease and persist the provider message ID before recording CRM read-model state.**
-- [ ] **Step 4: Run focused/full tests and Deno check, then commit.**
+- [x] **Step 1: Write failing tests for successful send, policy cancellation, 429/5xx backoff, authentication failure and timeout-after-dispatch uncertainty.**
+- [x] **Step 2: Run the focused test and verify failure because the dispatcher does not exist.**
+- [x] **Step 3: Implement a single guarded Meta attempt per lease and persist the provider message ID before recording CRM read-model state.**
+- [x] **Step 4: Run focused/full tests and Deno check, then commit.**
 
 ### Task 6: Operational diagnosis and release evidence
 

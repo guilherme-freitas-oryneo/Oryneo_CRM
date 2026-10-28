@@ -14,19 +14,23 @@ CREATE TABLE public.crm_wa_conversations (
   opted_out boolean NOT NULL DEFAULT false
 );
 CREATE TABLE public.crm_wa_messages (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id uuid NOT NULL REFERENCES public.crm_wa_conversations(id),
   provider_message_id text NOT NULL UNIQUE,
   direction text NOT NULL,
   kind text NOT NULL,
-  occurred_at timestamptz NOT NULL
+  body text NOT NULL DEFAULT '',
+  delivery_status text,
+  occurred_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE public.crm_wa_ai_settings (
   channel_id uuid PRIMARY KEY REFERENCES public.crm_wa_channels(id),
   mode text NOT NULL CHECK (mode IN ('off','suggest','auto'))
 );
 GRANT SELECT,UPDATE ON public.crm_wa_conversations TO service_role;
-GRANT SELECT ON public.crm_wa_channels,public.crm_wa_messages,public.crm_wa_ai_settings TO service_role;
+GRANT SELECT ON public.crm_wa_channels,public.crm_wa_ai_settings TO service_role;
+GRANT SELECT,INSERT ON public.crm_wa_messages TO service_role;
 
 \i supabase/migrations/20261028213000_crm_whatsapp_ai_durable_queue.sql
 
@@ -150,11 +154,15 @@ SELECT public.crm_wa_finish_ai_send(
 RESET ROLE;
 
 DO $$
-DECLARE sent integer;
+DECLARE sent integer; read_model integer;
 BEGIN
  SELECT count(*) INTO sent FROM public.crm_wa_ai_outbox
  WHERE state='sent' AND provider_message_id='wamid.out.1' AND sent_at IS NOT NULL;
  IF sent <> 1 THEN RAISE EXCEPTION 'successful send was not finalized'; END IF;
+ SELECT count(*) INTO read_model FROM public.crm_wa_messages
+ WHERE provider_message_id='wamid.out.1' AND direction='outbound'
+   AND body='Vamos avançar para o diagnóstico.' AND delivery_status='pending';
+ IF read_model <> 1 THEN RAISE EXCEPTION 'successful send was not reconciled into the read model'; END IF;
 END $$;
 
 SET ROLE service_role;

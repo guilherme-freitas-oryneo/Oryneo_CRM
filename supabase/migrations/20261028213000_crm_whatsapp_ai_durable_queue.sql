@@ -282,6 +282,13 @@ begin
       next_attempt_at=case when v_state='retry_wait' then now()+(interval '1 minute'*power(5,greatest(v_outbox.attempts-1,0))) else next_attempt_at end,
       updated_at=now()
   where id=p_outbox_id;
+  if v_state='sent' then
+    insert into public.crm_wa_messages(
+      conversation_id,provider_message_id,direction,kind,body,delivery_status,occurred_at
+    ) values(
+      v_outbox.conversation_id,left(p_provider_message_id,200),'outbound','text',v_outbox.body,'pending',now()
+    ) on conflict(provider_message_id) do nothing;
+  end if;
   return v_state;
 end;
 $$;

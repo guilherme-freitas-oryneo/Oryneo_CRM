@@ -1,10 +1,15 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { requestAiReply, type AiMessage, type AiProvider } from '../_shared/whatsapp/aiProvider.ts';
 import { processAiJob, type AiJobContext, type AiJobRecord } from '../_shared/whatsapp/aiJobProcessor.ts';
+import { MetaSendError, processAiOutboxItem, type AiOutboxContext, type AiOutboxItem } from '../_shared/whatsapp/aiOutboxProcessor.ts';
+import { buildOutboundMessage } from '../_shared/whatsapp/outboundMessage.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const phoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') ?? '';
+const accessToken = Deno.env.get('WHATSAPP_SYSTEM_USER_TOKEN') ?? '';
 const db = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+const graphVersion = 'v26.0';
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { 'Content-Type': 'application/json' },
@@ -16,6 +21,15 @@ type ClaimedJob = {
   conversation_id: string;
   inbound_message_id: string;
   lease_token: string;
+  attempts: number;
+};
+
+type ClaimedOutbox = {
+  id: string;
+  job_id: string;
+  conversation_id: string;
+  lease_token: string;
+  body: string;
   attempts: number;
 };
 
@@ -84,13 +98,70 @@ async function loadContext(job: AiJobRecord): Promise<AiJobContext> {
   };
 }
 
+async function loadOutboxContext(item: AiOutboxItem): Promise<AiOutboxContext> {
+  const [conversationResult, jobResult, latestResult] = await Promise.all([
+    db.from('crm_wa_conversations')
+      .select('mode,opted_out,consent_granted,last_inbound_at,customer_wa_id,crm_wa_channels!inner(enabled,phone_number_id)')
+      .eq('id', item.conversationId).single(),
+    db.from('crm_wa_ai_jobs').select('channel_id,inbound_message_id').eq('id', item.jobId).single(),
+    db.from('crm_wa_messages').select('id').eq('conversation_id', item.conversationId)
+      .eq('direction', 'inbound').is('reaction_to_provider_message_id', null)
+      .order('occurred_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  if (jobResult.error || !jobResult.data) throw new Error('META_JOB_CONTEXT_UNAVAILABLE');
+  const settings = await db.from('crm_wa_ai_settings').select('mode').eq('channel_id', jobResult.data.channel_id).single();
+  const failure = [conversationResult.error, settings.error, latestResult.error].find(Boolean);
+  if (failure || !conversationResult.data || !settings.data) throw new Error('META_CONTEXT_UNAVAILABLE');
+  const conversation = conversationResult.data;
+  const channel = conversation.crm_wa_channels as unknown as { enabled: boolean; phone_number_id: string };
+  if (!phoneNumberId || channel.phone_number_id !== phoneNumberId) throw new Error('META_CHANNEL_MISMATCH');
+  return {
+    channelEnabled: channel.enabled,
+    conversationMode: conversation.mode,
+    optedOut: conversation.opted_out,
+    consentGranted: conversation.consent_granted,
+    lastInboundAt: conversation.last_inbound_at,
+    globalMode: settings.data.mode,
+    recipient: conversation.customer_wa_id,
+    jobInboundMessageId: jobResult.data.inbound_message_id,
+    latestInboundMessageId: latestResult.data?.id ?? null,
+  };
+}
+
+async function sendMetaText(input: { to: string; text: string }): Promise<{ messageId: string }> {
+  if (!accessToken || !phoneNumberId) throw new MetaSendError('META_CONFIGURATION_MISSING', false, false);
+  let response: Response;
+  try {
+    response = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', ...buildOutboundMessage({ to: input.to, kind: 'text', text: input.text }) }),
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    throw new MetaSendError('META_RESULT_UNKNOWN', false, true);
+  }
+  const payload = await response.json().catch(() => null) as { messages?: Array<{ id?: unknown }>; error?: { code?: unknown } } | null;
+  if (!response.ok) {
+    if (response.status === 429) throw new MetaSendError('META_RATE_LIMITED', true, false);
+    if (response.status >= 500) throw new MetaSendError('META_UNAVAILABLE', true, false);
+    if (response.status === 401 || response.status === 403 || payload?.error?.code === 190) {
+      throw new MetaSendError('META_AUTH', false, false);
+    }
+    throw new MetaSendError('META_REQUEST_REJECTED', false, false);
+  }
+  const messageId = typeof payload?.messages?.[0]?.id === 'string' ? payload.messages[0].id : '';
+  if (!messageId) throw new MetaSendError('META_RESULT_UNKNOWN', false, true);
+  return { messageId };
+}
+
 Deno.serve(async (request) => {
   if (request.method !== 'POST') return json({ error: 'Método inválido.' }, 405);
   const token = request.headers.get('x-oryneo-cron') ?? '';
   const verified = await db.rpc('crm_mail_verify_cron', { p_token: token });
   if (verified.error || verified.data !== true) return json({ error: 'Autenticação inválida.' }, 401);
 
-  const claimed = await db.rpc('crm_wa_claim_ai_jobs', { p_limit: 5, p_lease_seconds: 60 });
+  const claimed = await db.rpc('crm_wa_claim_ai_jobs', { p_limit: 3, p_lease_seconds: 180 });
   if (claimed.error) return json({ error: 'Não foi possível reservar os trabalhos.' }, 503);
   const results: Array<{ id: string; state: string }> = [];
 
@@ -133,5 +204,33 @@ Deno.serve(async (request) => {
     });
     results.push({ id: job.id, state: decision.state });
   }
-  return json({ ok: true, claimed: results.length, results });
+  const claimedOutbox = await db.rpc('crm_wa_claim_ai_outbox', { p_limit: 5, p_lease_seconds: 180 });
+  if (claimedOutbox.error) return json({ error: 'Não foi possível reservar os envios.', generated: results }, 503);
+  const sends: Array<{ id: string; state: string }> = [];
+  for (const row of (claimedOutbox.data ?? []) as ClaimedOutbox[]) {
+    const item: AiOutboxItem = {
+      id: row.id, jobId: row.job_id, conversationId: row.conversation_id,
+      leaseToken: row.lease_token, body: row.body, attempts: row.attempts,
+    };
+    const decision = await processAiOutboxItem(item, {
+      now: () => new Date(),
+      loadContext: loadOutboxContext,
+      sendText: sendMetaText,
+      async finish(input) {
+        const result = await db.rpc('crm_wa_finish_ai_send', {
+          p_outbox_id: input.outboxId, p_lease_token: input.leaseToken, p_outcome: input.outcome,
+          p_provider_message_id: input.providerMessageId, p_error_code: input.errorCode,
+        });
+        if (result.error) throw new Error('META_SEND_PERSIST_FAILED');
+        return result.data;
+      },
+    });
+    sends.push({ id: item.id, state: decision.state });
+    if (decision.state === 'sent') {
+      await db.rpc('crm_wa_set_latest', {
+        p_conversation_id: item.conversationId, p_occurred_at: new Date().toISOString(), p_preview: item.body.slice(0, 160),
+      });
+    }
+  }
+  return json({ ok: true, generated: results.length, sent: sends.length, results, sends });
 });
