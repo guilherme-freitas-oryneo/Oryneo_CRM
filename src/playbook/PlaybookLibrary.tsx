@@ -158,6 +158,7 @@ export function PlaybookLibrary(){
     </div>:<>
       <header className="pb-head">
         <div className="pb-head-brand"><img src={wordmarkLight} alt="ORYNEO" className="pb-brand"/><span>PLAYBOOK COMERCIAL</span></div>
+        {status&&<div className="pb-sync-alert" role="alert"><span>{status}</span><button type="button" onClick={()=>{setStatus('');void loadPlaybookState().then(data=>{setUserId(data.userId);setMarks(data.annotations);setResumeId(data.lastSlide||null)}).catch(error=>setStatus(error instanceof Error?error.message:'Falha ao sincronizar.'))}}>Tentar novamente</button></div>}
         <div className="pb-head-actions"><button aria-label={showIndex?'Ocultar índice':'Mostrar índice'} onClick={()=>setShowIndex(v=>!v)}><List size={18}/><span>Índice</span></button><button aria-label={showNotes?'Ocultar anotações':'Mostrar anotações'} onClick={()=>setShowNotes(v=>!v)}><MessageSquare size={18}/><span>Anotações</span></button><button aria-label={fullscreen?'Sair da tela cheia':'Tela cheia'} onClick={()=>void toggleFullscreen()}>{fullscreen?<Minimize2 size={18}/>:<Maximize2 size={18}/>}</button></div>
       </header>
       <div className="pb-layout">
