@@ -1,0 +1,39 @@
+name: Homologar Playbook ORYNEO
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/playbook/**'
+      - 'src/App.tsx'
+      - '.github/scripts/qa-playbook.mjs'
+      - '.github/scripts/playbook-fixture-api.ts'
+      - '.github/workflows/qa-playbook.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  playbook-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Instalar dependências e compilar CRM
+        run: |
+          npm ci
+          npm run build -- --base=/Oryneo_CRM/
+          npm install --no-save --ignore-scripts playwright@1.56.1
+      - name: Instalar Chromium e WebKit
+        run: npx playwright install --with-deps chromium webkit
+      - name: Inspecionar player e marcações sem acessar produção
+        run: node .github/scripts/qa-playbook.mjs
+      - name: Publicar capturas de QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oryneo-playbook-qa
+          path: qa-results/*.png
+          if-no-files-found: ignore
