@@ -66,6 +66,29 @@ async function run(){
    }
    await page.getByRole('heading',{name:'Biblioteca de referências'}).waitFor();
    await page.getByRole('button',{name:'Mostrar anotações'}).click();
+   if(label==='chromium-desktop'||label==='chromium-mobile'){
+    for(let i=1;i<=64;i++){
+      const id=String(i).padStart(2,'0');
+      await page.getByRole('button',{name:new RegExp('^'+id+'\\s')}).first().click();
+      const layout=await page.evaluate(()=>{
+       const slide=document.querySelector('.pb-slide');
+       const footer=slide?.querySelector('.pb-slide-footer');
+       const decision=slide?.querySelector('.pb-slide-end');
+       if(!slide||!footer||!decision)return{missing:true};
+       return{
+         missing:false,
+         overflow:slide.scrollHeight-slide.clientHeight,
+         decisionPastFooter:decision.getBoundingClientRect().bottom>footer.getBoundingClientRect().top+2,
+         horizontal:document.documentElement.scrollWidth-window.innerWidth
+       }
+      });
+      if(layout.missing||layout.overflow>8||layout.decisionPastFooter||layout.horizontal>4){
+       throw Error(label+' slide '+id+' clipped or overflowed: '+JSON.stringify(layout));
+      }
+    }
+    console.log('PASS '+label+' — all 64 slides have decision and footer in bounds.');
+   }
+   await page.getByRole('button',{name:new RegExp('^64\\s')}).first().click();
    await page.getByRole('button',{name:/Anotar decisão deste slide/i}).click();
    await page.getByPlaceholder('O que vale lembrar ou aplicar?').fill('QA: anotação vinculada à seleção.');
    await page.getByRole('button',{name:'Salvar destaque'}).click();
