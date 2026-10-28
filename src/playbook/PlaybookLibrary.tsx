@@ -7,14 +7,57 @@ import './playbook.css';
 
 const parts = [...new Set(slides.map(slide=>slide.part))];
 const byPart = parts.map(part=>({part,items:slides.filter(slide=>slide.part===part)}));
+const diagramWords: Record<string,string[]> = {
+  '01':['Contexto','Diagnóstico','Compromisso'],
+  '02':['Aquisição','CRM','Continuidade'],
+  '06':['Usuário','Gestor','Decisor'],
+  '10':['Plano CRM','Ciclo','Complementos'],
+  '11':['Lead','Reunião','Contratação'],
+  '13':['Escolha','Requisitos','Próximo passo'],
+  '14':['Prioridade','Gargalo','Reunião'],
+  '21':['Situação','Dor','Impacto'],
+  '22':['Evento real','Decisão','Compromisso'],
+  '29':['Dor clara','Fit confirmado','Avanço'],
+  '30':['Problema','Capacidade','Validação'],
+  '33':['Pauta','Participantes','Decisão'],
+  '36':['Abertura','Mapeamento','Síntese'],
+  '37':['Cenário','Demonstração','Limites'],
+  '43':['Decisão','Checkout','Confirmação'],
+  '45':['Autorização','Template','Diálogo'],
+  '53':['Limite SDR','Transferência','Histórico'],
+  '55':['Fatos','Responsável','Próxima ação'],
+  '61':['CRM Scale','Aquisição','Operação'],
+  '63':['Revisar','Medir','Aprimorar'],
+  '04':['Fit','Fluxo de leads','Responsável','Adoção'],
+  '05':['Sem dono','Escopo complexo','Promessa inviável','Sem prioridade'],
+  '12':['Identidade','Plano e ciclo','Prioridade','Origem'],
+  '23':['Start essencial','Growth distribuição','Scale requisitos','Fit por ciclo'],
+  '24':['Dor','Decisor','Critérios','Processo'],
+  '25':['Fit','Dor','Timing','Implantação'],
+  '46':['Plano','Ciclo','Complementos','Intenção'],
+  '54':['Consentimento','Privacidade','Rastreio','Permissões'],
+  '57':['Reunião realizada','Primeira resposta','Qualificação','Transferência'],
+  '59':['Contexto','Diagnóstico','Próxima ação','Governança'],
+  '15':['Escolha recebida','Pergunta útil','Avanço'],
+  '26':['Usuário','Decisor','Participantes'],
+  '27':['Escutar','Validar','Perguntar'],
+  '28':['Sintetizar','Confirmar','Avançar'],
+  '34':['Problema','Pauta','Agenda real'],
+  '38':['CRM atual','Limite operacional','Critério real'],
+  '39':['Objeção','Escopo','Valor'],
+  '41':['Ponto pendente','Segundo decisor','Alinhamento'],
+  '44':['Contexto','Conversa','Próximo passo'],
+  '60':['Growth anual','Dor de retorno','Diagnóstico'],
+  '62':['Preço','Implantação','Valor'],
+};
 function Diagram({slide}:{slide:PlaybookSlide}){
   if(slide.visual==='spin') return <div className="pb-diagram pb-four" aria-label="Mapa de perguntas SPIN">{['Situação','Problema','Implicação','Necessidade'].map((label,i)=><div className="pb-diagram-card" key={label}><small>0{i+1}</small><strong>{label}</strong></div>)}</div>;
   if(slide.visual==='funnel') return <div className="pb-diagram pb-funnel" aria-label="Etapas do processo comercial">{['Cadastro','Resposta','Qualificação','Reunião','Proposta','Contrato'].map((s,i)=><div key={s}><span>0{i+1}</span>{s}</div>)}</div>;
-  if(slide.visual==='timeline')return <div className="pb-diagram pb-timeline" aria-label="Régua de acompanhamento">{['1h','6h','24h','72h','7 dias'].map((s,i)=><div key={s}><i/><strong>{s}</strong><small>{['Alerta','Alternativa','Explorar','Reunião','Decisão'][i]}</small></div>)}</div>;
-  if(slide.visual==='pricing')return <div className="pb-diagram pb-three" aria-label="Comparação de planos">{[['Start','5 usuários'],['Growth','10 usuários'],['Scale','20 usuários']].map(([a,b])=><div className="pb-diagram-card" key={a}><small>PLANO</small><strong>{a}</strong><span>{b}</span></div>)}</div>;
-  if(slide.visual==='matrix')return <div className="pb-diagram pb-matrix" aria-label="Matriz qualitativa de decisão">{['Fit comercial','Problema declarado','Momento da decisão','Capacidade de implantação'].map((a,i)=><div key={a}><span>0{i+1}</span>{a}</div>)}</div>;
-  if(slide.visual==='dialogue')return <div className="pb-diagram pb-chat" aria-label="Padrão de conversa"><div>Contexto já conhecido</div><div>Questão relevante</div><div>Compromisso concreto</div></div>;
-  if(slide.visual==='flow')return <div className="pb-diagram pb-three" aria-label="Fluxo comercial orientado"><div className="pb-diagram-card"><small>01</small><strong>Entender</strong></div><div className="pb-diagram-card"><small>02</small><strong>Diagnosticar</strong></div><div className="pb-diagram-card"><small>03</small><strong>Conduzir</strong></div></div>;
+  if(slide.visual==='timeline'){const labels=['35','40','58'].includes(slide.id)?slide.id==='35'?['Verificar','Oferecer','Aceitar','Confirmar','Registrar']:slide.id==='40'?['Objeção','Motivo','Evento','Prazos','Próximo']:['Enviadas','Lidas','Respostas','Reuniões','Qualidade']:['1h','6h','24h','72h','7 dias'];return <div className="pb-diagram pb-timeline" aria-label="Régua de acompanhamento">{labels.map((s,i)=><div key={s}><i/><strong>{s}</strong><small>{['Alerta','Alternativa','Explorar','Reunião','Decisão'][i]}</small></div>)}</div>;}
+  if(slide.visual==='pricing'){const entries=slide.id==='07'?[['Start','R$ 749,90/mês'],['Growth','R$ 1.099,90/mês'],['Scale','R$ 1.479,90/mês']]:slide.id==='08'?[['Start','Impl. R$ 989,90'],['Growth','Impl. R$ 1.389,90'],['Scale','Impl. R$ 1.849,90']]:slide.id==='09'?[['Mensal','Assinatura'],['Anual','Pagamento antecipado'],['Implantação','Cobrança única']]:slide.id==='31'?[['Dor','Problema real'],['Processo','Capacidade'],['Valor','Benefício esperado']]:slide.id==='42'?[['Escopo','Requisitos'],['Oferta','Condições'],['Aceite','Próximo passo']]:[['Start','5 usuários'],['Growth','10 usuários'],['Scale','20 usuários']];return <div className="pb-diagram pb-three" aria-label="Mapa da oferta">{entries.map(([a,b])=><div className="pb-diagram-card" key={a}><small>ORYNEO</small><strong>{a}</strong><span>{b}</span></div>)}</div>;}
+  if(slide.visual==='matrix')return <div className="pb-diagram pb-matrix" aria-label="Matriz qualitativa de decisão">{(diagramWords[slide.id]||['Fit comercial','Problema declarado','Momento da decisão','Capacidade de implantação']).map((a,i)=><div key={a}><span>0{i+1}</span>{a}</div>)}</div>;
+  if(slide.visual==='dialogue')return <div className="pb-diagram pb-chat" aria-label="Padrão de conversa">{(diagramWords[slide.id]||['Contexto já conhecido','Questão relevante','Compromisso concreto']).map(t=><div key={t}>{t}</div>)}</div>;
+  if(slide.visual==='flow')return <div className="pb-diagram pb-three" aria-label="Fluxo comercial orientado">{(diagramWords[slide.id]||['Entender','Diagnosticar','Conduzir']).map((t,i)=><div className="pb-diagram-card" key={t}><small>0{i+1}</small><strong>{t}</strong></div>)}</div>;
   return null;
 }
 function Selectable({slideId,blockKey,text,annotations,onPick,className=''}:{
@@ -84,7 +127,7 @@ export function PlaybookLibrary(){
   },[move,current,choice]);
   const start=(resume=false)=>{const found=resume?slides.findIndex(s=>s.id===resumeId):-1;move(found>=0?found:0)};
   const matching=useMemo(()=>slides.filter(s=>(s.title+' '+s.chapter+' '+s.part+' '+s.lead).toLocaleLowerCase('pt-BR').includes(filter.toLocaleLowerCase('pt-BR'))),[filter]);
-  const pick=(selection:PlaybookSelection)=>{setChoice(selection);setNote('');setColor('yellow');setVisibility('private');setShowNotes(true)};
+  const pick=(selection:PlaybookSelection)=>{setPlaying(false);setChoice(selection);setNote('');setColor('yellow');setVisibility('private');setShowNotes(true)};
   const save=async()=>{
     if(!choice||!userId||busy)return;
     setBusy(true);setStatus('');
@@ -104,7 +147,7 @@ export function PlaybookLibrary(){
     catch(err){setStatus(err instanceof Error?err.message:'Falha ao atualizar.')}
     finally{setBusy(false)}
   };
-  const openEditor=(m:PlaybookAnnotation)=>{setEditing(m.id);setEditText(m.note);setEditVisibility(m.visibility)};
+  const openEditor=(m:PlaybookAnnotation)=>{setPlaying(false);setEditing(m.id);setEditText(m.note);setEditVisibility(m.visibility)};
   const hasStale=slideMarks.some(m=>{const text=m.block_key==='lead'?slide?.lead:m.block_key==='decision'?slide?.decision:slide?.points[Number(m.block_key.slice(1))];return !text||!blockMatches(text,m)});
   return <div className={'pb-root'+(fullscreen?' pb-fullscreen':'')} ref={root}>
     {current===-1?<div className="pb-wait">
