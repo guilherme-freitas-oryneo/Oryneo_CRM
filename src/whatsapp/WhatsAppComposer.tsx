@@ -10,7 +10,7 @@ const MAX_ATTACHMENT_BYTES = 16 * 1024 * 1024;
 const MAX_AUDIO_MS = 2 * 60 * 1000;
 const allowedTypes = new Set(['image/jpeg', 'image/png', 'application/pdf', 'audio/ogg', 'audio/mpeg', 'audio/mp4', 'video/mp4']);
 
-export function WhatsAppComposer({ enabled, disabledReason, onSend }: { enabled: boolean; disabledReason: string; onSend?: (draft: WhatsAppDraft) => Promise<void> }) {
+export function WhatsAppComposer({ enabled, disabledReason, replyPreview, onCancelReply, onSend }: { enabled: boolean; disabledReason: string; replyPreview?: string; onCancelReply?: () => void; onSend?: (draft: WhatsAppDraft) => Promise<void> }) {
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [audio, setAudio] = useState<File | null>(null);
@@ -77,6 +77,7 @@ export function WhatsAppComposer({ enabled, disabledReason, onSend }: { enabled:
   return <div className="wa-compose">
     <div className="wa-compose-lock" role="status"><span aria-hidden="true">◈</span><span>{canCompose ? 'Envio sujeito à janela de atendimento, consentimento e confirmação do servidor.' : disabledReason}</span></div>
     {error && <div className="wa-compose-error" role="alert">{error}<button type="button" aria-label="Fechar erro" onClick={() => setError('')}><X size={14}/></button></div>}
+    {replyPreview && <div className="wa-compose-reply"><span>Respondendo a: {replyPreview}</span><button type="button" aria-label="Cancelar resposta" onClick={onCancelReply}><X size={14}/></button></div>}
     {file && <div className="wa-draft-media"><Paperclip size={15}/><span>{file.name}</span><button type="button" aria-label="Remover anexo" onClick={() => setFile(null)}><X size={16}/></button></div>}
     {audio && <div className="wa-draft-media"><audio controls src={audioUrl ?? undefined} aria-label="Prévia do áudio"/><button type="button" aria-label="Descartar áudio" onClick={() => setAudio(null)}><Trash2 size={16}/></button></div>}
     <div className="wa-compose-row"><input ref={inputRef} type="file" hidden accept="image/jpeg,image/png,application/pdf,audio/ogg,audio/mpeg,audio/mp4,video/mp4" onChange={event => { chooseFile(event.target.files?.[0]); event.target.value = ''; }}/><button type="button" className="wa-icon" disabled={!canCompose || sending || recording || !!audio} aria-label="Anexar arquivo" onClick={() => inputRef.current?.click()}><Paperclip size={19}/></button><textarea aria-label="Mensagem" placeholder={canCompose ? 'Escreva uma mensagem' : 'Conecte o canal para escrever uma mensagem'} disabled={!canCompose || sending || recording || !!audio} value={text} onChange={event => setText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} rows={1}/><button type="button" className="wa-icon" disabled={!canCompose || sending || !!file || !!audio} aria-label={recording ? 'Parar gravação' : 'Gravar áudio'} onClick={() => recording ? stopRecording() : void startRecording()}>{recording ? <Square size={17}/> : <Mic size={19}/>}</button><button type="button" className="wa-send" disabled={!canCompose || sending || recording || !(text.trim() || file || audio)} onClick={() => void send()}><Send size={17}/><span>{sending ? 'Enviando…' : 'Enviar'}</span></button></div>

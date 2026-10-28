@@ -26,7 +26,9 @@ done
 for file in \
   "$repo_root/supabase/migrations/20261027190050_crm_whatsapp_assignment.sql" \
   "$repo_root/supabase/migrations/20261027234834_whatsapp_outbox_operator_index.sql" \
-  "$repo_root/supabase/tests/whatsapp_acl/assert_assignment.sql"; do
+  "$repo_root/supabase/migrations/20261028002546_whatsapp_rich_interactions.sql" \
+  "$repo_root/supabase/tests/whatsapp_acl/assert_assignment.sql" \
+  "$repo_root/supabase/tests/whatsapp_acl/assert_rich_interactions.sql"; do
   docker exec -i "$container_name" psql -q -v ON_ERROR_STOP=1 -U postgres -d postgres < "$file"
 done
 printf 'WhatsApp ACL: tests passed\n'

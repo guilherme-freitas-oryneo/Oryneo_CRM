@@ -9,11 +9,14 @@ export type Conversation = {
   unread_count?: number; last_read_at?: string | null;
 };
 export type Message = {
-  id: string; conversation_id: string; direction: 'inbound' | 'outbound';
+  id: string; provider_message_id?: string; conversation_id: string; direction: 'inbound' | 'outbound';
   kind: 'text' | 'audio' | 'image' | 'document' | 'video' | 'other'; body: string;
   media_id: string | null; mime_type: string | null;
   delivery_status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | null;
   occurred_at: string;
+  reply_to_provider_message_id?: string | null;
+  reaction_to_provider_message_id?: string | null;
+  reaction_emoji?: string | null;
 };
 
 export async function loadWhatsAppInbox(): Promise<{ channel: Channel | null; conversations: Conversation[] }> {
@@ -30,7 +33,7 @@ export async function loadWhatsAppInbox(): Promise<{ channel: Channel | null; co
 
 export async function loadWhatsAppMessages(conversationId: string): Promise<Message[]> {
   const { data, error } = await supabase.from('crm_wa_messages')
-    .select('id,conversation_id,direction,kind,body,media_id,mime_type,delivery_status,occurred_at')
+    .select('id,provider_message_id,conversation_id,direction,kind,body,media_id,mime_type,delivery_status,occurred_at,reply_to_provider_message_id,reaction_to_provider_message_id,reaction_emoji')
     .eq('conversation_id', conversationId).order('occurred_at', { ascending: false }).limit(100);
   if (error) throw error;
   return ((data ?? []) as Message[]).reverse();
@@ -46,16 +49,17 @@ export async function markWhatsAppRead(conversationId: string): Promise<void> {
  * Canal oficial: nunca simula envios. A função Edge confirma a mensagem na Meta
  * antes de a resposta retornar ok. Mantém o conteúdo no composer em caso de erro.
  */
-export async function sendWhatsAppMessage(conversationId: string, draft: WhatsAppDraft, requestId: string = crypto.randomUUID()): Promise<string> {
+export async function sendWhatsAppMessage(conversationId: string, draft: WhatsAppDraft, requestId: string = crypto.randomUUID(), replyToMessageId?: string): Promise<string> {
   let body: Record<string, string> | FormData;
   if (draft.kind === 'text') {
-    body = { action: 'send_text', conversationId, requestId, text: draft.text };
+    body = { action: 'send_text', conversationId, requestId, text: draft.text, ...(replyToMessageId ? { messageId: replyToMessageId } : {}) };
   } else {
     const file = draft.file;
     const form = new FormData();
     form.append('action', 'send_media');
     form.append('conversationId', conversationId);
     form.append('requestId', requestId);
+    if (replyToMessageId) form.append('messageId', replyToMessageId);
     form.append('file', file, file.name);
     if (draft.kind === 'attachment' && draft.caption) form.append('text', draft.caption);
     body = form;
@@ -82,6 +86,21 @@ export async function sendWhatsAppMessage(conversationId: string, draft: WhatsAp
     throw new Error('A resposta da Meta não confirmou o envio. Confira a conversa antes de tentar novamente.');
   }
   return data.messageId;
+}
+
+export async function sendWhatsAppReaction(conversationId: string, messageId: string, emoji: string, requestId: string = crypto.randomUUID()): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('whatsapp-inbox', {
+    body: { action: 'send_reaction', conversationId, messageId, emoji, requestId },
+  });
+  if (error || data?.ok !== true || typeof data.messageId !== 'string') throw new Error('Não foi possível confirmar a reação na Meta.');
+  return data.messageId;
+}
+
+export async function deleteWhatsAppMessageForMe(conversationId: string, messageId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('whatsapp-inbox', {
+    body: { action: 'delete_for_me', conversationId, messageId },
+  });
+  if (error || data?.ok !== true) throw new Error('Não foi possível apagar a mensagem para você.');
 }
 
 /** Busca mídia privada somente sob uma sessão autenticada. Nunca expõe token Meta no navegador. */

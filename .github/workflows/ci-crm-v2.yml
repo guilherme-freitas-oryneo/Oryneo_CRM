@@ -39,6 +39,8 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/mail-sync/index.ts
           deno check --node-modules-dir=auto supabase/functions/mail-api/index.ts
           deno check --node-modules-dir=auto supabase/functions/whatsapp-webhook/index.ts
+          deno check --node-modules-dir=auto supabase/functions/whatsapp-inbox/index.ts
+          deno check --node-modules-dir=auto supabase/functions/whatsapp-media/index.ts
           deno check --node-modules-dir=auto supabase/functions/intake-mail-worker/index.ts
           deno check --node-modules-dir=auto supabase/functions/stripe-webhook/index.ts
           deno check --node-modules-dir=auto supabase/functions/proposal-create/index.ts
@@ -62,6 +64,8 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/_shared/billing/stripe-noncard-service.ts
           deno check --node-modules-dir=auto supabase/functions/_shared/billing/fulfillment.ts
           deno test --node-modules-dir=auto supabase/functions/tests/billing_renewal_welcome_test.ts
+          deno test supabase/functions/tests/whatsapp_outbound_message_test.ts
+          deno test supabase/functions/tests/refund_event_policy_test.ts
           deno test supabase/functions/tests/stripe_orphan_checkout_policy_test.ts
           deno test supabase/functions/tests/webhook_environment_test.ts
           deno test supabase/functions/tests/billing_public_status_test.ts

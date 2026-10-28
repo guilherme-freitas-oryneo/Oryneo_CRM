@@ -6,6 +6,9 @@ export type NormalizedInboundMessage = {
   body: string;
   mediaId: string | null;
   mimeType: string | null;
+  replyToProviderMessageId: string | null;
+  reactionToProviderMessageId: string | null;
+  reactionEmoji: string | null;
   occurredAt: string;
 };
 
@@ -64,9 +67,14 @@ export function normalizeWhatsAppWebhook(payload: unknown, expectedAccountId: st
         const kind = type === 'text' || type === 'audio' || type === 'image' || type === 'document' || type === 'video' ? type : 'other';
         const content = record(message?.[kind]);
         const body = (clean(kind === 'text' ? content?.body : kind === 'image' || kind === 'document' || kind === 'video' ? content?.caption : null, 4096) ?? '');
+        const context = record(message?.context);
+        const reaction = type === 'reaction' ? record(message?.reaction) : null;
         normalized.messages.push({
           providerMessageId, customerWaId, customerName: names.get(customerWaId) ?? null,
           kind, body, mediaId: clean(content?.id, 200), mimeType: clean(content?.mime_type, 120), occurredAt,
+          replyToProviderMessageId: clean(context?.id, 200),
+          reactionToProviderMessageId: clean(reaction?.message_id, 200),
+          reactionEmoji: clean(reaction?.emoji, 16),
         });
       }
       if (Array.isArray(value.statuses)) for (const rawStatus of value.statuses) {

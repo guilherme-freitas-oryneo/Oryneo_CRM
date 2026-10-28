@@ -2,10 +2,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DealRow } from '../data';
-import { loadWhatsAppInbox, loadWhatsAppMessages, markWhatsAppRead, sendWhatsAppMessage } from './api';
+import { deleteWhatsAppMessageForMe, loadWhatsAppInbox, loadWhatsAppMessages, markWhatsAppRead, sendWhatsAppMessage, sendWhatsAppReaction } from './api';
 import { WhatsAppWorkspace } from './WhatsAppWorkspace';
 
-vi.mock('./api', () => ({ loadWhatsAppInbox: vi.fn(), loadWhatsAppMessages: vi.fn(), markWhatsAppRead: vi.fn(), sendWhatsAppMessage: vi.fn() }));
+vi.mock('./api', () => ({ loadWhatsAppInbox: vi.fn(), loadWhatsAppMessages: vi.fn(), markWhatsAppRead: vi.fn(), sendWhatsAppMessage: vi.fn(), sendWhatsAppReaction: vi.fn(), deleteWhatsAppMessageForMe: vi.fn() }));
 
 const deal: DealRow = {
   id: '11111111-1111-4111-8111-111111111111', kind: 'deal', revision: 1, deleted: false,
@@ -19,6 +19,8 @@ describe('WhatsAppWorkspace', () => {
     vi.mocked(loadWhatsAppInbox).mockResolvedValue({ channel: { id: 'channel-1', enabled: false, display_phone_number: '+5521974510932' }, conversations: [] });
     vi.mocked(loadWhatsAppMessages).mockResolvedValue([]);
     vi.mocked(markWhatsAppRead).mockResolvedValue();
+    vi.mocked(sendWhatsAppReaction).mockResolvedValue('wamid.reaction');
+    vi.mocked(deleteWhatsAppMessageForMe).mockResolvedValue();
   });
   it('mostra contato real e contexto sem criar conversa fictícia ou habilitar envio', async () => {
     const onOpenDeal = vi.fn();
@@ -97,5 +99,28 @@ describe('WhatsAppWorkspace', () => {
     expect(await screen.findByLabelText('2 mensagens não lidas')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Abrir conversa de Marina' }));
     expect(markWhatsAppRead).not.toHaveBeenCalled();
+  });
+
+  it('responde citando, reage e oculta somente para o operador', async () => {
+    const now = new Date().toISOString();
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({
+      channel: { id: 'channel-1', enabled: true, display_phone_number: '+5521974510932' },
+      conversations: [{ id: 'conversation-1', channel_id: 'channel-1', customer_wa_id: '5511999998888', customer_name: 'Marina', deal_id: null, mode: 'review', opted_out: false, consent_granted: true, last_inbound_at: now, last_message_at: now, last_preview: 'Olá' }],
+    });
+    vi.mocked(loadWhatsAppMessages).mockResolvedValue([{ id: 'message-1', provider_message_id: 'wamid.inbound', conversation_id: 'conversation-1', direction: 'inbound', kind: 'text', body: 'Olá', media_id: null, mime_type: null, delivery_status: null, occurred_at: now }]);
+    vi.mocked(sendWhatsAppMessage).mockResolvedValue('wamid.reply');
+    const user = userEvent.setup();
+    render(<WhatsAppWorkspace deals={[]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
+    await user.click(await screen.findByRole('button', { name: 'Abrir conversa de Marina' }));
+    await screen.findByText('Olá', { selector: '.wa-message-bubble p' });
+    await user.click(screen.getByRole('button', { name: 'Responder à mensagem' }));
+    expect(screen.getByText(/Respondendo a: Olá/)).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: 'Mensagem' }), 'Tudo certo');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    expect(sendWhatsAppMessage).toHaveBeenCalledWith('conversation-1', { kind: 'text', text: 'Tudo certo' }, expect.any(String), 'message-1');
+    await user.click(screen.getByRole('button', { name: 'Reagir com 👍' }));
+    expect(sendWhatsAppReaction).toHaveBeenCalledWith('conversation-1', 'message-1', '👍', expect.any(String));
+    await user.click(screen.getByRole('button', { name: 'Apagar para mim' }));
+    expect(deleteWhatsAppMessageForMe).toHaveBeenCalledWith('conversation-1', 'message-1');
   });
 });

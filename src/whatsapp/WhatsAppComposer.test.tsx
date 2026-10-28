@@ -28,4 +28,15 @@ describe('WhatsAppComposer', () => {
     expect(onSend).toHaveBeenCalledWith({ kind: 'text', text: 'Olá, Marina' });
     expect(textbox).toHaveValue('');
   });
+
+  it('mostra e cancela a mensagem citada sem apagar o rascunho', async () => {
+    const onCancelReply = vi.fn();
+    const user = userEvent.setup();
+    render(<WhatsAppComposer enabled disabledReason="" replyPreview="Olá" onCancelReply={onCancelReply} onSend={vi.fn()}/>);
+    await user.type(screen.getByRole('textbox', { name: 'Mensagem' }), 'Resposta');
+    expect(screen.getByText('Respondendo a: Olá')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancelar resposta' }));
+    expect(onCancelReply).toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'Mensagem' })).toHaveValue('Resposta');
+  });
 });

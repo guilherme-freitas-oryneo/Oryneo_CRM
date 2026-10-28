@@ -35,6 +35,9 @@ export function createWhatsAppEventPersister(client: SupabaseClient, expectedAcc
       const { error: messageError } = await client.from('crm_wa_messages').upsert({
         conversation_id: id, provider_message_id: message.providerMessageId, direction: 'inbound',
         kind: message.kind, body: message.body, media_id: message.mediaId, mime_type: message.mimeType,
+        reply_to_provider_message_id: message.replyToProviderMessageId,
+        reaction_to_provider_message_id: message.reactionToProviderMessageId,
+        reaction_emoji: message.reactionEmoji,
         occurred_at: message.occurredAt,
       }, { onConflict: 'provider_message_id', ignoreDuplicates: true });
       if (messageError) throw new Error('WHATSAPP_STORAGE_UNAVAILABLE');

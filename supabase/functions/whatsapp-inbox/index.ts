@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { evaluateOutboundPolicy } from '../_shared/whatsapp/policy.ts';
+import { buildOutboundMessage, validReactionEmoji } from '../_shared/whatsapp/outboundMessage.ts';
 
 const url = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -100,10 +101,31 @@ Deno.serve(async request => {
     const { error } = await db.rpc('crm_wa_mark_conversation_read', { p_conversation_id: conversationId, p_read_through: latest.occurred_at });
     return error ? json({ error: 'Falha ao registrar leitura.' }, 503) : json({ ok: true });
   }
-  if (action !== 'send_text' && action !== 'send_media') return json({ error: 'Ação inválida.' }, 400);
+  if (action === 'delete_for_me') {
+    const messageId = typeof input.messageId === 'string' && /^[0-9a-f-]{36}$/i.test(input.messageId) ? input.messageId : '';
+    if (!messageId) return json({ error: 'Mensagem inválida.' }, 400);
+    const { data: message, error: messageError } = await db.from('crm_wa_messages').select('id')
+      .eq('id', messageId).eq('conversation_id', conversationId).maybeSingle();
+    if (messageError) return json({ error: 'Falha ao consultar mensagem.' }, 503);
+    if (!message) return json({ error: 'Mensagem não encontrada.' }, 404);
+    const { error } = await db.from('crm_wa_message_hidden').upsert({ user_id: auth.user.id, message_id: messageId });
+    return error ? json({ error: 'Não foi possível ocultar a mensagem.' }, 503) : json({ ok: true });
+  }
+  if (action !== 'send_text' && action !== 'send_media' && action !== 'send_reaction') return json({ error: 'Ação inválida.' }, 400);
   const text = typeof input.text === 'string' ? input.text.trim() : '';
   const requestId = typeof input.requestId === 'string' && /^[0-9a-f-]{36}$/i.test(input.requestId) ? input.requestId : '';
   if (text.length > 4096 || !requestId || (action === 'send_text' && !text)) return json({ error: 'Mensagem ou identificação inválida.' }, 400);
+  const referencedMessageId = typeof input.messageId === 'string' && /^[0-9a-f-]{36}$/i.test(input.messageId) ? input.messageId : null;
+  let referencedProviderId: string | null = null;
+  if (referencedMessageId) {
+    const { data: referenced, error: referencedError } = await db.from('crm_wa_messages').select('provider_message_id')
+      .eq('id', referencedMessageId).eq('conversation_id', conversationId).maybeSingle();
+    if (referencedError) return json({ error: 'Falha ao consultar mensagem citada.' }, 503);
+    if (!referenced) return json({ error: 'Mensagem citada não encontrada.' }, 404);
+    referencedProviderId = referenced.provider_message_id;
+  }
+  const reactionEmoji = typeof input.emoji === 'string' ? input.emoji : '';
+  if (action === 'send_reaction' && (!referencedProviderId || !validReactionEmoji(reactionEmoji))) return json({ error: 'Reação inválida.' }, 400);
   const kind = mediaFile ? mediaKinds[mediaFile.type.split(';')[0]] : null;
   if (action === 'send_media' && (!mediaFile || !kind || !mediaFile.size || mediaFile.size > 16 * 1024 * 1024)) return json({ error: 'Arquivo incompatível ou acima de 16 MB.' }, 400);
   if (action === 'send_media' && kind === 'image' && mediaFile && mediaFile.size > 5 * 1024 * 1024) return json({ error: 'Imagem acima do limite de 5 MB da Meta.' }, 400);
@@ -129,7 +151,8 @@ Deno.serve(async request => {
     };
     return json({ error: messageByReason[decision.reason] ?? 'Esta mensagem não está autorizada.' }, 409);
   }
-  const { error: reserveError } = await db.from('crm_wa_outbox').insert({ request_id: requestId, conversation_id: conversationId, operator_id: auth.user.id, kind: kind ?? 'text', state: 'sending' });
+  const outboxKind = action === 'send_reaction' ? 'reaction' : kind ?? 'text';
+  const { error: reserveError } = await db.from('crm_wa_outbox').insert({ request_id: requestId, conversation_id: conversationId, operator_id: auth.user.id, kind: outboxKind, state: 'sending' });
   if (reserveError) return json({ error: 'Esta tentativa já existe ou não pôde ser reservada. Confira a conversa antes de reenviar.' }, reserveError.code === '23505' ? 409 : 503);
   try {
     let mediaId: string | null = null;
@@ -140,15 +163,23 @@ Deno.serve(async request => {
         return json({ error: 'A Meta recusou o arquivo. Confira o formato e tente novamente.' }, 502);
       }
     }
-    const mediaObject = mediaId && kind ? { [kind]: { id: mediaId, ...(text && kind !== 'audio' ? { caption: text } : {}), ...(kind === 'document' ? { filename: mediaFile?.name } : {}), ...(kind === 'audio' && mediaFile?.type.includes('codecs=opus') ? { voice: true } : {}) } } : {};
-    const sent = await metaMessage(mediaId && kind ? { to: conversation.customer_wa_id, type: kind, ...mediaObject } : { to: conversation.customer_wa_id, type: 'text', text: { body: text, preview_url: false } });
+    const outbound = action === 'send_reaction'
+      ? buildOutboundMessage({ to: conversation.customer_wa_id, kind: 'reaction', reactionToProviderMessageId: referencedProviderId!, reactionEmoji })
+      : mediaId && kind
+        ? buildOutboundMessage({ to: conversation.customer_wa_id, kind, mediaId, text, filename: mediaFile?.name, voice: kind === 'audio' && !!mediaFile?.type.includes('codecs=opus'), replyToProviderMessageId: referencedProviderId })
+        : buildOutboundMessage({ to: conversation.customer_wa_id, kind: 'text', text, replyToProviderMessageId: referencedProviderId });
+    const sent = await metaMessage(outbound);
     if (!sent.ok || !sent.messageId) {
       await db.from('crm_wa_outbox').update({ state: 'failed', error_code: String(sent.errorCode ?? 'META_REJECTED'), updated_at: new Date().toISOString() }).eq('request_id', requestId);
       return json({ error: 'A Meta recusou a mensagem. Confira o canal e tente outra mensagem.' }, 502);
     }
     const { error: messageError } = await db.from('crm_wa_messages').insert({
       conversation_id: conversationId, provider_message_id: sent.messageId, direction: 'outbound',
-      kind: kind ?? 'text', body: text, media_id: mediaId, mime_type: mediaFile?.type.split(';')[0] ?? null,
+      kind: action === 'send_reaction' ? 'other' : kind ?? 'text', body: action === 'send_reaction' ? '' : text,
+      media_id: mediaId, mime_type: mediaFile?.type.split(';')[0] ?? null,
+      reply_to_provider_message_id: action === 'send_reaction' ? null : referencedProviderId,
+      reaction_to_provider_message_id: action === 'send_reaction' ? referencedProviderId : null,
+      reaction_emoji: action === 'send_reaction' ? reactionEmoji : null,
       occurred_at: new Date().toISOString(), delivery_status: 'pending',
     });
     if (messageError) {
@@ -156,7 +187,7 @@ Deno.serve(async request => {
       return json({ error: 'A Meta aceitou a mensagem, mas o CRM ainda não conseguiu registrá-la. Não reenvie.' }, 503);
     }
     await db.from('crm_wa_outbox').update({ state: 'sent', provider_message_id: sent.messageId, updated_at: new Date().toISOString() }).eq('request_id', requestId);
-    await db.rpc('crm_wa_set_latest', { p_conversation_id: conversationId, p_occurred_at: new Date().toISOString(), p_preview: (text || (kind ? { image: 'Imagem', audio: 'Áudio', video: 'Vídeo', document: 'Documento' }[kind] : 'Mensagem')).slice(0, 160) });
+    if (action !== 'send_reaction') await db.rpc('crm_wa_set_latest', { p_conversation_id: conversationId, p_occurred_at: new Date().toISOString(), p_preview: (text || (kind ? { image: 'Imagem', audio: 'Áudio', video: 'Vídeo', document: 'Documento' }[kind] : 'Mensagem')).slice(0, 160) });
     return json({ ok: true, messageId: sent.messageId });
   } catch {
     await db.from('crm_wa_outbox').update({ state: 'unknown', error_code: 'META_RESULT_UNKNOWN', updated_at: new Date().toISOString() }).eq('request_id', requestId);
