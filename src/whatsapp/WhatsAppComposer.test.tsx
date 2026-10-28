@@ -40,3 +40,19 @@ describe('WhatsAppComposer', () => {
     expect(screen.getByRole('textbox', { name: 'Mensagem' })).toHaveValue('Resposta');
   });
 });
+
+it('insere um modelo no campo sem enviar automaticamente', async () => {
+  const user=userEvent.setup();
+  const onSend=vi.fn();
+  render(<WhatsAppComposer enabled disabledReason="" quickReplies={[{label:'Primeiro contato',text:'Oi, Marina!'}]} onSend={onSend}/>);
+  await user.selectOptions(screen.getByLabelText('Inserir modelo de resposta'),'Primeiro contato');
+  expect(screen.getByLabelText('Mensagem')).toHaveValue('Oi, Marina!');
+  expect(onSend).not.toHaveBeenCalled();
+});
+
+it('coloca a sugestão da IA no rascunho para revisão', async () => {
+  const user=userEvent.setup();
+  render(<WhatsAppComposer enabled disabledReason="" onSuggest={vi.fn().mockResolvedValue('Sugestão revisável')} onSend={vi.fn()}/>);
+  await user.click(screen.getByRole('button',{name:'Sugerir com IA'}));
+  expect(await screen.findByDisplayValue('Sugestão revisável')).toBeInTheDocument();
+});

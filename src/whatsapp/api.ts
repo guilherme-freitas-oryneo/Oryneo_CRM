@@ -103,6 +103,16 @@ export async function deleteWhatsAppMessageForMe(conversationId: string, message
   if (error || data?.ok !== true) throw new Error('Não foi possível apagar a mensagem para você.');
 }
 
+export async function suggestWhatsAppReply(conversationId: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('whatsapp-ai-settings', {
+    body: { action: 'suggest', conversationId },
+  });
+  if (error || data?.ok !== true || typeof data.reply !== 'string' || !data.reply.trim()) {
+    throw new Error(typeof data?.error === 'string' ? data.error : 'Não foi possível gerar uma sugestão agora.');
+  }
+  return data.reply.trim();
+}
+
 /** Busca mídia privada somente sob uma sessão autenticada. Nunca expõe token Meta no navegador. */
 export async function loadWhatsAppMedia(messageId: string): Promise<Blob> {
   const { data, error } = await supabase.functions.invoke('whatsapp-media', {
