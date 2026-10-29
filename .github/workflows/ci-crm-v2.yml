@@ -41,6 +41,7 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/whatsapp-webhook/index.ts
           deno check --node-modules-dir=auto supabase/functions/whatsapp-inbox/index.ts
           deno check --node-modules-dir=auto supabase/functions/whatsapp-media/index.ts
+          deno check --node-modules-dir=auto supabase/functions/whatsapp-ai-worker/index.ts
           deno check --node-modules-dir=auto supabase/functions/intake-mail-worker/index.ts
           deno check --node-modules-dir=auto supabase/functions/stripe-webhook/index.ts
           deno check --node-modules-dir=auto supabase/functions/proposal-create/index.ts

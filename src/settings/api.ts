@@ -2,7 +2,8 @@ import { supabase } from '../data';
 
 export type AiAttachment={id:string;file_name:string;mime_type:string;size_bytes:number;extracted_text?:string;created_at:string};
 export type AiTraining={business_context:string;tone:string;objective:string;qualification_questions:string;guardrails:string;handoff_rule:string};
-export type AiSettings={provider:'openai'|'anthropic';model:string;mode:'off'|'suggest'|'auto';system_prompt:string;training_prompt:string;training_config:AiTraining;api_key_last_four:string|null;attachments:AiAttachment[]};
+export type AiQueueHealth={queued:number;retrying:number;uncertain:number;human_review:number};
+export type AiSettings={provider:'openai'|'anthropic';model:string;mode:'off'|'suggest'|'auto';system_prompt:string;training_prompt:string;training_config:AiTraining;api_key_last_four:string|null;attachments:AiAttachment[];health:AiQueueHealth};
 
 const invoke=async(body:Record<string,unknown>)=>{
  const {data,error}=await supabase.functions.invoke('whatsapp-ai-settings',{body});
