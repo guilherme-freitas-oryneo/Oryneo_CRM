@@ -64,9 +64,11 @@ GRANT EXECUTE ON FUNCTION public.crm_wa_enqueue_ai_job(uuid,uuid) TO service_rol
 INSERT INTO public.crm_wa_channels(id) VALUES ('10000000-0000-4000-8000-000000000001');
 INSERT INTO public.crm_wa_conversations(id,channel_id,mode,opted_out,consent_granted) VALUES
  ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','review',false,false),
- ('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','review',true,false);
+ ('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','review',true,false),
+ ('20000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','review',false,false);
 INSERT INTO public.crm_wa_messages(id,conversation_id,direction,kind,occurred_at) VALUES
- ('30000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','inbound','text',now());
+ ('30000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','inbound','text',now()),
+ ('30000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000003','inbound','text',now()-interval '25 hours');
 
 SET ROLE service_role;
 SELECT * FROM public.crm_wa_set_automation_state(
@@ -83,6 +85,19 @@ BEGIN
  IF jobs<>1 THEN RAISE EXCEPTION 'activation did not enqueue latest inbound exactly once'; END IF;
  SELECT count(*) INTO events FROM public.crm_wa_automation_events WHERE conversation_id=c.id AND enabled;
  IF events<>1 THEN RAISE EXCEPTION 'activation was not audited'; END IF;
+END $$;
+
+SET ROLE service_role;
+SELECT * FROM public.crm_wa_set_automation_state(
+ '20000000-0000-4000-8000-000000000003','40000000-0000-4000-8000-000000000001',true,true
+);
+RESET ROLE;
+
+DO $$
+DECLARE jobs integer;
+BEGIN
+ SELECT count(*) INTO jobs FROM public.crm_wa_ai_jobs WHERE conversation_id='20000000-0000-4000-8000-000000000003';
+ IF jobs<>0 THEN RAISE EXCEPTION 'activation enqueued an inbound outside the 24-hour service window'; END IF;
 END $$;
 
 INSERT INTO public.crm_wa_ai_jobs(conversation_id,inbound_message_id,state,lease_token,lease_until) VALUES

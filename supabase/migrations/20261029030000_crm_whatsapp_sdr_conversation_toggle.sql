@@ -69,6 +69,7 @@ begin
     where m.conversation_id=p_conversation_id
       and m.direction='inbound'
       and m.reaction_to_provider_message_id is null
+      and m.occurred_at between now()-interval '24 hours' and now()
     order by m.occurred_at desc,m.id desc
     limit 1;
     if v_latest_message_id is not null and v_latest_kind='text' then

@@ -5,8 +5,8 @@ Permitir que o administrador ligue e desligue o SDR diretamente na conversa do W
 
 ## Comportamento
 - O estado aparece no cabeçalho da conversa como `SDR ativo` ou `SDR pausado`.
-- Ativar exige uma confirmação explícita de que o contato autorizou o atendimento automatizado. A confirmação registra `consent_granted=true` e muda a conversa para `sdr_active`.
-- Pausar muda a conversa para `review`, preserva o consentimento já registrado e cancela jobs ou envios automáticos ainda não enviados.
+- Ativar exige uma confirmação explícita de que o contato autorizou o atendimento automatizado. A confirmação registra `consent_granted=true`, muda a conversa para `sdr_active` e enfileira a última mensagem de texto somente se ela estiver dentro da janela de 24 horas.
+- Pausar muda a conversa para `review`, preserva o consentimento já registrado e cancela jobs ou envios automáticos ainda aguardando. Um envio já reservado pelo worker pode terminar porque a Meta não oferece cancelamento transacional depois do início do POST.
 - Opt-out impede ativação. O modo global de IA continua sendo o segundo disjuntor: uma conversa ativa só responde se o modo global estiver em `auto`.
 - O backend exige usuário autenticado e acesso administrativo ao canal. O navegador nunca atualiza a conversa diretamente.
 - Toda mudança gera evento de auditoria com ator, estado anterior, estado seguinte e horário, sem conteúdo de mensagens.
