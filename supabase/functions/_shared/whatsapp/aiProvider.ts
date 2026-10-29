@@ -73,7 +73,14 @@ export async function requestAiReply(input: AiRequest, fetcher: Fetcher = fetch)
   const endpoint = input.provider === 'openai' ? 'https://api.openai.com/v1/responses' : 'https://api.anthropic.com/v1/messages';
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const body = input.provider === 'openai'
-    ? { model: input.model, instructions: input.systemPrompt, input: input.messages, max_output_tokens: 500 }
+    ? {
+      model: input.model,
+      instructions: input.systemPrompt,
+      input: input.messages,
+      max_output_tokens: 1200,
+      reasoning: { effort: 'minimal' },
+      text: { verbosity: 'low' },
+    }
     : { model: input.model, system: input.systemPrompt, messages: input.messages, max_tokens: 500 };
   if (input.provider === 'openai') headers.Authorization = `Bearer ${input.apiKey}`;
   else {
