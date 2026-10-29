@@ -33,6 +33,8 @@ declare
   v_latest_message_id uuid;
   v_latest_kind text;
   v_job_id uuid;
+  v_existing_job_state text;
+  v_existing_job_error text;
 begin
   select c.mode,c.opted_out,c.consent_granted
     into v_from_mode,v_opted_out,v_consent
@@ -73,7 +75,22 @@ begin
     order by m.occurred_at desc,m.id desc
     limit 1;
     if v_latest_message_id is not null and v_latest_kind='text' then
-      v_job_id:=public.crm_wa_enqueue_ai_job(p_conversation_id,v_latest_message_id);
+      select j.id,j.state,j.error_code
+        into v_job_id,v_existing_job_state,v_existing_job_error
+      from public.crm_wa_ai_jobs j
+      where j.inbound_message_id=v_latest_message_id;
+      if v_job_id is null then
+        v_job_id:=public.crm_wa_enqueue_ai_job(p_conversation_id,v_latest_message_id);
+      elsif v_existing_job_state='cancelled'
+        and v_existing_job_error='AUTOMATION_PAUSED'
+        and not exists(select 1 from public.crm_wa_ai_outbox o where o.job_id=v_job_id) then
+        update public.crm_wa_ai_jobs j
+        set state='queued',attempts=0,next_attempt_at=now(),lease_token=null,lease_until=null,
+            error_code=null,updated_at=now()
+        where j.id=v_job_id;
+      elsif v_existing_job_state not in ('queued','leased','retry_wait') then
+        v_job_id:=null;
+      end if;
     end if;
   else
     update public.crm_wa_ai_jobs j

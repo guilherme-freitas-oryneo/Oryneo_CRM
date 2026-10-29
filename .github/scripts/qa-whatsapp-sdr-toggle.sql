@@ -28,6 +28,8 @@ CREATE TABLE public.crm_wa_ai_jobs (
   conversation_id uuid NOT NULL REFERENCES public.crm_wa_conversations(id),
   inbound_message_id uuid NOT NULL UNIQUE REFERENCES public.crm_wa_messages(id),
   state text NOT NULL,
+  attempts integer NOT NULL DEFAULT 0,
+  next_attempt_at timestamptz NOT NULL DEFAULT now(),
   lease_token uuid,
   lease_until timestamptz,
   error_code text,
@@ -35,6 +37,7 @@ CREATE TABLE public.crm_wa_ai_jobs (
 );
 CREATE TABLE public.crm_wa_ai_outbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id uuid REFERENCES public.crm_wa_ai_jobs(id),
   conversation_id uuid NOT NULL REFERENCES public.crm_wa_conversations(id),
   state text NOT NULL,
   lease_token uuid,
@@ -65,10 +68,12 @@ INSERT INTO public.crm_wa_channels(id) VALUES ('10000000-0000-4000-8000-00000000
 INSERT INTO public.crm_wa_conversations(id,channel_id,mode,opted_out,consent_granted) VALUES
  ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','review',false,false),
  ('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','review',true,false),
- ('20000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','review',false,false);
+ ('20000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','review',false,false),
+ ('20000000-0000-4000-8000-000000000004','10000000-0000-4000-8000-000000000001','review',false,false);
 INSERT INTO public.crm_wa_messages(id,conversation_id,direction,kind,occurred_at) VALUES
  ('30000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','inbound','text',now()),
- ('30000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000003','inbound','text',now()-interval '25 hours');
+ ('30000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000003','inbound','text',now()-interval '25 hours'),
+ ('30000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000004','inbound','text',now());
 
 SET ROLE service_role;
 SELECT * FROM public.crm_wa_set_automation_state(
@@ -85,6 +90,26 @@ BEGIN
  IF jobs<>1 THEN RAISE EXCEPTION 'activation did not enqueue latest inbound exactly once'; END IF;
  SELECT count(*) INTO events FROM public.crm_wa_automation_events WHERE conversation_id=c.id AND enabled;
  IF events<>1 THEN RAISE EXCEPTION 'activation was not audited'; END IF;
+END $$;
+
+SET ROLE service_role;
+SELECT * FROM public.crm_wa_set_automation_state(
+ '20000000-0000-4000-8000-000000000004','40000000-0000-4000-8000-000000000001',true,true
+);
+SELECT * FROM public.crm_wa_set_automation_state(
+ '20000000-0000-4000-8000-000000000004','40000000-0000-4000-8000-000000000001',false,false
+);
+SELECT * FROM public.crm_wa_set_automation_state(
+ '20000000-0000-4000-8000-000000000004','40000000-0000-4000-8000-000000000001',true,true
+);
+RESET ROLE;
+
+DO $$
+DECLARE jobs integer;
+BEGIN
+ SELECT count(*) INTO jobs FROM public.crm_wa_ai_jobs
+ WHERE conversation_id='20000000-0000-4000-8000-000000000004' AND state='queued' AND error_code IS NULL;
+ IF jobs<>1 THEN RAISE EXCEPTION 'reactivation did not safely resume the paused latest inbound'; END IF;
 END $$;
 
 SET ROLE service_role;
