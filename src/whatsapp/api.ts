@@ -45,6 +45,31 @@ export async function markWhatsAppRead(conversationId: string): Promise<void> {
   if (error || data?.ok !== true) throw new Error('Não foi possível confirmar a leitura na Meta.');
 }
 
+export type AutomationStateResult = {
+  mode: Conversation['mode'];
+  consentGranted: boolean;
+  jobEnqueued: boolean;
+};
+
+/** Changes per-conversation automation only through the authenticated backend. */
+export async function setWhatsAppAutomation(
+  conversationId: string,
+  enabled: boolean,
+  consentConfirmed: boolean,
+): Promise<AutomationStateResult> {
+  const { data, error } = await supabase.functions.invoke('whatsapp-inbox', {
+    body: { action: 'set_automation', conversationId, enabled, consentConfirmed },
+  });
+  if (error || data?.ok !== true || !['sdr_active', 'review', 'human_locked', 'resolved'].includes(data.mode)) {
+    throw new Error(typeof data?.error === 'string' ? data.error : 'Não foi possível alterar o SDR desta conversa.');
+  }
+  return {
+    mode: data.mode as Conversation['mode'],
+    consentGranted: data.consentGranted === true,
+    jobEnqueued: data.jobEnqueued === true,
+  };
+}
+
 /**
  * Canal oficial: nunca simula envios. A função Edge confirma a mensagem na Meta
  * antes de a resposta retornar ok. Mantém o conteúdo no composer em caso de erro.

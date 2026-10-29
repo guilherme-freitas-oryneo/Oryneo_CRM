@@ -77,6 +77,33 @@ Deno.serve(async request => {
   if (!accessRole) return json({ error: 'Conversa não encontrada.' }, 404);
   if (accessRole === 'viewer') return json({ error: 'Sem permissão para responder ou confirmar leitura.' }, 403);
   const action = input.action;
+  if (action === 'set_automation') {
+    if (!adminGrant.data) return json({ error: 'Somente o administrador pode alterar o SDR.' }, 403);
+    if (typeof input.enabled !== 'boolean' || typeof input.consentConfirmed !== 'boolean') {
+      return json({ error: 'Estado do SDR inválido.' }, 400);
+    }
+    const result = await db.rpc('crm_wa_set_automation_state', {
+      p_conversation_id: conversationId,
+      p_actor_id: auth.user.id,
+      p_enabled: input.enabled,
+      p_consent_confirmed: input.consentConfirmed,
+    });
+    if (result.error) {
+      if (result.error.code === '23514') return json({ error: 'Este contato recusou mensagens. O SDR permanece bloqueado.' }, 409);
+      if (result.error.code === '22023') return json({ error: 'Confirme a autorização do contato antes de ativar o SDR.' }, 400);
+      if (result.error.code === '55000') return json({ error: 'Finalize o atendimento humano ou reabra a conversa antes de ativar o SDR.' }, 409);
+      if (result.error.code === 'P0002') return json({ error: 'Conversa não encontrada.' }, 404);
+      return json({ error: 'Não foi possível alterar o SDR agora.' }, 503);
+    }
+    const next = Array.isArray(result.data) ? result.data[0] : result.data;
+    if (!next || typeof next.mode !== 'string') return json({ error: 'O estado do SDR não foi confirmado.' }, 503);
+    return json({
+      ok: true,
+      mode: next.mode,
+      consentGranted: next.consent_granted === true,
+      jobEnqueued: next.job_enqueued === true,
+    });
+  }
   if (action === 'assign') {
     if (!adminGrant.data) return json({ error: 'Somente o administrador pode atribuir conversas.' }, 403);
     const target = input.targetUserId === null ? null
