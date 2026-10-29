@@ -2,10 +2,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DealRow } from '../data';
-import { deleteWhatsAppMessageForMe, loadWhatsAppInbox, loadWhatsAppMedia, loadWhatsAppMessages, markWhatsAppRead, sendWhatsAppMessage, sendWhatsAppReaction } from './api';
+import { deleteWhatsAppMessageForMe, loadWhatsAppInbox, loadWhatsAppMedia, loadWhatsAppMessages, markWhatsAppRead, sendWhatsAppMessage, sendWhatsAppReaction, setWhatsAppAutomation } from './api';
 import { WhatsAppMessageView, WhatsAppWorkspace } from './WhatsAppWorkspace';
 
-vi.mock('./api', () => ({ loadWhatsAppInbox: vi.fn(), loadWhatsAppMessages: vi.fn(), loadWhatsAppMedia: vi.fn(), markWhatsAppRead: vi.fn(), sendWhatsAppMessage: vi.fn(), sendWhatsAppReaction: vi.fn(), deleteWhatsAppMessageForMe: vi.fn() }));
+vi.mock('./api', () => ({ loadWhatsAppInbox: vi.fn(), loadWhatsAppMessages: vi.fn(), loadWhatsAppMedia: vi.fn(), markWhatsAppRead: vi.fn(), sendWhatsAppMessage: vi.fn(), sendWhatsAppReaction: vi.fn(), deleteWhatsAppMessageForMe: vi.fn(), setWhatsAppAutomation: vi.fn() }));
 
 const deal: DealRow = {
   id: '11111111-1111-4111-8111-111111111111', kind: 'deal', revision: 1, deleted: false,
@@ -22,6 +22,7 @@ describe('WhatsAppWorkspace', () => {
     vi.mocked(markWhatsAppRead).mockResolvedValue();
     vi.mocked(sendWhatsAppReaction).mockResolvedValue('wamid.reaction');
     vi.mocked(deleteWhatsAppMessageForMe).mockResolvedValue();
+    vi.mocked(setWhatsAppAutomation).mockResolvedValue({ mode: 'review', consentGranted: false, jobEnqueued: false });
   });
   it('mostra contato real e contexto sem criar conversa fictícia ou habilitar envio', async () => {
     const onOpenDeal = vi.fn();
@@ -77,6 +78,66 @@ describe('WhatsAppWorkspace', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Abrir conversa de Marina' }));
     expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled();
     expect(sendWhatsAppMessage).not.toHaveBeenCalled();
+  });
+
+  it('ativa o SDR somente após confirmar consentimento e atualiza o estado da conversa', async () => {
+    const now = new Date().toISOString();
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({
+      channel: { id: 'channel-1', enabled: true, display_phone_number: '+5521974510932' },
+      conversations: [{ id: 'conversation-1', channel_id: 'channel-1', customer_wa_id: '5511999998888', customer_name: 'Marina', deal_id: null, mode: 'review', opted_out: false, consent_granted: false, last_inbound_at: now, last_message_at: now, last_preview: 'Oi' }],
+    });
+    vi.mocked(setWhatsAppAutomation).mockResolvedValue({ mode: 'sdr_active', consentGranted: true, jobEnqueued: true });
+    const user = userEvent.setup();
+    render(<WhatsAppWorkspace deals={[]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
+    await user.click(await screen.findByRole('button', { name: 'Abrir conversa de Marina' }));
+    await user.click(screen.getByRole('button', { name: 'Ativar SDR' }));
+    expect(screen.getByText(/contato autorizou o atendimento automatizado/i)).toBeInTheDocument();
+    expect(setWhatsAppAutomation).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Confirmo e ativar' }));
+    expect(setWhatsAppAutomation).toHaveBeenCalledWith('conversation-1', true, true);
+    expect(await screen.findByRole('button', { name: 'Pausar SDR' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('pausa o SDR imediatamente e preserva o controle na conversa', async () => {
+    const now = new Date().toISOString();
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({
+      channel: { id: 'channel-1', enabled: true, display_phone_number: '+5521974510932' },
+      conversations: [{ id: 'conversation-1', channel_id: 'channel-1', customer_wa_id: '5511999998888', customer_name: 'Marina', deal_id: null, mode: 'sdr_active', opted_out: false, consent_granted: true, last_inbound_at: now, last_message_at: now, last_preview: 'Oi' }],
+    });
+    vi.mocked(setWhatsAppAutomation).mockResolvedValue({ mode: 'review', consentGranted: true, jobEnqueued: false });
+    const user = userEvent.setup();
+    render(<WhatsAppWorkspace deals={[]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
+    await user.click(await screen.findByRole('button', { name: 'Abrir conversa de Marina' }));
+    await user.click(screen.getByRole('button', { name: 'Pausar SDR' }));
+    expect(setWhatsAppAutomation).toHaveBeenCalledWith('conversation-1', false, false);
+    expect(await screen.findByRole('button', { name: 'Ativar SDR' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('mantém o SDR bloqueado quando o contato optou por não receber mensagens', async () => {
+    const now = new Date().toISOString();
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({
+      channel: { id: 'channel-1', enabled: true, display_phone_number: '+5521974510932' },
+      conversations: [{ id: 'conversation-1', channel_id: 'channel-1', customer_wa_id: '5511999998888', customer_name: 'Marina', deal_id: null, mode: 'review', opted_out: true, consent_granted: false, last_inbound_at: now, last_message_at: now, last_preview: 'Pare' }],
+    });
+    render(<WhatsAppWorkspace deals={[]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir conversa de Marina' }));
+    expect(screen.getByRole('button', { name: 'SDR bloqueado' })).toBeDisabled();
+  });
+
+  it('mostra falha do backend e não altera visualmente o estado do SDR', async () => {
+    const now = new Date().toISOString();
+    vi.mocked(loadWhatsAppInbox).mockResolvedValue({
+      channel: { id: 'channel-1', enabled: true, display_phone_number: '+5521974510932' },
+      conversations: [{ id: 'conversation-1', channel_id: 'channel-1', customer_wa_id: '5511999998888', customer_name: 'Marina', deal_id: null, mode: 'review', opted_out: false, consent_granted: false, last_inbound_at: now, last_message_at: now, last_preview: 'Oi' }],
+    });
+    vi.mocked(setWhatsAppAutomation).mockRejectedValue(new Error('Sem permissão para alterar o SDR.'));
+    const user = userEvent.setup();
+    render(<WhatsAppWorkspace deals={[]} loading={false} loadError="" onOpenDeal={vi.fn()}/>);
+    await user.click(await screen.findByRole('button', { name: 'Abrir conversa de Marina' }));
+    await user.click(screen.getByRole('button', { name: 'Ativar SDR' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmo e ativar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sem permissão para alterar o SDR.');
+    expect(screen.getByRole('button', { name: 'Ativar SDR' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('exibe mensagens recebidas sem inferir vínculo com oportunidade pelo telefone', async () => {
