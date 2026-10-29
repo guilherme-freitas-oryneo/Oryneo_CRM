@@ -11,8 +11,10 @@ on:
       - '.github/scripts/qa-direct-checkout.mjs'
       - '.github/scripts/qa-pix-generated.mjs'
       - '.github/scripts/qa-whatsapp-ai-queue.sql'
+      - '.github/scripts/qa-whatsapp-sdr-toggle.sql'
       - '.github/workflows/qa-crm-v21.yml'
       - 'supabase/migrations/20261028213000_crm_whatsapp_ai_durable_queue.sql'
+      - 'supabase/migrations/20261029030000_crm_whatsapp_sdr_conversation_toggle.sql'
   workflow_dispatch:
 permissions:
   contents: read
@@ -38,6 +40,12 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -f .github/scripts/qa-whatsapp-ai-queue.sql
+      - name: Validar controle do SDR por conversa
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -c 'drop schema public cascade; create schema public;'
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -f .github/scripts/qa-whatsapp-sdr-toggle.sql
   browser-qa:
     runs-on: ubuntu-latest
     timeout-minutes: 30
