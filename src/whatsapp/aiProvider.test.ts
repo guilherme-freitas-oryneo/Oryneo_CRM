@@ -7,6 +7,12 @@ describe('WhatsApp AI provider adapter', () => {
     const reply = await requestAiReply({ provider:'openai',apiKey:'sk-test-secret-key-123456789',model:'gpt-5-mini',systemPrompt:'Seja breve.',messages:[{role:'user',content:'Quero conhecer o CRM'}] }, fetcher);
     expect(reply).toEqual({ text: 'Vamos marcar o diagnóstico?', providerResponseId: null });
     expect(fetcher).toHaveBeenCalledWith('https://api.openai.com/v1/responses', expect.objectContaining({ method:'POST', headers:expect.objectContaining({Authorization:'Bearer sk-test-secret-key-123456789'}) }));
+    expect(JSON.parse(String(fetcher.mock.calls[0][1].body))).toMatchObject({
+      model: 'gpt-5-mini',
+      max_output_tokens: 1200,
+      reasoning: { effort: 'minimal' },
+      text: { verbosity: 'low' },
+    });
     expect(String(fetcher.mock.calls[0][1].body)).not.toContain('sk-test-secret-key');
   });
 
