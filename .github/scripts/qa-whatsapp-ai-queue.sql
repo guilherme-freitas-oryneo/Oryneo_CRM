@@ -33,6 +33,17 @@ GRANT SELECT ON public.crm_wa_channels,public.crm_wa_ai_settings TO service_role
 GRANT SELECT,INSERT ON public.crm_wa_messages TO service_role;
 
 \i supabase/migrations/20261028213000_crm_whatsapp_ai_durable_queue.sql
+\i supabase/migrations/20261029015000_crm_whatsapp_ai_queue_indexes.sql
+
+DO $$
+BEGIN
+ IF to_regclass('public.crm_wa_ai_jobs_channel') IS NULL THEN
+   RAISE EXCEPTION 'channel covering index is missing';
+ END IF;
+ IF to_regclass('public.crm_wa_ai_outbox_conversation') IS NULL THEN
+   RAISE EXCEPTION 'conversation covering index is missing';
+ END IF;
+END $$;
 
 INSERT INTO public.crm_wa_channels(id)
 VALUES ('10000000-0000-4000-8000-000000000001');
