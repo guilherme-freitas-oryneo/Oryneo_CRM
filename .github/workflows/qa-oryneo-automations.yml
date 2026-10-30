@@ -68,3 +68,16 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno check --node-modules-dir=auto supabase/functions/automation-drafts/index.ts
+
+  frontend-contracts:
+    name: Automation frontend TypeScript and Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --run src/automation
