@@ -1,3 +1,4 @@
+import { evaluateRule, validateRule } from './conditionRules';
 /**
  * Pure, isolated automation graph contract.
  * This module has no network, storage or provider imports.
@@ -123,23 +124,28 @@ export function validateFlow(graph: unknown): FlowValidation {
     }
     if (TERMINAL.has(node.type)) terminals++;
     if (node.type === 'condition') {
-      if (!validField(node.config.field)) {
-        add('CONDITION_FIELD', path + '.config.field', 'Campo não permitido.');
-      }
-      const op = node.config.operator;
-      if (op === 'eq' || op === 'neq') {
+      if (Object.prototype.hasOwnProperty.call(node.config, 'rule')) {
+        const result = validateRule(node.config.rule);
+        if (!result.ok || Object.keys(node.config).some(key => key !== 'rule')) {
+          add('CONDITION_DSL_INVALID', path + '.config.rule', 'Regra composta inválida.');
+        }
         if (!node.ports.includes('yes') || !node.ports.includes('no')) {
           add('CONDITION_PORTS', path, 'Condição precisa de portas yes/no.');
         }
-      } else if (op === 'equals_any') {
-        if (!Array.isArray(node.config.cases) || !node.config.cases.length
-          || !node.config.cases.every(validPort) || !validPort(node.config.default)
-          || ![...node.config.cases, node.config.default].every(port =>
-            node.ports.includes(port as string))) {
-          add('CONDITION_CASES', path, 'Ramos da condição inválidos.');
-        }
       } else {
-        add('CONDITION_OPERATOR', path, 'Operador não permitido.');
+        if (!validField(node.config.field)) add('CONDITION_FIELD', path + '.config.field', 'Campo não permitido.');
+        const op = node.config.operator;
+        if (op === 'eq' || op === 'neq') {
+          if (!node.ports.includes('yes') || !node.ports.includes('no')) {
+            add('CONDITION_PORTS', path, 'Condição precisa de portas yes/no.');
+          }
+        } else if (op === 'equals_any') {
+          if (!Array.isArray(node.config.cases) || !node.config.cases.length
+            || !node.config.cases.every(validPort) || !validPort(node.config.default)
+            || ![...node.config.cases, node.config.default].every(port => node.ports.includes(port as string))) {
+            add('CONDITION_CASES', path, 'Ramos da condição inválidos.');
+          }
+        } else add('CONDITION_OPERATOR', path, 'Operador não permitido.');
       }
     }
   });
@@ -273,13 +279,24 @@ export function simulateFlow(
     }
     let nextPort = 'out';
     if (current.type === 'condition') {
-      const actual = readField(input.context, current.config.field as string);
-      if (current.config.operator === 'equals_any') {
-        nextPort = (current.config.cases as string[]).some(test => test === actual)
-          ? String(actual) : String(current.config.default);
+      if (Object.prototype.hasOwnProperty.call(current.config, 'rule')) {
+        const result = evaluateRule(current.config.rule, input.context);
+        if (result === 'unknown') {
+          return { dryRun: true, trace, issues: [{ code: 'CONDITION_UNRESOLVED', path: 'node:' + current.id, message: 'Condição sem dados confiáveis para avaliação.' }] };
+        }
+        nextPort = result ? 'yes' : 'no';
       } else {
-        const equal = actual === current.config.value;
-        nextPort = (current.config.operator === 'eq' ? equal : !equal) ? 'yes' : 'no';
+        const actual = readField(input.context, current.config.field as string);
+        if (actual === undefined) {
+          return { dryRun: true, trace, issues: [{ code: 'CONDITION_UNRESOLVED', path: 'node:' + current.id, message: 'Campo ausente na simulação.' }] };
+        }
+        if (current.config.operator === 'equals_any') {
+          nextPort = (current.config.cases as string[]).some(test => test === actual)
+            ? String(actual) : String(current.config.default);
+        } else {
+          const equal = actual === current.config.value;
+          nextPort = (current.config.operator === 'eq' ? equal : !equal) ? 'yes' : 'no';
+        }
       }
     }
     trace.push({
