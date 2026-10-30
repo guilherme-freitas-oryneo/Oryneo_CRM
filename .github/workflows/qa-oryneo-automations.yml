@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'supabase/automation/**'
+      - 'supabase/functions/automation-drafts/**'
       - '.github/workflows/qa-oryneo-automations.yml'
   workflow_dispatch:
 
@@ -57,3 +58,13 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_rpc.preview.sql
       - name: Testar concorrência, permissões e auditoria de versões
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_rpc.qa.sql
+
+  automation-api-typecheck:
+    name: Authenticated drafts API typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check --node-modules-dir=auto supabase/functions/automation-drafts/index.ts
