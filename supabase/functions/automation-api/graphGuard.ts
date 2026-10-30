@@ -148,8 +148,8 @@ export function inspectServerGraph(raw: unknown, refs: TrustedReferences): Graph
     edges.add(e.id);
     const from=nodes.get(e.source),to=nodes.get(e.target);
     if (!from||!to) {add('EDGE_ORPHAN',p);continue;}
-    if (e.target_port!=='in' || to.type==='trigger' || !from.ports?.includes(e.source_port)
-      || !to.ports?.includes('in')) add('EDGE_DIRECTION_INVALID',p);
+    if (e.target_port!=='in' || to.type==='trigger' || !Array.isArray(from.ports) || !from.ports.includes(e.source_port)
+      || !Array.isArray(to.ports) || !to.ports.includes('in')) add('EDGE_DIRECTION_INVALID',p);
     const ports=outgoing.get(e.source)||new Set<string>();
     if (ports.has(e.source_port)) add('EDGE_AMBIGUOUS_PORT',p);
     ports.add(e.source_port);outgoing.set(e.source,ports);
