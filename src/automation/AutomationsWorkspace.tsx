@@ -67,8 +67,17 @@ function safeRead(storageKey: string): FlowDefinition[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((graph): graph is FlowDefinition => {
-      if (!graph || typeof graph !== 'object' || graph.status !== 'draft') return false;
-      return validateFlow(graph).ok;
+      if (!graph || typeof graph !== 'object' || graph.status !== 'draft'
+        || !['pipeline','sdr'].includes(String(graph.kind))
+        || typeof graph.id !== 'string' || graph.id.length > 128
+        || !Array.isArray(graph.nodes) || graph.nodes.length > 500
+        || !Array.isArray(graph.edges) || graph.edges.length > 1000) return false;
+      // Incomplete drafts must survive a reload. Validation is shown separately.
+      return graph.nodes.every((node: FlowNode) => node
+        && typeof node.id === 'string' && node.position
+        && Number.isFinite(node.position.x) && Number.isFinite(node.position.y)
+        && node.config && typeof node.config === 'object' && !Array.isArray(node.config)
+        && Array.isArray(node.ports) && node.type in NODE_REGISTRY);
     }).slice(0, 30);
   } catch { return []; }
 }
