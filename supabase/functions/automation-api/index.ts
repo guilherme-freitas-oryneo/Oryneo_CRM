@@ -114,6 +114,22 @@ Deno.serve(async request => {
       : reply({ ok: true, flow, version, role: member.role });
   }
 
+  if (action === 'templates') {
+    const { data, error } = await db.from('automation_template_registry')
+      .select('id,template_name,language,category,provider_status,provider_template_id,provider_account_id,parameter_schema,synced_at')
+      .eq('workspace_id', workspaceId).order('template_name').limit(200);
+    return error ? reply({ error: 'Não foi possível carregar o catálogo Meta.' }, 503)
+      : reply({ ok: true, templates: data || [], componentsVerified: false });
+  }
+
+  if (action === 'executions') {
+    const { data, error } = await db.from('automation_executions')
+      .select('id,flow_version_id,state,started_at,finished_at,correlation_id')
+      .eq('workspace_id', workspaceId).order('started_at', { ascending: false }).limit(100);
+    return error ? reply({ error: 'Não foi possível carregar as execuções.' }, 503)
+      : reply({ ok: true, executions: data || [] });
+  }
+
   if (!canEdit) return reply({ error: 'Somente editores podem modificar rascunhos.' }, 403);
 
   if (action === 'create') {
