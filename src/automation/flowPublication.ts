@@ -196,21 +196,21 @@ export async function preparePublication(
   graph: FlowDefinition,
   refs: PublicationRefs,
 ): Promise<{ ok: true; contentSha256: string; snapshot: FlowDefinition } | { ok: false; issues: FlowIssue[] }> {
-  const result = validatePublication(graph, refs);
-  if (!result.ok) return result;
-  const canonical = canonicalJson({ ...graph, status: 'published' });
-  if (new TextEncoder().encode(canonical).length > 256 * 1024) {
-    return { ok: false, issues: [{ code: 'SNAPSHOT_TOO_LARGE', path: '
+  const validation = validatePublication(graph, refs);
+  if (!validation.ok) return { ok: false, issues: validation.issues };
+  const snapshot: FlowDefinition = JSON.parse(canonicalJson({ ...graph, status: 'published' }));
   const bytes = new TextEncoder().encode(canonicalJson(snapshot));
-  const hash = await crypto.subtle.digest('SHA-256', bytes);
-  const contentSha256 = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
-  return { ok: true, contentSha256, snapshot };
-}
-, message: 'Fluxo acima do limite publicável.' }] };
+  if (bytes.length > 256 * 1024) {
+    return { ok: false, issues: [{
+      code: 'SNAPSHOT_TOO_LARGE',
+      path: 'graph',
+      message: 'Fluxo acima do limite publicável.',
+    }] };
   }
-  const snapshot: FlowDefinition = JSON.parse(canonical);
-  const bytes = new TextEncoder().encode(canonicalJson(snapshot));
   const hash = await crypto.subtle.digest('SHA-256', bytes);
-  const contentSha256 = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+  const contentSha256 = Array.from(
+    new Uint8Array(hash),
+    byte => byte.toString(16).padStart(2, '0'),
+  ).join('');
   return { ok: true, contentSha256, snapshot };
 }
