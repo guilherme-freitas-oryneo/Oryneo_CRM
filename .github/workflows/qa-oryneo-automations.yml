@@ -57,3 +57,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_api.preview.sql
       - name: Verificar transações, permissões, revisão otimista e trilha de auditoria
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_api.qa.sql
+      - name: Preparar publicação versionada, sem ativar o runtime (banco descartável)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/publication.preview.sql
+      - name: Verificar publicação imutável, CAS, papéis e estado desativado
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/publication.qa.sql
