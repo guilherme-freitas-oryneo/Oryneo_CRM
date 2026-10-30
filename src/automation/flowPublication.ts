@@ -20,6 +20,8 @@ export type PublicationRefs = {
   allowedStageIds: readonly string[];
   enabledIntentDictionaryIds: readonly string[];
   approvedEmailTemplateIds: readonly string[];
+  approvedPromptRefs: readonly string[];
+  approvedReplyRefs: readonly string[];
 };
 export type PublicationCheck = { ok: boolean; issues: FlowIssue[] };
 const record = (x: unknown): x is Record<string, unknown> =>
@@ -71,7 +73,7 @@ function validateNodeConfig(
       return;
     case 'ai_generate':
       if (!keysAre(cfg, ['prompt_ref', 'max_tokens'])
-        || !requires('prompt_ref')
+        || !requires('prompt_ref') || !refs.approvedPromptRefs.includes(String(cfg.prompt_ref))
         || !Number.isInteger(cfg.max_tokens) || Number(cfg.max_tokens) < 64 || Number(cfg.max_tokens) > 1200) {
         problem('AI_CONFIG_INVALID', 'Prompt aprovado e limite de custo são obrigatórios.');
       }
@@ -85,7 +87,8 @@ function validateNodeConfig(
       }
       return;
     case 'whatsapp_reply':
-      if (!keysAre(cfg, ['text_ref']) || !requires('text_ref')) {
+      if (!keysAre(cfg, ['text_ref']) || !requires('text_ref')
+        || !refs.approvedReplyRefs.includes(String(cfg.text_ref))) {
         problem('WA_REPLY_INVALID', 'Resposta sem fonte autorizada.');
       }
       return;
@@ -148,6 +151,7 @@ function validateNodeConfig(
 
 export function validatePublication(graph: FlowDefinition, refs: PublicationRefs): PublicationCheck {
   const base = validateFlow(graph);
+  if (!base.ok) return { ok: false, issues: base.issues };
   const issues = [...base.issues];
   const add = (code: string, path: string, message: string) => issues.push({ code, path, message });
   if (graph.schema_version !== '1.0.0') {
@@ -177,10 +181,16 @@ export function validatePublication(graph: FlowDefinition, refs: PublicationRefs
 
 /** Canonical JSON for hashing and frozen immutable published snapshots. */
 export function canonicalJson(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';
-  const obj = value as Record<string, unknown>;
-  return '{' + Object.keys(obj).sort().map(key => JSON.stringify(key) + ':' + canonicalJson(obj[key])).join(',') + '}';
+  if (value === null) return 'null';
+  if (typeof value === 'string' || typeof value === 'boolean') return JSON.stringify(value);
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error('NON_FINITE_JSON_NUMBER');
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return '[' + value.map(item => item === undefined ? 'null' : canonicalJson(item)).join(',') + ']';
+  if (!record(value)) throw new Error('NON_JSON_VALUE');
+  return '{' + Object.keys(value).filter(key => value[key] !== undefined).sort()
+    .map(key => JSON.stringify(key) + ':' + canonicalJson(value[key])).join(',') + '}';
 }
 export async function preparePublication(
   graph: FlowDefinition,
@@ -188,7 +198,17 @@ export async function preparePublication(
 ): Promise<{ ok: true; contentSha256: string; snapshot: FlowDefinition } | { ok: false; issues: FlowIssue[] }> {
   const result = validatePublication(graph, refs);
   if (!result.ok) return result;
-  const snapshot: FlowDefinition = JSON.parse(canonicalJson({ ...graph, status: 'published' }));
+  const canonical = canonicalJson({ ...graph, status: 'published' });
+  if (new TextEncoder().encode(canonical).length > 256 * 1024) {
+    return { ok: false, issues: [{ code: 'SNAPSHOT_TOO_LARGE', path: '
+  const bytes = new TextEncoder().encode(canonicalJson(snapshot));
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  const contentSha256 = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+  return { ok: true, contentSha256, snapshot };
+}
+, message: 'Fluxo acima do limite publicável.' }] };
+  }
+  const snapshot: FlowDefinition = JSON.parse(canonical);
   const bytes = new TextEncoder().encode(canonicalJson(snapshot));
   const hash = await crypto.subtle.digest('SHA-256', bytes);
   const contentSha256 = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
