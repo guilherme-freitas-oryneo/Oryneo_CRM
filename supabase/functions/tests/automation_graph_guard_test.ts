@@ -4,7 +4,7 @@ const id = (part: number) => '00000000-0000-4000-8000-' + String(part).padStart(
 const refs: TrustedReferences = {
   eventTypes:['opportunity.created'],stageIds:[],templateIds:[],knowledgeIds:[],dictionaryIds:[],
 };
-const valid = () => ({
+const valid = (): any => ({
   id:id(1),name:'Pipeline sem efeitos',kind:'pipeline',status:'draft',version:1,schema_version:'1.0.0',
   nodes:[
     {id:id(2),type:'trigger',label:'Início',position:{x:0,y:0},
