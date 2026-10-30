@@ -40,11 +40,19 @@ BEGIN
     RAISE EXCEPTION 'AUTOMATION_DRAFT_INVALID' USING ERRCODE = '22023';
   END IF;
 
-  -- The immutable version counter is set by the caller's validated revision.
-  -- Do not accept an otherwise valid draft whose embedded graph version is stale.
+  -- The draft version must always match the transaction's optimistic revision.
   IF p_expected_revision > 2147483646
-    OR jsonb_typeof(p_graph->'version') IS DISTINCT FROM 'number'
-    OR (p_graph->>'version') !~ '^[0-9]{1,10}
+     OR jsonb_typeof(p_graph->'version') IS DISTINCT FROM 'number'
+     OR length(p_graph->>'version') > 10
+     OR translate(p_graph->>'version','0123456789','') <> ''
+  THEN
+    RAISE EXCEPTION 'AUTOMATION_DRAFT_VERSION_MISMATCH' USING ERRCODE = '22023';
+  END IF;
+  IF (p_graph->>'version')::bigint <> (p_expected_revision + 1) THEN
+    RAISE EXCEPTION 'AUTOMATION_DRAFT_VERSION_MISMATCH' USING ERRCODE = '22023';
+  END IF;
+
+  -- Fail closed: membership and explicit edit role are required.
   IF NOT EXISTS (
     SELECT 1
     FROM public.automation_workspace_members m
