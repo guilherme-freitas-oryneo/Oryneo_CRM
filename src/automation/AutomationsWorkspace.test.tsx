@@ -51,7 +51,7 @@ describe('Automações: interação visual isolada', () => {
     await user.click(screen.getByRole('button', { name: /Editar nó Gatilho inicial/ }));
     const config = screen.getByRole('textbox', { name: 'Configuração JSON do nó' });
     await user.clear(config);
-    await user.type(config, '{wrong json');
+    await user.type(config, 'não é JSON');
     await user.click(screen.getByRole('button', { name: 'Aplicar configuração' }));
     await waitFor(() => expect(screen.getByText(/JSON inválido: o nó não foi alterado/)).toBeInTheDocument());
   });
