@@ -5,6 +5,7 @@ import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode,
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
 import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
+import { ConditionRuleEditor } from './ConditionRuleEditor';
 import './automations-workspace.css';
 
 type Tab = 'overview' | 'pipeline' | 'sdr' | 'triggers' | 'templates' | 'executions';
@@ -402,8 +403,12 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
           <aside className="ory-auto-inspector">
             <div className="ory-auto-inspector-title"><Settings2 size={16}/><h3>Inspetor</h3></div>
             {selected ? <><span className="ory-auto-overline">PROPRIEDADES DO BLOCO</span><label>Nome<input value={selected.label} onChange={e=>commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,label:e.target.value}:n)}})}/></label>
-              <label>Configuração JSON<textarea aria-label="Configuração JSON do nó" spellCheck={false} rows={9} value={jsonConfig} onChange={e=>setJsonConfig(e.target.value)}/></label>
-              <button onClick={applyJsonConfig}>Aplicar configuração</button>
+              {selected.type==='condition' ? <ConditionRuleEditor value={selected.config.rule} onChange={rule=>commit({ok:true,graph:{
+                ...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,config:{rule}}:n),
+              }})}/> : <>
+                <label>Configuração JSON<textarea aria-label="Configuração JSON do nó" spellCheck={false} rows={9} value={jsonConfig} onChange={e=>setJsonConfig(e.target.value)}/></label>
+                <button onClick={applyJsonConfig}>Aplicar configuração</button>
+              </>}
               {selected.type!=='trigger'&&<button className="ory-auto-danger" onClick={()=>{commit(removeNode(current,selected.id));setSelectedId(null)}}>Remover bloco</button>}
               <p className="ory-auto-aside-hint">Alterações locais exigem validação e publicação por servidor antes de produzir efeitos.</p>
             </> : activeEdge ? <><p>Conexão selecionada. Escolha um bloco na biblioteca à esquerda para inseri-lo entre os nós.</p><button onClick={()=>{setReconnecting(activeEdge);setNotice('Selecione o novo nó de destino no canvas.')}}>Reconectar destino</button><button onClick={()=>setActiveEdge(null)}>Desmarcar conexão</button></> :
