@@ -86,6 +86,20 @@ Deno.serve(async request => {
   } catch { return apiError('INVALID_JSON', 400); }
   if (!isObj(body)) return apiError('INVALID_PAYLOAD', 400);
   const action = body.action;
+  if (action === 'workspaces') {
+    const { data: memberships, error: listError } = await db.from('automation_workspace_members')
+      .select('workspace_id,role').eq('user_id', auth.user.id).limit(80);
+    if (listError) return apiError('WORKSPACE_LIST_UNAVAILABLE', 503);
+    if (!memberships?.length) return json({ ok: true, workspaces: [] });
+    const allowedIds = memberships.map(m => m.workspace_id);
+    const { data: available, error: workspaceListError } = await db.from('automation_workspaces')
+      .select('id,slug,active').eq('active', true).in('id', allowedIds).limit(80);
+    if (workspaceListError) return apiError('WORKSPACE_LIST_UNAVAILABLE', 503);
+    const roles = new Map(memberships.map(m => [m.workspace_id, m.role]));
+    return json({ ok: true, workspaces: (available ?? []).map(w => ({
+      id: w.id, slug: w.slug, role: roles.get(w.id),
+    })) });
+  }
   const workspaceId = body.workspaceId;
   if (!validUuid(workspaceId)) return apiError('WORKSPACE_ID_INVALID', 400);
   const [{ data: workspace, error: workspaceError },
