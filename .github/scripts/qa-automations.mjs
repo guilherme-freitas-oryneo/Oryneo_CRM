@@ -1,0 +1,72 @@
+import { chromium, webkit } from 'playwright';
+import fs from 'node:fs';
+const root = 'http://127.0.0.1:4173/Oryneo_CRM/';
+const base = 'https://ucikrafwfzamxvweuvgk.supabase.co';
+const userId = '77777777-7777-4777-8777-777777777777';
+const workspaceId = '88888888-8888-4888-8888-888888888888';
+const now = new Date().toISOString();
+const exp = Math.floor(Date.now()/1000)+7200;
+const token = [{alg:'HS256',typ:'JWT'},{sub:userId,email:'qa@example.com',role:'authenticated',aud:'authenticated',exp}].map(s=>Buffer.from(JSON.stringify(s)).toString('base64url')).join('.')+'.mock_signature';
+const session = {access_token:token,token_type:'bearer',expires_in:7200,expires_at:exp,refresh_token:'mock',user:{id:userId,aud:'authenticated',role:'authenticated',email:'qa@example.com',app_metadata:{provider:'email'},user_metadata:{},identities:[],created_at:now}};
+const cases = [
+  {engine:chromium,name:'chromium-desktop',width:1440,height:900,touch:false},
+  {engine:chromium,name:'chromium-mobile',width:390,height:844,touch:true},
+  {engine:webkit,name:'webkit-tablet',width:768,height:1024,touch:true},
+];
+fs.mkdirSync('qa-results',{recursive:true});
+for (const c of cases) {
+  const browser = await c.engine.launch({headless:true});
+  const page = await browser.newPage({viewport:{width:c.width,height:c.height},isMobile:c.touch,hasTouch:c.touch});
+  const errors=[];
+  const actions=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+  await page.addInitScript(({key,auth})=>localStorage.setItem(key,JSON.stringify(auth)),{key:'sb-ucikrafwfzamxvweuvgk-auth-token',auth:session});
+  await page.route(base+'/**', async route=>{
+    const req=route.request(),url=new URL(req.url());
+    const path=url.pathname;
+    const response=(payload,status=200)=>route.fulfill({status,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(payload)});
+    if(path.endsWith('/auth/v1/user'))return response(session.user);
+    if(path.endsWith('/auth/v1/token'))return response(session);
+    if(path.includes('/rest/v1/crm_records'))return response([]);
+    if(path.includes('/rest/v1/crm_members'))return response([{user_id:userId}]);
+    if(path.endsWith('/functions/v1/automation-api')){
+      const input=JSON.parse(req.postData()||'{}');actions.push(input.action);
+      if(input.action==='workspaces')return response({ok:true,workspaces:[{id:workspaceId,slug:'oryneo-crm',role:'admin',active:false}]});
+      if(input.action==='list')return response({ok:true,flows:[]});
+      if(input.action==='templates')return response({ok:true,templates:[]});
+      if(input.action==='executions')return response({ok:true,executions:[]});
+      if(input.action==='create')return response({ok:true,result:{id:input.graph.id,revision:1,versionId:'99999999-9999-4999-8999-999999999999'}},201);
+      throw Error('Unexpected automation API action: '+input.action);
+    }
+    return response({error:'Mock route not available'},404);
+  });
+  try {
+    const first=await page.goto(root,{waitUntil:'domcontentloaded',timeout:30000});
+    if(first.status()!==200)throw Error('Page failed '+first.status());
+    await page.getByRole('button',{name:'Automações',exact:true}).waitFor({timeout:15000});
+    await page.getByRole('button',{name:'Automações',exact:true}).click();
+    await page.getByRole('heading',{name:'Automações'}).waitFor({timeout:10000});
+    await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Fluxos do pipeline/}).click();
+    await page.getByRole('button',{name:/Novo fluxo/i}).click();
+    await page.getByRole('textbox',{name:'Nome do fluxo'}).waitFor();
+    await page.getByRole('button',{name:'Simular sem efeitos externos'}).click();
+    await page.getByText(/Simulação — não enviado/i).waitFor();
+    if(await page.getByRole('button',{name:/Publicar/}).isEnabled())throw Error('Unsafe publish enabled');
+    await page.screenshot({path:'qa-results/oryneo-automations-'+c.name+'.png',fullPage:false});
+    await page.getByRole('button',{name:'Salvar rascunho'}).click();
+    await page.getByText(/Nenhum disparo executado/i).waitFor({timeout:10000});
+    await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Templates e canais/}).click();
+    await page.getByRole('heading',{name:'Templates e canais'}).waitFor();
+    await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Execuções e diagnóstico/}).click();
+    await page.getByRole('heading',{name:'Execuções e diagnóstico'}).waitFor();
+    const bodyWidth=await page.evaluate(()=>document.body.scrollWidth);
+    if(bodyWidth>c.width+22)throw Error('Unexpected horizontal body overflow '+bodyWidth+'/'+c.width);
+    if(errors.length)throw Error('Page errors '+errors.join(' | '));
+    if(actions.some(x=>['send','execute','publish'].includes(x)))throw Error('Unexpected effect action '+actions);
+    if(!actions.includes('create'))throw Error('Draft persistence not invoked');
+    console.log('AUTOMATIONS PASS',c.name,JSON.stringify({width:c.width,actionCount:actions.length,safeNoDispatch:true}));
+  } finally {
+    await browser.close();
+  }
+}
