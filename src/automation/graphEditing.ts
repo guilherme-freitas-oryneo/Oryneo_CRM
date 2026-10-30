@@ -27,6 +27,7 @@ function connectable(graph: FlowDefinition, edge: FlowEdge): string | null {
   const target = graph.nodes.find(node => node.id === edge.target);
   if (!source || !target) return 'NODE_UNKNOWN';
   if (!source.ports.includes(edge.source_port) || !target.ports.includes(edge.target_port)) return 'PORT_UNKNOWN';
+  if (edge.target_port !== 'in') return 'TARGET_PORT_NOT_INPUT';
   if (target.type === 'trigger') return 'TRIGGER_INCOMING';
   if (source.type === 'end' || source.type === 'stop') return 'TERMINAL_OUTGOING';
   if (source.id === target.id) return 'CYCLE';
@@ -49,6 +50,25 @@ export function connectPorts(graph: FlowDefinition, edge: FlowEdge): EditResult 
   const changed = { ...graph, edges: [...graph.edges, { ...edge }] };
   if (hasCycle(changed)) return unchanged('CYCLE');
   return { ok: true, graph: changed };
+}
+/** Reconnect a single existing edge without mutating its id or losing its label. */
+export function reconnectEdge(
+  graph: FlowDefinition, edgeId: string, targetId: string,
+  targetPort: string = 'in',
+): EditResult {
+  const original = graph.edges.find(edge => edge.id === edgeId);
+  if (!original) return unchanged('EDGE_UNKNOWN');
+  if (original.target === targetId && original.target_port === targetPort) {
+    return unchanged('UNCHANGED_EDGE');
+  }
+  const remaining = { ...graph, edges: graph.edges.filter(edge => edge.id !== edgeId) };
+  const replacement: FlowEdge = { ...original, target: targetId, target_port: targetPort };
+  const problem = connectable(remaining, replacement);
+  if (problem) return unchanged(problem);
+  const updated = { ...graph, edges: graph.edges.map(edge =>
+    edge.id === edgeId ? replacement : edge) };
+  if (hasCycle(updated)) return unchanged('CYCLE');
+  return { ok: true, graph: updated };
 }
 /** Atomically split an edge without dropping its original source and target semantics. */
 export function insertNodeOnEdge(
