@@ -50,7 +50,7 @@ for (const c of cases) {
     await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Fluxos do pipeline/}).click();
     await page.getByRole('button',{name:/Novo fluxo/i}).click();
     await page.getByRole('textbox',{name:'Nome do fluxo'}).waitFor();
-    await page.getByRole('button',{name:'Simular sem efeitos externos'}).click();
+    await page.getByTitle('Simular sem efeitos externos').click();
     await page.getByText(/Simulação — não enviado/i).waitFor();
     if(await page.getByRole('button',{name:/Publicar/}).isEnabled())throw Error('Unsafe publish enabled');
     await page.screenshot({path:'qa-results/oryneo-automations-'+c.name+'.png',fullPage:false});
