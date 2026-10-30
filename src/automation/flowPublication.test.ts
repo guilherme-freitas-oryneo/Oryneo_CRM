@@ -92,4 +92,32 @@ describe('ORYNEO publication contract', () => {
   it('does not run or traverse an invalid untrusted graph', () => {
     expect(validatePublication({ ...base(), nodes: null } as unknown as FlowDefinition, refs).ok).toBe(false);
   });
+  it('rejects a dangling provider failure branch before publication', () => {
+    const graph = base();
+    graph.nodes.splice(1, 0, {
+      id: 'wa', type: 'whatsapp_template', label: 'Envio', position: { x: 0, y: 90 },
+      ports: ['in', 'out', 'error'], config: { template_registry_id: tpl, locale: 'pt_BR' },
+    });
+    graph.edges = [
+      { id: 'e1', source: 'trigger', source_port: 'out', target: 'wa', target_port: 'in' },
+      { id: 'e2', source: 'wa', source_port: 'out', target: 'stop', target_port: 'in' },
+    ];
+    expect(validatePublication(graph, refs).issues.map(issue => issue.code))
+      .toContain('REQUIRED_BRANCH_MISSING');
+  });
+  it('forbids a connection targeting an action output port', () => {
+    const graph = base();
+    graph.nodes.splice(1, 0, {
+      id: 'wa', type: 'whatsapp_template', label: 'Envio', position: { x: 0, y: 90 },
+      ports: ['in', 'out', 'error'], config: { template_registry_id: tpl, locale: 'pt_BR' },
+    });
+    graph.edges = [
+      { id: 'e1', source: 'trigger', source_port: 'out', target: 'wa', target_port: 'out' },
+      { id: 'e2', source: 'wa', source_port: 'out', target: 'stop', target_port: 'in' },
+      { id: 'e3', source: 'wa', source_port: 'error', target: 'stop', target_port: 'in' },
+    ];
+    expect(validatePublication(graph, refs).issues.map(issue => issue.code))
+      .toContain('EDGE_TARGET_NOT_INPUT');
+  });
+
 });
