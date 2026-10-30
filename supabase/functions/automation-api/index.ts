@@ -66,6 +66,21 @@ Deno.serve(async request => {
   if (!isRecord(body)) return reply({ error: 'Solicitação inválida.' }, 400);
 
   const action = String(body.action || '');
+  if (action === 'workspaces') {
+    const { data, error } = await db.from('automation_workspace_members')
+      .select('workspace_id,role').eq('user_id', actor).limit(30);
+    if (error) return reply({ error: 'Falha ao consultar permissões de automação.' }, 503);
+    const ids = (data || []).map(item => item.workspace_id);
+    if (!ids.length) return reply({ ok: true, workspaces: [] });
+    const { data: details, error: detailsError } = await db.from('automation_workspaces')
+      .select('id,slug,active').in('id', ids);
+    if (detailsError) return reply({ error: 'Falha ao consultar workspaces.' }, 503);
+    return reply({ ok: true, workspaces: (data || []).map(item => ({
+      id: item.workspace_id, role: item.role,
+      slug: details?.find(ws => ws.id === item.workspace_id)?.slug || '',
+      active: details?.find(ws => ws.id === item.workspace_id)?.active === true,
+    })) });
+  }
   const workspaceId = body.workspaceId;
   if (!validUuid(workspaceId)) return reply({ error: 'Workspace inválido.' }, 400);
   const { data: grant, error: grantErr } = await db.from('automation_workspace_members')
