@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { AlertCircle, ArrowRight, BookOpen, ChevronDown, CirclePlay, Clock3, Copy, FileJson, GitBranch, History, Layers3, LockKeyhole, Plus, Redo2, Search, Settings2, ShieldCheck, Undo2, Workflow, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBranch, History, Layers3, LockKeyhole, Plus, Redo2, Search, Settings2, ShieldCheck, Undo2, Workflow, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { connectPorts, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
@@ -182,6 +182,18 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     }
     setSelectedId(node.id); setActiveEdge(null); setJsonConfig(JSON.stringify(node.config, null, 2));
   };
+  const applyJsonConfig = () => {
+    if (!current || !selected) return;
+    try {
+      const cfg: unknown = JSON.parse(jsonConfig);
+      if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) throw new Error('INVALID_CONFIG');
+      const next = current.nodes.map(node =>
+        node.id === selected.id ? { ...node, config: cfg as Record<string, unknown> } : node);
+      commit({ ok: true, graph: { ...current, nodes: next } });
+    } catch {
+      setNotice('JSON inválido: o nó não foi alterado.');
+    }
+  };
   const fit = () => setZoom(1);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -203,7 +215,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   };
   const displayBuilder = current && (tab === 'pipeline' || tab === 'sdr') && current.kind === tab;
   return (
-    <div className="ory-auto" aria-label="Centro de Automações">
+    <div className="ory-auto" aria-label="Centro de Automações" data-open-flow={openId||undefined}>
       <div className="ory-auto-header">
         <div><span className="ory-auto-overline">ORYNEO / OPERAÇÃO</span><h1>Automações</h1><p>Fluxos inteligentes, com controle humano e rastreabilidade.</p></div>
         <span className="ory-auto-safe"><LockKeyhole size={14}/> Ambiente de preparação</span>
@@ -282,7 +294,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             <div className="ory-auto-inspector-title"><Settings2 size={16}/><h3>Inspetor</h3></div>
             {selected ? <><span className="ory-auto-overline">PROPRIEDADES DO BLOCO</span><label>Nome<input value={selected.label} onChange={e=>commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,label:e.target.value}:n)}})}/></label>
               <label>Configuração JSON<textarea aria-label="Configuração JSON do nó" spellCheck={false} rows={9} value={jsonConfig} onChange={e=>setJsonConfig(e.target.value)}/></label>
-              <button onClick={()=>{try{const cfg:unknown=JSON.parse(jsonConfig);if(!cfg||typeof cfg!=='object'||Array.isArray(cfg))throw Error();commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,config:cfg as Record<string,unknown>}:n)}})};catch{setNotice('JSON inválido: o nó não foi alterado.')}}}>Aplicar configuração</button>
+              <button onClick={applyJsonConfig}>Aplicar configuração</button>
               {selected.type!=='trigger'&&<button className="ory-auto-danger" onClick={()=>{commit(removeNode(current,selected.id));setSelectedId(null)}}>Remover bloco</button>}
               <p className="ory-auto-aside-hint">Alterações locais exigem validação e publicação por servidor antes de produzir efeitos.</p>
             </> : activeEdge ? <><p>Conexão selecionada. Escolha um bloco na biblioteca à esquerda para inseri-lo entre os nós.</p><button onClick={()=>setActiveEdge(null)}>Desmarcar conexão</button></> :
