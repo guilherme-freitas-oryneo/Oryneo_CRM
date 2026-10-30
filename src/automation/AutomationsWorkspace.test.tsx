@@ -96,4 +96,19 @@ describe('Automações: interação visual isolada', () => {
     expect(screen.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
   });
 
+
+  it('cria um bloco no menu de contexto do canvas, sem conectá-lo silenciosamente', async () => {
+    const user=userEvent.setup();
+    const {container}=render(<AutomationsWorkspace userId={userId}/>);
+    await user.click(screen.getByRole('button',{name:/Fluxos do pipeline/}));
+    await user.click(screen.getByRole('button',{name:/Novo fluxo/i}));
+    const canvas=container.querySelector('.ory-auto-canvas-scroll');
+    expect(canvas).not.toBeNull();
+    fireEvent.contextMenu(canvas!,{clientX:180,clientY:220});
+    await user.click(screen.getByRole('button',{name:'Adicionar: Condição'}));
+    expect(screen.getByRole('button',{name:'Editar nó Condição'})).toBeInTheDocument();
+    expect(screen.getByText(/Conecte as portas antes de validar/)).toBeInTheDocument();
+    expect(screen.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
+  });
+
 });
