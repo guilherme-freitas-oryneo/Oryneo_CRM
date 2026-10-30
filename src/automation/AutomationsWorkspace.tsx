@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBranch, History, Layers3, LockKeyhole, Plus, Redo2, Search, Settings2, ShieldCheck, Undo2, Workflow, X, ZoomIn, ZoomOut } from 'lucide-react';
-import { connectPorts, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
+import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
 import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
@@ -138,13 +138,14 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [history, setHistory] = useState<DraftHistory | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeEdge, setActiveEdge] = useState<string | null>(null);
+  const [reconnecting, setReconnecting] = useState<string | null>(null);
   const [sourcePort, setSourcePort] = useState<{ nodeId: string; port: string } | null>(null);
   const [search, setSearch] = useState('');
   const [zoom, setZoom] = useState(1);
   const [notice, setNotice] = useState('');
   const [preview, setPreview] = useState<ReturnType<typeof simulateFlow> | null>(null);
   const [jsonConfig, setJsonConfig] = useState('');
-  const [menu, setMenu] = useState<{ x: number; y: number; edgeId: string | null } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; edgeId: string | null; nodeId: string | null } | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   const pointer = useRef<{ id: number; nodeId: string; originX: number; originY: number; startX: number; startY: number } | null>(null);
   const current = history?.graph;
@@ -243,6 +244,10 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     if (Math.abs(dx) + Math.abs(dy) > 3) commit(moveNode(current, p.nodeId, { x: Math.max(12,p.startX+dx), y: Math.max(12,p.startY+dy) }));
   };
   const showNode = (node: FlowNode) => {
+    if (reconnecting && current) {
+      commit(reconnectEdge(current, reconnecting, node.id));
+      setReconnecting(null); setActiveEdge(null); return;
+    }
     if (sourcePort && current && sourcePort.nodeId !== node.id) {
       const edge = {
         id: crypto.randomUUID(), source: sourcePort.nodeId, source_port: sourcePort.port, target: node.id, target_port: 'in',
@@ -272,7 +277,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault(); setHistory(h => h ? (event.shiftKey ? redoEdit(h) : undoEdit(h)) : null);
       }
-      if (event.key === 'Escape') { setSourcePort(null); setMenu(null); }
+      if (event.key === 'Escape') { setSourcePort(null); setReconnecting(null); setMenu(null); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -339,7 +344,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                   <span className={'ory-auto-palette-dot family-'+family}/>{descriptor.title}<Plus size={13}/>
                 </button>)}</div>)}
           </aside>
-          <div className="ory-auto-canvas-scroll" ref={stage} onContextMenu={e=>{if(e.target===e.currentTarget){e.preventDefault();setMenu({x:e.clientX,y:e.clientY,edgeId:null})}}}>
+          <div className="ory-auto-canvas-scroll" ref={stage} onContextMenu={e=>{if(e.target===e.currentTarget){e.preventDefault();setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:null})}}}>
             <div className="ory-auto-canvas" style={{transform:'scale('+zoom+')',transformOrigin:'top left'}}>
               <svg aria-hidden="true" className="ory-auto-connections" viewBox="0 0 1500 950" preserveAspectRatio="none">
                 {current.edges.map(edge=>{
@@ -351,10 +356,10 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               {current.edges.map(edge=>{
                 const src=current.nodes.find(n=>n.id===edge.source),dst=current.nodes.find(n=>n.id===edge.target);if(!src||!dst)return null;
                 const x=(src.position.x+220+dst.position.x)/2,y=(src.position.y+dst.position.y)/2+43;
-                return <button key={edge.id} className={'ory-auto-edge-add'+(activeEdge===edge.id?' active':'')} style={{left:x,top:y}} aria-label="Selecionar conexão para inserir nó" title="Inserir bloco nesta conexão" onClick={()=>{setActiveEdge(edge.id);setSelectedId(null)}} onContextMenu={e=>{e.preventDefault();setActiveEdge(edge.id);setMenu({x:e.clientX,y:e.clientY,edgeId:edge.id})}}><Plus size={13}/></button>;
+                return <button key={edge.id} className={'ory-auto-edge-add'+(activeEdge===edge.id?' active':'')} style={{left:x,top:y}} aria-label="Selecionar conexão para inserir nó" title="Inserir bloco nesta conexão" onClick={()=>{setActiveEdge(edge.id);setSelectedId(null)}} onContextMenu={e=>{e.preventDefault();setActiveEdge(edge.id);setMenu({x:e.clientX,y:e.clientY,edgeId:edge.id,nodeId:null})}}><Plus size={13}/></button>;
               })}
               {current.nodes.map(node=><div className={'ory-auto-node family-'+NODE_REGISTRY[node.type].family+(selectedId===node.id?' selected':'')+(node.disabled?' disabled':'')} key={node.id} style={{left:node.position.x,top:node.position.y}}>
-                <button className="ory-auto-node-body" onClick={()=>showNode(node)} onPointerDown={e=>onNodePointerDown(e,node)} onPointerUp={onNodePointerUp} onContextMenu={e=>{e.preventDefault();showNode(node);setMenu({x:e.clientX,y:e.clientY,edgeId:null})}} aria-label={'Editar nó '+node.label}>
+                <button className="ory-auto-node-body" onClick={()=>showNode(node)} onPointerDown={e=>onNodePointerDown(e,node)} onPointerUp={onNodePointerUp} onContextMenu={e=>{e.preventDefault();showNode(node);setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:node.id})}} aria-label={'Editar nó '+node.label}>
                   <span className="ory-auto-node-type">{NAMES[NODE_REGISTRY[node.type].family]}</span><strong>{node.label}</strong><small>{NODE_REGISTRY[node.type].title}</small>
                 </button>
                 {node.type!=='trigger'&&<span className="ory-auto-node-input" title="Entrada"/>}
@@ -363,7 +368,17 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               </div>)}
             </div>
             <div className="ory-auto-canvas-controls"><button onClick={()=>setZoom(v=>Math.max(0.65,+(v-0.1).toFixed(2)))} aria-label="Diminuir zoom"><ZoomOut size={16}/></button><span>{Math.round(zoom*100)}%</span><button onClick={()=>setZoom(v=>Math.min(1.5,+(v+0.1).toFixed(2)))} aria-label="Aumentar zoom"><ZoomIn size={16}/></button><button onClick={fit}>100%</button></div>
-            {menu&&<div className="ory-auto-context" style={{position:'fixed',left:Math.min(menu.x,window.innerWidth-205),top:Math.min(menu.y,window.innerHeight-110)}}><button onClick={()=>{setMenu(null);if(menu.edgeId)setActiveEdge(menu.edgeId)}}>Selecionar conexão</button><button onClick={()=>{setMenu(null);setSourcePort(null)}}>Cancelar conexão</button></div>}
+            {menu&&<div className="ory-auto-context" style={{position:'fixed',left:Math.min(menu.x,window.innerWidth-205),top:Math.min(menu.y,window.innerHeight-150)}}>
+              {menu.nodeId&&current.edges.some(edge=>edge.source===menu.nodeId) && <button onClick={()=>{
+                const outgoing=current.edges.find(edge=>edge.source===menu.nodeId && edge.source_port==='out') ||
+                  current.edges.find(edge=>edge.source===menu.nodeId);
+                if(outgoing) addToEdge(outgoing.id,'condition');
+                setMenu(null);
+              }}>Criar condição conectada</button>}
+              {menu.edgeId&&<button onClick={()=>{setActiveEdge(menu.edgeId);setMenu(null)}}>Inserir nó nesta conexão</button>}
+              {menu.edgeId&&<button onClick={()=>{setReconnecting(menu.edgeId);setMenu(null);setNotice('Clique no nó de destino para reconectar.')}}>Reconectar destino</button>}
+              <button onClick={()=>{setMenu(null);setSourcePort(null);setReconnecting(null)}}>Fechar menu</button>
+            </div>}
           </div>
           <aside className="ory-auto-inspector">
             <div className="ory-auto-inspector-title"><Settings2 size={16}/><h3>Inspetor</h3></div>
@@ -372,13 +387,13 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               <button onClick={applyJsonConfig}>Aplicar configuração</button>
               {selected.type!=='trigger'&&<button className="ory-auto-danger" onClick={()=>{commit(removeNode(current,selected.id));setSelectedId(null)}}>Remover bloco</button>}
               <p className="ory-auto-aside-hint">Alterações locais exigem validação e publicação por servidor antes de produzir efeitos.</p>
-            </> : activeEdge ? <><p>Conexão selecionada. Escolha um bloco na biblioteca à esquerda para inseri-lo entre os nós.</p><button onClick={()=>setActiveEdge(null)}>Desmarcar conexão</button></> :
+            </> : activeEdge ? <><p>Conexão selecionada. Escolha um bloco na biblioteca à esquerda para inseri-lo entre os nós.</p><button onClick={()=>{setReconnecting(activeEdge);setNotice('Selecione o novo nó de destino no canvas.')}}>Reconectar destino</button><button onClick={()=>setActiveEdge(null)}>Desmarcar conexão</button></> :
               <div className="ory-auto-empty-inspector"><GitBranch size={26}/><strong>Selecione um bloco</strong><p>Clique em um nó para editar. Use os botões + nas linhas para inserir etapas.</p></div>}
             <div className="ory-auto-check"><h4>Integridade do fluxo</h4><span className={validation?.ok?'valid':'invalid'}>{validation?.ok?'Estrutura conectada':(validation?.issues.length||0)+' observações'}</span>
               {(validation?.issues||[]).slice(0,4).map((issue,i)=><p key={i}>{issue.code} · {issue.path}</p>)}</div>
           </aside>
         </div>
-        {(notice||preview||sourcePort)&&<div className="ory-auto-status" role="status">{sourcePort?<span>Conectando: escolha o nó de destino ou pressione Esc.</span>:null}{notice&&<span>{notice}</span>}{preview&&<span>Simulação — não enviado · {preview.trace.length} nós visitados · {preview.issues.map(x=>x.code).join(', ')||'sem erro estrutural'}</span>}<button aria-label="Fechar aviso" onClick={()=>{setNotice('');setPreview(null);setSourcePort(null)}}><X size={15}/></button></div>}
+        {(notice||preview||sourcePort||reconnecting)&&<div className="ory-auto-status" role="status">{sourcePort?<span>Conectando: escolha o nó de destino ou pressione Esc.</span>:null}{reconnecting?<span>Reconectando: escolha o nó de destino ou pressione Esc.</span>:null}{notice&&<span>{notice}</span>}{preview&&<span>Simulação — não enviado · {preview.trace.length} nós visitados · {preview.issues.map(x=>x.code).join(', ')||'sem erro estrutural'}</span>}<button aria-label="Fechar aviso" onClick={()=>{setNotice('');setPreview(null);setSourcePort(null);setReconnecting(null)}}><X size={15}/></button></div>}
       </div>}
       {tab!=='pipeline'&&tab!=='sdr'&&<div className="ory-auto-overview">
         <div className="ory-auto-section-heading"><div><span className="ory-auto-overline">CONTROLE E GOVERNANÇA</span><h2>{subviews[tab].title}</h2><p>{subviews[tab].description}</p></div></div>
