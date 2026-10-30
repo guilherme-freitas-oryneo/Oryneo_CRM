@@ -89,7 +89,7 @@ export async function planShadowExecution(
       break;
     }
   }
-  const issues = preview.issues.map(issue => ({ code: issue.code, path: issue.path }));
+  // A provider/timer outcome is unknown in shadow mode; do not claim that\n  // subsequent branches succeeded or failed in the preview.\n  const issues = pending ? [] : preview.issues.map(issue => ({ code: issue.code, path: issue.path }));
   return {
     shadowOnly: true, dispatchAuthorized: false, activationKey, trace, actions,
     state: issues.length ? 'blocked' : pending ? 'awaiting_server_outcome' : 'completed',
