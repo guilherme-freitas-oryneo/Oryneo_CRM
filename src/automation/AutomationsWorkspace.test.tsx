@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AutomationsWorkspace } from './AutomationsWorkspace';
 
@@ -52,6 +52,17 @@ describe('Automações: interação visual isolada', () => {
     expect(screen.getByText(/Editor de preparação · sem merge, deploy ou ativação de fluxos/)).toBeInTheDocument();
   });
 
+  it('insere condição conectada pelo menu de botão direito do nó', async () => {
+    const user=userEvent.setup();
+    render(<AutomationsWorkspace userId={userId}/>);
+    await user.click(screen.getByRole('button', { name: /Fluxos do pipeline/ }));
+    await user.click(screen.getByRole('button', { name: /Novo fluxo/i }));
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Editar nó Gatilho inicial' }));
+    await user.click(screen.getByRole('button', { name: 'Criar condição conectada' }));
+    expect(screen.getByRole('button', { name: /Editar nó Condição/ })).toBeInTheDocument();
+    expect(screen.getByText(/Alterações no rascunho/)).toBeInTheDocument();
+    expect(screen.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
+  });
   it('não salva texto inválido como configuração de nó', async () => {
     const user = userEvent.setup();
     render(<AutomationsWorkspace userId={userId}/>);
