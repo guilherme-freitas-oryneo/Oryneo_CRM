@@ -120,3 +120,10 @@
 .ory-auto-catalog td small{display:block;color:#9aa7b1;font-size:9px;font-weight:450;margin-top:4px}
 .ory-auto-approved{border:1px solid #ceeadd;border-radius:5px;padding:5px 7px;color:#287254;background:#f2faf6;font-size:9px;font-weight:750}
 .ory-auto-no-data{padding:40px 23px;display:flex;align-items:center;gap:12px;color:#8c9aa7;font-size:11px;line-height:1.7}
+
+/* The CRM shell is viewport-locked. Keep navigation reachable while a tall
+   editor scrolls inside main rather than being clipped behind toolbar layers. */
+.main > .ory-auto{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.ory-auto-tabs{position:sticky;top:0;z-index:25;flex-shrink:0}
+.ory-auto-editor-toolbar{position:relative;z-index:1}
+.ory-auto-header{flex-shrink:0}
