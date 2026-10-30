@@ -57,7 +57,7 @@ BEGIN
   END;
   IF NOT denied THEN RAISE EXCEPTION 'Client could read private event inbox'; END IF;
 END; $$;
-DO $
+DO $$
 DECLARE insert_denied boolean := false;
 BEGIN
   BEGIN
