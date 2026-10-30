@@ -4,6 +4,7 @@ import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBra
 import { connectPorts, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, type WorkspaceGrant, type RemoteFlow } from './api';
 import './automations-workspace.css';
 
 type Tab = 'overview' | 'pipeline' | 'sdr' | 'triggers' | 'templates' | 'executions';
@@ -107,6 +108,24 @@ function useDrafts(userId: string) {
 export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [tab, setTab] = useState<Tab>('overview');
   const { drafts, save, dirtyError } = useDrafts(userId);
+  const [workspace, setWorkspace] = useState<WorkspaceGrant | null>(null);
+  const [remoteFlows, setRemoteFlows] = useState<RemoteFlow[]>([]);
+  const [remoteRevision, setRemoteRevision] = useState<Record<string, number>>({});
+  const [syncError, setSyncError] = useState('');
+  const [syncBusy, setSyncBusy] = useState(false);
+  useEffect(() => {
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(userId)) return;
+    let cancelled = false;
+    void loadAutomationWorkspaces().then(async grants => {
+      if (cancelled) return;
+      const first = grants.find(item => item.slug === 'oryneo-crm') || grants[0];
+      if (!first) { setSyncError('Sem autorização para o workspace de automações.'); return; }
+      setWorkspace(first);
+      const saved = await listRemoteAutomationFlows(first.id);
+      if (!cancelled) { setRemoteFlows(saved); setRemoteRevision(Object.fromEntries(saved.map(flow => [flow.id, flow.revision]))); }
+    }).catch(() => { if (!cancelled) setSyncError('Serviço de rascunhos indisponível. Use a cópia local.'); });
+    return () => { cancelled = true; };
+  }, [userId]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [history, setHistory] = useState<DraftHistory | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -137,10 +156,43 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     setNotice('Editor isolado: nenhum fluxo está conectado a disparos reais.');
   };
   const create = (kind: FlowKind) => open(connectedDraft(kind));
-  const saveDraft = () => {
-    if (!current) return;
+  const openRemote = async (flowId: string) => {
+    if (!workspace) return;
+    setSyncBusy(true);
+    try {
+      const result = await loadRemoteAutomationFlow(workspace.id, flowId);
+      if (!result.version?.graph_json || result.version.graph_json.status !== 'draft') {
+        setNotice('A versão publicada é somente leitura. Crie um novo rascunho para alterações.');
+        return;
+      }
+      open(result.version.graph_json);
+      setRemoteRevision(revisions => ({ ...revisions, [flowId]: result.flow.revision }));
+      setNotice('Rascunho carregado do workspace ORYNEO, sem disparos.');
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : 'Não foi possível abrir o fluxo.');
+    } finally { setSyncBusy(false); }
+  };
+  const saveDraft = async () => {
+    if (!current || syncBusy) return;
     const next = drafts.filter(d => d.id !== current.id).concat(current);
-    if (save(next)) setNotice('Rascunho salvo apenas neste navegador, sem publicação ou envio.');
+    if (!save(next)) return;
+    setNotice('Cópia de segurança salva neste navegador.');
+    if (!workspace) return;
+    if (!['admin','publisher','editor'].includes(workspace.role)) {
+      setNotice('Cópia local salva. Seu perfil não pode modificar o workspace.');
+      return;
+    }
+    setSyncBusy(true);
+    try {
+      const result = await saveRemoteAutomationDraft(workspace.id, current, remoteRevision[current.id]);
+      setRemoteRevision(revisions => ({ ...revisions, [current.id]: result.revision }));
+      const saved = await listRemoteAutomationFlows(workspace.id);
+      setRemoteFlows(saved);
+      setNotice('Rascunho salvo no workspace ORYNEO com revisão ' + result.revision + '. Nenhum disparo executado.');
+    } catch (reason) {
+      setNotice('Cópia local preservada. Sincronização não concluída: ' +
+        (reason instanceof Error ? reason.message : 'servidor indisponível'));
+    } finally { setSyncBusy(false); }
   };
   const exportDraft = () => {
     if (!current) return;
@@ -236,13 +288,18 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
         }}><item.icon size={15}/>{item.label}</button>)}
       </nav>
       {dirtyError && <div role="alert" className="ory-auto-warning"><AlertCircle size={15}/>{dirtyError}</div>}
+      {syncError && <div role="status" className="ory-auto-warning"><AlertCircle size={15}/>{syncError}</div>}
       {(tab === 'pipeline' || tab === 'sdr') && !displayBuilder && <div className="ory-auto-list">
         <div className="ory-auto-list-heading">
           <div><span className="ory-auto-overline">BIBLIOTECA DE FLUXOS</span><h2>{tab === 'sdr' ? 'Fluxos conversacionais SDR' : 'Fluxos do pipeline'}</h2><p>Rascunhos locais e não publicados. Os disparos atuais permanecem no motor existente.</p></div>
           <button className="ory-auto-primary" onClick={()=>create(tab)}><Plus size={17}/> Novo fluxo</button>
         </div>
         <div className="ory-auto-flows">
-          {drafts.filter(g=>g.kind===tab).map(flow=><button className="ory-auto-flow-card" key={flow.id} onClick={()=>open(flow)}>
+          {remoteFlows.filter(g=>g.kind===tab).map(flow=><button className="ory-auto-flow-card" disabled={syncBusy} key={'remote-'+flow.id} onClick={()=>void openRemote(flow.id)}>
+            <span className="ory-auto-flow-icon"><Workflow size={21}/></span>
+            <span><strong>{flow.name}</strong><small>Workspace ORYNEO · revisão {flow.revision} · {flow.enabled?'ativo':'inativo'}</small></span><ArrowRight size={17}/>
+          </button>)}
+          {drafts.filter(g=>g.kind===tab && !remoteFlows.some(remote=>remote.id===g.id)).map(flow=><button className="ory-auto-flow-card" key={flow.id} onClick={()=>open(flow)}>
             <span className="ory-auto-flow-icon"><Workflow size={21}/></span>
             <span><strong>{flow.name}</strong><small>{flow.nodes.length} nós · {flow.edges.length} conexões · rascunho local</small></span><ArrowRight size={17}/>
           </button>)}
@@ -262,7 +319,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               setPreview(simulateFlow(current,{eventType:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||''),context:{}}));
             }}><CirclePlay size={16}/>Simular</button>
             <button title="Exportar rascunho em JSON" onClick={exportDraft}><FileJson size={16}/></button>
-            <button className="ory-auto-primary" onClick={saveDraft}>Salvar rascunho</button>
+            <button className="ory-auto-primary" disabled={syncBusy} onClick={()=>void saveDraft()}>{syncBusy?'Salvando…':'Salvar rascunho'}</button>
             <button title="Publicação disponível após engine homologada" disabled>Publicar <LockKeyhole size={13}/></button>
           </div>
         </div>
