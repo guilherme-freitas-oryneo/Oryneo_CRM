@@ -4,6 +4,7 @@
  * Service-key DB access is always preceded by live JWT verification, CRM
  * membership and workspace role checks. Never trust client-supplied actor IDs.
  */
+import { inspectServerGraph } from './graphGuard.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 
 const url = Deno.env.get('SUPABASE_URL') ?? '';
@@ -128,6 +129,45 @@ Deno.serve(async request => {
       .eq('workspace_id', workspaceId).order('started_at', { ascending: false }).limit(100);
     return error ? reply({ error: 'Não foi possível carregar as execuções.' }, 503)
       : reply({ ok: true, executions: data || [] });
+  }
+
+
+  // Read-only server validation. It never creates a version or authorizes any
+  // send. All referenced IDs are resolved from the current workspace, not the
+  // browser. Empty/unverified references block release candidacy.
+  if (action === 'validate') {
+    const [stages, templates, knowledge, dictionaries] = await Promise.all([
+      db.from('crm_records').select('id').eq('kind', 'stage').eq('deleted', false).limit(100),
+      db.from('automation_template_registry')
+        .select('id,provider_status,parameter_schema').eq('workspace_id', workspaceId).limit(200),
+      db.from('automation_knowledge_release')
+        .select('id').eq('workspace_id', workspaceId).eq('status', 'published').limit(100),
+      db.from('automation_intent_dictionary')
+        .select('id').eq('workspace_id', workspaceId).eq('status', 'published').limit(100),
+    ]);
+    if (stages.error || templates.error || knowledge.error || dictionaries.error) {
+      return reply({ error: 'Referências canônicas indisponíveis para validação.' }, 503);
+    }
+    const refs = {
+      eventTypes: [
+        'opportunity.created', 'opportunity.updated', 'opportunity.stage_changed',
+        'lead.intake_received', 'checkout.started', 'checkout.expired',
+        'billing.paid_verified', 'billing.failed', 'conversation.inbound',
+        'conversation.human_takeover', 'meeting.scheduled', 'proposal.sent',
+      ],
+      stageIds: (stages.data || []).map(item => item.id),
+      templateIds: (templates.data || [])
+        .filter(item => item.provider_status === 'APPROVED'
+          && item.parameter_schema
+          && typeof item.parameter_schema === 'object'
+          && !Array.isArray(item.parameter_schema)
+          && item.parameter_schema.components_verified === true)
+        .map(item => item.id),
+      knowledgeIds: (knowledge.data || []).map(item => item.id),
+      dictionaryIds: (dictionaries.data || []).map(item => item.id),
+    };
+    const validation = inspectServerGraph(body.graph, refs);
+    return reply({ ok: true, validation, preflightOnly: true, dispatchAuthorized: false });
   }
 
   if (!canEdit) return reply({ error: 'Somente editores podem modificar rascunhos.' }, 403);
