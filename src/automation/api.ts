@@ -68,3 +68,22 @@ export async function listRemoteAutomationExecutions(workspaceId: string): Promi
   const result = await invoke<{ ok: true; executions: AutomationExecution[] }>({ action: 'executions', workspaceId });
   return result.executions || [];
 }
+
+
+export type ServerGraphValidation = {
+  ok: boolean;
+  issues: { code: string; path: string }[];
+  nodeCount: number;
+  edgeCount: number;
+  dispatchAuthorized: false;
+};
+/** Only authenticated, non-emitting preflight; never proof of publication. */
+export async function validateRemoteAutomationDraft(
+  workspaceId: string, graph: FlowDefinition,
+): Promise<ServerGraphValidation> {
+  const result = await invoke<{
+    ok: true; validation: ServerGraphValidation;
+    preflightOnly: true; dispatchAuthorized: false;
+  }>({ action: 'validate', workspaceId, graph });
+  return result.validation;
+}
