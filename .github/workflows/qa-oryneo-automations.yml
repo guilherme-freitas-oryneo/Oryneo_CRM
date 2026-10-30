@@ -53,3 +53,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/schema.preview.sql
       - name: Testar RLS, isolamento, deduplicação e imutabilidade
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/schema.qa.sql
+      - name: Habilitar contrato transacional de rascunhos SOMENTE no banco descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_rpc.preview.sql
+      - name: Testar concorrência, permissões e auditoria de versões
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_rpc.qa.sql
