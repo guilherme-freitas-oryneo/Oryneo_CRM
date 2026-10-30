@@ -175,6 +175,18 @@ export function validatePublication(graph: FlowDefinition, refs: PublicationRefs
       add('PORT_SIGNATURE', path + '.ports', 'Portas não correspondem à registry canônica.');
     }
     validateNodeConfig(node, refs, (code, message) => add(code, path + '.config', message));
+    for (const port of def.outputs) {
+      const count = graph.edges.filter(e => e.source === node.id && e.source_port === port).length;
+      if (count !== 1) {
+        add('REQUIRED_BRANCH_MISSING', path + '.ports.' + port, 'Cada saída obrigatória deve ter uma única conexão.');
+      }
+    }
+  }
+  for (let i = 0; i < graph.edges.length; i++) {
+    const edge = graph.edges[i];
+    if (edge.target_port !== 'in') {
+      add('EDGE_TARGET_NOT_INPUT', 'edges[' + i + ']', 'Conexões não podem apontar para portas de saída.');
+    }
   }
   return { ok: issues.length === 0, issues };
 }
