@@ -32,7 +32,7 @@ const nodeTypes = new Set([
 ]);
 const isObj = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
-const id = (value: unknown) =>
+const id = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0 && value.length <= 128;
 const validUuid = (v: unknown): v is string => typeof v === 'string' && uuid.test(v);
 function validDraft(graph: unknown, flowId: string, revision: number): boolean {
