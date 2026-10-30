@@ -173,7 +173,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const onNodePointerDown = (event: ReactPointerEvent<HTMLButtonElement>, node: FlowNode) => {
     if (event.button !== 0) return;
     pointer.current = { id: event.pointerId, nodeId: node.id, originX: event.clientX, originY: event.clientY, startX: node.position.x, startY: node.position.y };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
   };
   const onNodePointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const p = pointer.current;
