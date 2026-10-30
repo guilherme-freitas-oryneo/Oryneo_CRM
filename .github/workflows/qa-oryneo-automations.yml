@@ -53,3 +53,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/schema.preview.sql
       - name: Testar RLS, isolamento, deduplicação e imutabilidade
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/schema.qa.sql
+      - name: Aplicar funções de rascunho exclusivamente no Postgres temporário
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_api.preview.sql
+      - name: Verificar transações, permissões, revisão otimista e trilha de auditoria
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_api.qa.sql
