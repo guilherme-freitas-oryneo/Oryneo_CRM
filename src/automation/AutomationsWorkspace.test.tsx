@@ -75,4 +75,25 @@ describe('Automações: interação visual isolada', () => {
     await user.click(screen.getByRole('button', { name: 'Aplicar configuração' }));
     await waitFor(() => expect(screen.getByText(/JSON inválido: o nó não foi alterado/)).toBeInTheDocument());
   });
+
+  it('edita grupos E/OU no inspetor sem JSON nem publicação', async () => {
+    const user=userEvent.setup();
+    render(<AutomationsWorkspace userId={userId}/>);
+    await user.click(screen.getByRole('button', { name: /Fluxos do pipeline/ }));
+    await user.click(screen.getByRole('button', { name: /Novo fluxo/i }));
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Editar nó Gatilho inicial' }));
+    await user.click(screen.getByRole('button', { name: 'Criar condição conectada' }));
+    await user.click(screen.getByRole('button', { name: 'Editar nó Condição' }));
+    expect(screen.getByRole('combobox',{name:'Campo da condição root'})).toBeInTheDocument();
+    expect(screen.queryByRole('textbox',{name:'Configuração JSON do nó'})).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button',{name:/Combinar com outra condição/}));
+    fireEvent.change(screen.getByRole('combobox',{name:'Operador lógico root'}),{target:{value:'any'}});
+    fireEvent.change(screen.getByRole('combobox',{name:'Campo da condição 1'}),{target:{value:'billing.paid_verified'}});
+    await user.click(screen.getByRole('button',{name:'Salvar rascunho'}));
+    const stored=localStorage.getItem('oryneo:automations:draft:'+userId)||'';
+    expect(stored).toContain('"op":"any"');
+    expect(stored).toContain('billing.paid_verified');
+    expect(screen.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
+  });
+
 });
