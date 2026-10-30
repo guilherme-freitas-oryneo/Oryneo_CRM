@@ -127,3 +127,28 @@
 .ory-auto-tabs{position:sticky;top:0;z-index:25;flex-shrink:0}
 .ory-auto-editor-toolbar{position:relative;z-index:1}
 .ory-auto-header{flex-shrink:0}
+
+
+/* Typed rule inspector: compact, nested and usable on touch devices. */
+.ory-rule-editor{display:flex;flex-direction:column;gap:10px;min-width:0}
+.ory-rule-editor .ory-rule-help{font-size:10px;color:#71859a;line-height:1.65;margin:0}
+.ory-rule-group{min-width:0;border-left:2px solid #b7cce1;background:#f8fafc;border-radius:5px;padding:8px 7px;margin:6px 0}
+.ory-rule-group[data-depth="0"]{border-left-color:#547fa9}
+.ory-rule-group-head,.ory-rule-leaf-head{display:flex;align-items:flex-end;gap:5px;justify-content:space-between}
+.ory-rule-group-head>label,.ory-rule-leaf-head>label{flex:1;min-width:0}
+.ory-rule-leaf{min-width:0;padding:9px 7px;border:1px solid #e4eaf1;background:#fff;border-radius:7px;margin:5px 0}
+.ory-auto-inspector .ory-rule-editor label{margin:7px 0;min-width:0}
+.ory-auto-inspector .ory-rule-editor select,.ory-auto-inspector .ory-rule-editor input,
+.ory-auto-inspector .ory-rule-editor textarea{width:100%;min-width:0;max-width:100%;border:1px solid #dce5ed;border-radius:6px;background:#fff;padding:7px;color:#28435e;font-size:10px;line-height:1.35}
+.ory-rule-pair{display:flex;flex-direction:column;gap:1px}
+.ory-rule-editor button{font-size:10px;line-height:1.4;border-radius:6px;border:1px solid #cbd9e6;background:#f2f7fb;color:#3a607e;padding:7px;min-height:30px}
+.ory-rule-editor button:disabled{opacity:.45;cursor:not-allowed}
+.ory-rule-editor button:focus-visible,.ory-rule-editor input:focus-visible,
+.ory-rule-editor select:focus-visible{outline:2px solid #417caf;outline-offset:2px}
+.ory-rule-add{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+.ory-rule-add button{flex:1;min-width:90px}
+.ory-rule-remove{flex:0 0 auto;min-width:62px;color:#9e5353!important;background:#fff7f7!important;border-color:#e7cbcb!important}
+.ory-rule-wrap{width:100%}
+.ory-rule-invalid{padding:12px;border:1px solid #ecd7b9;border-radius:7px;background:#fffaf2}
+.ory-rule-invalid p{font-size:10px;color:#80643c;line-height:1.55;margin:0 0 10px}
+.ory-rule-invalid button{border:1px solid #cbd9e6;border-radius:6px;padding:8px;background:#fff;color:#345a78}
