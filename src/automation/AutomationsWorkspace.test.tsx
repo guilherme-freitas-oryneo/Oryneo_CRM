@@ -5,7 +5,16 @@ import { AutomationsWorkspace } from './AutomationsWorkspace';
 
 const userId = 'user-automation-ui-tests';
 describe('Automações: interação visual isolada', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    // jsdom does not implement pointer capture; this mocks only that browser API.
+    if (!HTMLElement.prototype.setPointerCapture) {
+      HTMLElement.prototype.setPointerCapture = () => undefined;
+    }
+    if (!HTMLElement.prototype.releasePointerCapture) {
+      HTMLElement.prototype.releasePointerCapture = () => undefined;
+    }
+  });
 
   it('abre as seis subáreas sem depender de Supabase nem alterar WhatsApp', async () => {
     const user = userEvent.setup();
