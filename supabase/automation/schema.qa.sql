@@ -28,9 +28,9 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.automation_runtime_settings WHERE mode <> 'disabled' OR emergency_stop IS NOT TRUE) THEN
     RAISE EXCEPTION 'Unsafe runtime defaults';
   END IF;
-  IF EXISTS (SELECT 1 FROM information_schema.tables
-    WHERE table_schema='public' AND table_name LIKE 'automation_%'
-    AND row_security IS FALSE) THEN
+  IF EXISTS (SELECT 1 FROM pg_class cls JOIN pg_namespace n ON n.oid = cls.relnamespace
+    WHERE n.nspname='public' AND cls.relname LIKE 'automation_%' AND cls.relkind = 'r'
+    AND cls.relrowsecurity IS FALSE) THEN
     RAISE EXCEPTION 'Automation table without RLS';
   END IF;
 END; $$;
@@ -46,10 +46,17 @@ BEGIN
   IF visible_count <> 1 THEN RAISE EXCEPTION 'Cross-workspace leak: %',visible_count; END IF;
   SELECT count(*) INTO visible_count FROM public.automation_workspace_members;
   IF visible_count <> 1 THEN RAISE EXCEPTION 'Membership leak: %',visible_count; END IF;
-  SELECT count(*) INTO visible_count FROM public.automation_event_inbox;
-  -- Event inbox should be fully inaccessible, not merely empty.
-EXCEPTION WHEN insufficient_privilege THEN NULL;
-END; $$;
+END; $;
+DO $
+DECLARE denied boolean := false;
+DECLARE event_count int;
+BEGIN
+  BEGIN
+    SELECT count(*) INTO event_count FROM public.automation_event_inbox;
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'Client could read private event inbox'; END IF;
+END; $;
 DO $$
 DECLARE insert_denied boolean := false;
 BEGIN
