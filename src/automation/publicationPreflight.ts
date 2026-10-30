@@ -205,9 +205,19 @@ function nodeConfigIssues(node: FlowNode, refs: ReferenceSnapshot): string[] {
 export function preflightPublication(
   flow: FlowDefinition, refs: ReferenceSnapshot,
 ): PublicationPreflight {
-  const issues: PreflightIssue[] = validateFlow(flow).issues.map(i => ({
+  const structural = validateFlow(flow);
+  const issues: PreflightIssue[] = structural.issues.map(i => ({
     code: i.code, path: i.path,
   }));
+  // JSON imports and network inputs can violate TypeScript types at runtime.
+  // Fail closed before iterating or reading untrusted nested properties.
+  if (!flow || typeof flow !== 'object' || !Array.isArray(flow.nodes)
+    || !Array.isArray(flow.edges)
+    || !flow.nodes.every(n => n && typeof n === 'object'
+      && typeof n.type === 'string' && n.config && typeof n.config === 'object'
+      && !Array.isArray(n.config) && Array.isArray(n.ports))) {
+    return { canSubmitForServerValidation: false, issues, requiresServerAuthorization: true };
+  }
   const add = (code: string, path: string) => issues.push({ code, path });
   if (flow.schema_version !== PUBLISHABLE_SCHEMA_VERSION) {
     add('CONCEPTUAL_SCHEMA_NOT_PUBLISHABLE', 'schema_version');
