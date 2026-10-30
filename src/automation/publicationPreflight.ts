@@ -106,11 +106,12 @@ function nodeConfigIssues(node: FlowNode, refs: ReferenceSnapshot): string[] {
       break;
     case 'ai_generate': {
       const mandatory = ['no_invented_terms', 'no_payment_claims', 'one_question_at_a_time'];
+      const guardrails = c.guardrails;
       requireConfig(
         onlyKeys(c, ['guardrails'])
-          && Array.isArray(c.guardrails)
-          && c.guardrails.length === mandatory.length
-          && mandatory.every(rule => c.guardrails.includes(rule)),
+          && Array.isArray(guardrails)
+          && guardrails.length === mandatory.length
+          && mandatory.every(rule => guardrails.includes(rule)),
         'AI_GUARDRAILS_REQUIRED',
       );
       break;
