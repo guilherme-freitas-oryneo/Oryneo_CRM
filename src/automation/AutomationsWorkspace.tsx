@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBra
 import { connectPorts, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
-import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, type WorkspaceGrant, type RemoteFlow } from './api';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
 import './automations-workspace.css';
 
 type Tab = 'overview' | 'pipeline' | 'sdr' | 'triggers' | 'templates' | 'executions';
@@ -110,6 +110,8 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const { drafts, save, dirtyError } = useDrafts(userId);
   const [workspace, setWorkspace] = useState<WorkspaceGrant | null>(null);
   const [remoteFlows, setRemoteFlows] = useState<RemoteFlow[]>([]);
+  const [metaTemplates, setMetaTemplates] = useState<AutomationTemplate[]>([]);
+  const [remoteExecutions, setRemoteExecutions] = useState<AutomationExecution[]>([]);
   const [remoteRevision, setRemoteRevision] = useState<Record<string, number>>({});
   const [syncError, setSyncError] = useState('');
   const [syncBusy, setSyncBusy] = useState(false);
@@ -123,6 +125,12 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       setWorkspace(first);
       const saved = await listRemoteAutomationFlows(first.id);
       if (!cancelled) { setRemoteFlows(saved); setRemoteRevision(Object.fromEntries(saved.map(flow => [flow.id, flow.revision]))); }
+      const [registry, executions] = await Promise.allSettled([
+        listRemoteAutomationTemplates(first.id), listRemoteAutomationExecutions(first.id),
+      ]);
+      if (cancelled) return;
+      if (registry.status === 'fulfilled') setMetaTemplates(registry.value);
+      if (executions.status === 'fulfilled') setRemoteExecutions(executions.value);
     }).catch(() => { if (!cancelled) setSyncError('Serviço de rascunhos indisponível. Use a cópia local.'); });
     return () => { cancelled = true; };
   }, [userId]);
@@ -375,13 +383,25 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       {tab!=='pipeline'&&tab!=='sdr'&&<div className="ory-auto-overview">
         <div className="ory-auto-section-heading"><div><span className="ory-auto-overline">CONTROLE E GOVERNANÇA</span><h2>{subviews[tab].title}</h2><p>{subviews[tab].description}</p></div></div>
         {tab==='overview' ? <div className="ory-auto-stat-grid">
-          <div><span>Rascunhos locais</span><strong>{drafts.length}</strong><small>Sem efeitos em produção</small></div>
-          <div><span>Fluxos publicados pela nova engine</span><strong>—</strong><small>Publicação ainda não habilitada</small></div>
-          <div><span>Executor atual do SDR</span><strong>Preservado</strong><small>Sem alteração de worker</small></div>
+          <div><span>Rascunhos locais</span><strong>{drafts.length}</strong><small>Backups neste dispositivo</small></div>
+          <div><span>Fluxos no workspace</span><strong>{remoteFlows.length}</strong><small>Motor novo desativado</small></div>
+          <div><span>Templates Meta sincronizados</span><strong>{metaTemplates.length||'—'}</strong><small>Parâmetros aguardam homologação</small></div>
+        </div> : tab==='templates' ? <div className="ory-auto-catalog">
+          <div className="ory-auto-catalog-heading"><div><strong>Catálogo oficial de templates</strong><p>Sincronização read-only da Meta. Status pode mudar; envio exige revalidação no servidor.</p></div><span>{metaTemplates.length} cadastrados</span></div>
+          {metaTemplates.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Nome do template</th><th>Categoria</th><th>Idioma</th><th>Status</th></tr></thead><tbody>
+            {metaTemplates.map(item=><tr key={item.id}><td>{item.template_name}<small>ID {item.provider_template_id||'não disponível'}</small></td>
+              <td>{item.category}</td><td>{item.language}</td>
+              <td><span className="ory-auto-approved">{item.provider_status}</span></td></tr>)}
+          </tbody></table></div>:<p className="ory-auto-no-data">Sem catálogo carregado. O CRM não autoriza envios pela nova engine enquanto a sincronização não for verificada.</p>}
+        </div> : tab==='executions' ? <div className="ory-auto-catalog">
+          <div className="ory-auto-catalog-heading"><div><strong>Execuções registradas</strong><p>Consulta autorizada aos registros da nova engine. Sem disparos ativos.</p></div><span>{remoteExecutions.length} registros</span></div>
+          {remoteExecutions.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Execução</th><th>Estado</th><th>Início</th></tr></thead><tbody>
+            {remoteExecutions.map(item=><tr key={item.id}><td>{item.id.slice(0,12)}…</td><td>{item.state}</td><td>{new Date(item.started_at).toLocaleString('pt-BR')}</td></tr>)}
+          </tbody></table></div> : <div className="ory-auto-no-data"><History size={26}/><p>Nenhuma execução registrada na nova engine. O SDR atual continua no processamento original.</p></div>}
         </div> : <div className="ory-auto-panel">
-          <ShieldCheck size={26}/><h3>Integração protegida</h3>
-          <p>{tab==='templates'?'Os templates aprovados na Meta não podem ser disparados por um editor ainda não homologado. A sincronização será feita no servidor.':tab==='executions'?'Histórico e execuções dependem da engine persistente com RLS e trilhas de auditoria. O CRM atual continua operando normalmente.':'Os gatilhos autorizados são definidos pelo backend. O editor aceita condições estruturadas e não executa JavaScript ou SQL arbitrário.'}</p>
-          {(tab==='triggers')&&<button className="ory-auto-primary" onClick={()=>setTab('pipeline')}>Abrir biblioteca de fluxos <ArrowRight size={15}/></button>}
+          <ShieldCheck size={26}/><h3>Condições e eventos canônicos</h3>
+          <p>O editor aceita condições estruturadas e não executa JavaScript ou SQL arbitrário. Configurações precisam ser validadas pelo backend antes da publicação.</p>
+          <button className="ory-auto-primary" onClick={()=>setTab('pipeline')}>Abrir biblioteca de fluxos <ArrowRight size={15}/></button>
         </div>}
       </div>}
       <footer className="ory-auto-foot"><Clock3 size={14}/> Editor de preparação · sem merge, deploy ou ativação de fluxos</footer>
