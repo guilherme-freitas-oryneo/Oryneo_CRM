@@ -48,3 +48,23 @@ export async function saveRemoteAutomationDraft(
   const result = await invoke<{ ok: true; result: { id: string; revision: number; versionId: string } }>(body);
   return result.result;
 }
+
+export type AutomationTemplate = {
+  id: string; template_name: string; language: string;
+  category: 'UTILITY' | 'MARKETING' | 'AUTHENTICATION';
+  provider_status: string; provider_template_id: string | null;
+  provider_account_id: string; synced_at: string;
+  parameter_schema: { components_verified?: boolean };
+};
+export type AutomationExecution = {
+  id: string; flow_version_id: string; state: string;
+  started_at: string; finished_at: string | null; correlation_id: string | null;
+};
+export async function listRemoteAutomationTemplates(workspaceId: string): Promise<AutomationTemplate[]> {
+  const result = await invoke<{ ok: true; templates: AutomationTemplate[] }>({ action: 'templates', workspaceId });
+  return result.templates || [];
+}
+export async function listRemoteAutomationExecutions(workspaceId: string): Promise<AutomationExecution[]> {
+  const result = await invoke<{ ok: true; executions: AutomationExecution[] }>({ action: 'executions', workspaceId });
+  return result.executions || [];
+}
