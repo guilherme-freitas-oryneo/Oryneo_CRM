@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { connectPorts, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit } from './graphEditing';
+import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit } from './graphEditing';
 import type { FlowDefinition, FlowNode } from './flowDefinition';
 
 const graph: FlowDefinition = {
@@ -46,6 +46,24 @@ describe('non-emitting graph edit transactions', () => {
     expect(connectPorts(graph2, { id: 'e3', source: 'n1', source_port: 'out', target: 'a', target_port: 'out' })).toEqual({ ok: false, code: 'TRIGGER_INCOMING' });
     expect(connectPorts(graph2, { id: 'e3', source: 'n1', source_port: 'out', target: 'b', target_port: 'in' })).toEqual({ ok: false, code: 'SOURCE_ALREADY_CONNECTED' });
     expect(connectPorts(graph2, { id: 'e3', source: 'b', source_port: 'in', target: 'n1', target_port: 'in' })).toEqual({ ok: false, code: 'TERMINAL_OUTGOING' });
+  });
+  it('reconnects existing edge while keeping its ID and forbids invalid target ports', () => {
+    const changed = reconnectEdge(graph, 'e1', 'b', 'out');
+    expect(changed).toEqual({ ok: false, code: 'PORT_UNKNOWN' });
+    const enriched = {
+      ...graph,
+      nodes: [...graph.nodes, { id: 'c', type: 'end' as const, label: 'Alternate finish',
+        position: { x: 500, y: 100 }, ports: ['in'], config: {} }],
+    };
+    const replaced = reconnectEdge(enriched, 'e1', 'c');
+    expect(replaced.ok).toBe(true);
+    if (replaced.ok) {
+      expect(replaced.graph.edges[0]).toMatchObject({
+        id: 'e1', source: 'a', target: 'c', label: 'Rota original',
+      });
+    }
+    expect(graph.edges[0].target).toBe('b');
+    expect(reconnectEdge(enriched, 'e1', 'a')).toEqual({ ok: false, code: 'PORT_UNKNOWN' });
   });
   it('supports undo and redo without losing the initial graph', () => {
     const original = createHistory(graph);
