@@ -108,8 +108,9 @@ export function inspectServerGraph(raw: unknown, refs: TrustedReferences): Graph
     const descriptor=spec[String(n.type)];
     if (!descriptor.kinds.includes(String(raw.kind))) add('NODE_KIND_INVALID',p);
     const expected=[...(descriptor.input?['in']:[]),...descriptor.outputs];
-    if (expected.length!==n.ports.length || !expected.every(x=>n.ports.includes(x))
-      || new Set(n.ports).size !== n.ports.length) add('NODE_PORTS_INVALID',p);
+    const ports=n.ports as string[];
+    if (expected.length!==ports.length || !expected.every(x=>ports.includes(x))
+      || new Set(ports).size !== ports.length) add('NODE_PORTS_INVALID',p);
     if (n.type==='trigger') {
       triggerCount++;
       if (!only(n.config,['event_type']) || !refs.eventTypes.includes(String(n.config.event_type))) add('TRIGGER_EVENT_INVALID',p);
