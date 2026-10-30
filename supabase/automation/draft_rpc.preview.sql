@@ -40,6 +40,86 @@ BEGIN
     RAISE EXCEPTION 'AUTOMATION_DRAFT_INVALID' USING ERRCODE = '22023';
   END IF;
 
+  -- The immutable version counter is set by the caller's validated revision.
+  -- Do not accept an otherwise valid draft whose embedded graph version is stale.
+  IF p_expected_revision > 2147483646
+    OR jsonb_typeof(p_graph->'version') IS DISTINCT FROM 'number'
+    OR (p_graph->>'version') !~ '^[0-9]{1,10}
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.automation_workspace_members m
+    JOIN public.automation_workspaces w ON w.id = m.workspace_id
+    WHERE m.workspace_id = p_workspace_id AND m.user_id = p_actor_id
+      AND m.role IN ('editor','publisher','admin')
+      AND w.active IS TRUE
+  ) THEN
+    RAISE EXCEPTION 'AUTOMATION_EDITOR_FORBIDDEN' USING ERRCODE = '42501';
+  END IF;
+
+  IF p_expected_revision = 0 THEN
+    INSERT INTO public.automation_flows
+      (id, workspace_id, slug, name, kind, enabled, revision, created_by, updated_by)
+    VALUES (
+      p_flow_id, p_workspace_id, p_flow_id::text, p_name, p_kind,
+      false, 1, p_actor_id, p_actor_id
+    );
+    v_revision := 1;
+    v_version := 1;
+  ELSE
+    -- Explicit optimistic concurrency: no last-writer-wins on another editor's work.
+    SELECT f.revision, f.kind INTO v_revision, v_kind
+    FROM public.automation_flows f
+    WHERE f.id = p_flow_id AND f.workspace_id = p_workspace_id
+    FOR UPDATE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'AUTOMATION_FLOW_NOT_FOUND' USING ERRCODE = 'P0002';
+    END IF;
+    IF v_revision <> p_expected_revision THEN
+      RAISE EXCEPTION 'AUTOMATION_REVISION_CONFLICT' USING ERRCODE = '40001';
+    END IF;
+    IF v_kind IS DISTINCT FROM p_kind THEN
+      RAISE EXCEPTION 'AUTOMATION_KIND_IMMUTABLE' USING ERRCODE = '22023';
+    END IF;
+    v_revision := v_revision + 1;
+    IF v_revision > 2147483647 THEN
+      RAISE EXCEPTION 'AUTOMATION_VERSION_LIMIT' USING ERRCODE = '22023';
+    END IF;
+    v_version := v_revision::integer;
+    UPDATE public.automation_flows
+       SET name = p_name, revision = v_revision, updated_by = p_actor_id,
+           updated_at = now()
+     WHERE id = p_flow_id AND workspace_id = p_workspace_id;
+  END IF;
+
+  INSERT INTO public.automation_flow_versions
+    (workspace_id, flow_id, version, schema_version, graph_json, status, created_by)
+  VALUES
+    (p_workspace_id, p_flow_id, v_version, '0.1-concept', p_graph, 'draft', p_actor_id);
+
+  INSERT INTO public.automation_audit_log
+    (workspace_id, actor_id, action, target_type, target_id, summary)
+  VALUES
+    (p_workspace_id, p_actor_id, 'draft_saved', 'automation_flow', p_flow_id,
+     jsonb_build_object('revision',v_revision,'version',v_version));
+
+  RETURN QUERY SELECT p_flow_id, v_revision, v_version;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.automation_save_draft(
+  uuid,uuid,uuid,bigint,text,text,jsonb
+) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.automation_save_draft(
+  uuid,uuid,uuid,bigint,text,text,jsonb
+) TO service_role;
+
+  THEN
+    RAISE EXCEPTION 'AUTOMATION_DRAFT_VERSION_MISMATCH' USING ERRCODE = '22023';
+  END IF;
+  IF (p_graph->>'version')::bigint <> (p_expected_revision + 1) THEN
+    RAISE EXCEPTION 'AUTOMATION_DRAFT_VERSION_MISMATCH' USING ERRCODE = '22023';
+  END IF;
+
   -- Fail closed: membership and explicit edit role are required even for the service role.
   IF NOT EXISTS (
     SELECT 1
