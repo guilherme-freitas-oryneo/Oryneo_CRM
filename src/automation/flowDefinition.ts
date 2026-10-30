@@ -44,7 +44,7 @@ export type FlowValidation = { ok: boolean; issues: FlowIssue[] };
 export type FlowTrace = {
   nodeId: string;
   type: NodeKind;
-  status: 'evaluated' | 'planned' | 'end';
+  status: 'evaluated' | 'planned' | 'waiting' | 'end';
   nextPort?: string;
 };
 export type FlowSimulation = { dryRun: true; trace: FlowTrace[]; issues: FlowIssue[] };
@@ -275,6 +275,11 @@ export function simulateFlow(
     }
     if (TERMINAL.has(current.type)) {
       trace.push({ nodeId: current.id, type: current.type, status: 'end' });
+      return { dryRun: true, trace, issues: [] };
+    }
+    // A durable wait must not traverse its output immediately.
+    if (current.type === 'wait') {
+      trace.push({ nodeId: current.id, type: current.type, status: 'waiting' });
       return { dryRun: true, trace, issues: [] };
     }
     let nextPort = 'out';
