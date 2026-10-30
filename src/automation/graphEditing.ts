@@ -27,8 +27,8 @@ function connectable(graph: FlowDefinition, edge: FlowEdge): string | null {
   const target = graph.nodes.find(node => node.id === edge.target);
   if (!source || !target) return 'NODE_UNKNOWN';
   if (!source.ports.includes(edge.source_port) || !target.ports.includes(edge.target_port)) return 'PORT_UNKNOWN';
-  if (edge.target_port !== 'in') return 'TARGET_PORT_NOT_INPUT';
   if (target.type === 'trigger') return 'TRIGGER_INCOMING';
+  if (edge.target_port !== 'in') return 'TARGET_PORT_NOT_INPUT';
   if (source.type === 'end' || source.type === 'stop') return 'TERMINAL_OUTGOING';
   if (source.id === target.id) return 'CYCLE';
   if (graph.edges.some(existing => existing.source === edge.source && existing.source_port === edge.source_port)) {
