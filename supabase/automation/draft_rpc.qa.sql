@@ -65,6 +65,19 @@ BEGIN
   END;
   IF NOT malformed_denied THEN RAISE EXCEPTION 'Untrusted published graph was accepted as draft'; END IF;
 
+  malformed_denied := false;
+  BEGIN
+    PERFORM public.automation_save_draft(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'b1111111-1111-4111-8111-111111111111',
+      2, 'Mismatched version', 'sdr',
+      '{"schema_version":"0.1-concept","id":"b1111111-1111-4111-8111-111111111111","name":"Mismatched version","kind":"sdr","status":"draft","version":2,"nodes":[],"edges":[]}'::jsonb
+    );
+  EXCEPTION WHEN invalid_parameter_value THEN malformed_denied := true;
+  END;
+  IF NOT malformed_denied THEN RAISE EXCEPTION 'Embedded version mismatch accepted'; END IF;
+
   IF (SELECT count(*) FROM public.automation_flow_versions
       WHERE flow_id='b1111111-1111-4111-8111-111111111111') <> 2
     OR (SELECT revision FROM public.automation_flows
