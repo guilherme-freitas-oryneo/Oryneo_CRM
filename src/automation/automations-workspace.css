@@ -152,3 +152,6 @@
 .ory-rule-invalid{padding:12px;border:1px solid #ecd7b9;border-radius:7px;background:#fffaf2}
 .ory-rule-invalid p{font-size:10px;color:#80643c;line-height:1.55;margin:0 0 10px}
 .ory-rule-invalid button{border:1px solid #cbd9e6;border-radius:6px;padding:8px;background:#fff;color:#345a78}
+
+/* Canvas context menu can show all node types without clipping the viewport. */
+.ory-auto-context{max-height:min(65vh,340px);overflow-y:auto;overscroll-behavior:contain}
