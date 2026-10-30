@@ -146,7 +146,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [notice, setNotice] = useState('');
   const [preview, setPreview] = useState<ReturnType<typeof simulateFlow> | null>(null);
   const [jsonConfig, setJsonConfig] = useState('');
-  const [menu, setMenu] = useState<{ x: number; y: number; edgeId: string | null; nodeId: string | null } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; edgeId: string | null; nodeId: string | null; canvasX?: number; canvasY?: number } | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   const pointer = useRef<{ id: number; nodeId: string; originX: number; originY: number; startX: number; startY: number } | null>(null);
   const current = history?.graph;
@@ -249,6 +249,21 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     const candidate = insertNodeOnEdge(current, edgeId, node, descriptor.outputs.includes('out') ? 'out' : descriptor.outputs[0], crypto.randomUUID());
     commit(candidate);
     if (candidate.ok) { setSelectedId(node.id); setJsonConfig(JSON.stringify(node.config, null, 2)); setActiveEdge(null); }
+  };
+  const addAtCanvas = (type: NodeKind) => {
+    if (!current || !menu || !history || current.nodes.length >= 500
+      || type === 'trigger' || !nodePalette(current.kind).some(item=>item.type===type)) return;
+    const descriptor=NODE_REGISTRY[type];
+    const node:FlowNode={
+      id:crypto.randomUUID(),type,label:descriptor.title,
+      position:{x:Math.max(15,Math.min(1260,menu.canvasX??200)),
+        y:Math.max(15,Math.min(820,menu.canvasY??150))},
+      ports:[...(descriptor.input?['in']:[]),...descriptor.outputs],
+      config:defaultConfig(type,current.kind),
+    };
+    commit({ok:true,graph:{...current,nodes:[...current.nodes,node]}});
+    setSelectedId(node.id);setJsonConfig(JSON.stringify(node.config,null,2));setMenu(null);
+    setNotice('Bloco criado. Conecte as portas antes de validar ou publicar.');
   };
   const onNodePointerDown = (event: ReactPointerEvent<HTMLButtonElement>, node: FlowNode) => {
     if (event.button !== 0) return;
@@ -364,7 +379,14 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                   <span className={'ory-auto-palette-dot family-'+family}/>{descriptor.title}<Plus size={13}/>
                 </button>)}</div>)}
           </aside>
-          <div className="ory-auto-canvas-scroll" ref={stage} onContextMenu={e=>{if(e.target===e.currentTarget){e.preventDefault();setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:null})}}}>
+          <div className="ory-auto-canvas-scroll" ref={stage} onContextMenu={e=>{
+            if ((e.target as Element).closest('.ory-auto-node,.ory-auto-edge-add,.ory-auto-context')) return;
+            e.preventDefault();
+            const bounds=e.currentTarget.getBoundingClientRect();
+            const canvasX=(e.clientX-bounds.left+e.currentTarget.scrollLeft)/zoom;
+            const canvasY=(e.clientY-bounds.top+e.currentTarget.scrollTop)/zoom;
+            setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:null,canvasX,canvasY});
+          }}>
             <div className="ory-auto-canvas" style={{transform:'scale('+zoom+')',transformOrigin:'top left'}}>
               <svg aria-hidden="true" className="ory-auto-connections" viewBox="0 0 1500 950" preserveAspectRatio="none">
                 {current.edges.map(edge=>{
@@ -395,6 +417,10 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                 if(outgoing) addToEdge(outgoing.id,'condition');
                 setMenu(null);
               }}>Criar condição conectada</button>}
+              {!menu.nodeId&&!menu.edgeId&&current&&nodePalette(current.kind)
+                .filter(item=>item.type!=='trigger')
+                .map(({type,descriptor})=><button key={type} type="button"
+                  onClick={()=>addAtCanvas(type)}>Adicionar: {descriptor.title}</button>)}
               {menu.edgeId&&<button onClick={()=>{setActiveEdge(menu.edgeId);setMenu(null)}}>Inserir nó nesta conexão</button>}
               {menu.edgeId&&<button onClick={()=>{setReconnecting(menu.edgeId);setMenu(null);setNotice('Clique no nó de destino para reconectar.')}}>Reconectar destino</button>}
               <button onClick={()=>{setMenu(null);setSourcePort(null);setReconnecting(null)}}>Fechar menu</button>
