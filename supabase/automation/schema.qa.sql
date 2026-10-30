@@ -46,8 +46,8 @@ BEGIN
   IF visible_count <> 1 THEN RAISE EXCEPTION 'Cross-workspace leak: %',visible_count; END IF;
   SELECT count(*) INTO visible_count FROM public.automation_workspace_members;
   IF visible_count <> 1 THEN RAISE EXCEPTION 'Membership leak: %',visible_count; END IF;
-END; $;
-DO $
+END; $$;
+DO $$
 DECLARE denied boolean := false;
 DECLARE event_count int;
 BEGIN
@@ -56,8 +56,8 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN denied := true;
   END;
   IF NOT denied THEN RAISE EXCEPTION 'Client could read private event inbox'; END IF;
-END; $;
-DO $$
+END; $$;
+DO $$$
 DECLARE insert_denied boolean := false;
 BEGIN
   BEGIN
