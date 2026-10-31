@@ -134,6 +134,10 @@ Deno.serve(async request=>{
   }
   // Mark due timers for diagnostics only. There is NO live continuation,
   // outbound adapter, scheduled retry or implicit branch execution here.
+  const guarded=await db.rpc('automation_wait_shadow_reconcile_policy',{
+    p_workspace_id:workspaceId,p_limit:50,
+  });
+  if(guarded.error)return json({error:'Shadow stop policy unavailable',processed,unresolved},503);
   const due=await db.rpc('automation_wait_shadow_poll',{
     p_workspace_id:workspaceId,p_limit:10,
   });
@@ -141,6 +145,7 @@ Deno.serve(async request=>{
     return json({error:'Shadow timer reconciliation unavailable',processed,unresolved},503);
   return json({
     ok:true,shadowOnly:true,dispatchAuthorized:false,
+    timersStoppedByPolicy:Number(guarded.data||0),
     timersDue:due.data.filter((x:{result_state:string})=>x.result_state==='due').length,
     timersCancelled:due.data.filter((x:{result_state:string})=>x.result_state==='cancelled').length,
     processed,unresolved,recovered:recovered.data||0,
