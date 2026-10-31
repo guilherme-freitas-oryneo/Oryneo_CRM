@@ -104,8 +104,9 @@ Deno.serve(async request=>{
    if(versionError||!version||version.status!=='published'
       ||!Array.isArray(version.graph_json?.nodes))
     throw Error('META_FLOW_UNAVAILABLE');
+   const claimedNodeId:string=action.data.node_id;
    const node=(version.graph_json.nodes as Node[]).find(n=>
-     n.id===action.data.node_id&&n.type==='whatsapp_template'
+     n.id===claimedNodeId&&n.type==='whatsapp_template'
       &&n.config?.template_registry_id===meta.id&&n.config?.locale==='pt_BR');
    if(!node)throw Error('META_NODE_NOT_CANONICAL');
    const canonical=await loadMetaCanonicalContext(db,item.conversation_id);
