@@ -76,8 +76,11 @@ export function classifySdrIntent(text:string,dictionary:IntentDictionary):Inten
   candidates.push({id:e.id,score:winner.weight,term,kind:contextKind(normalized,term),risk:e.risk});
  }
  if(!candidates.length){
-  const risky=highRiskTerms.some(w=>contains(normalized,w));
-  return {...denied('unknown',shortlist(normalized)),humanReview:risky};
+  const matched=highRiskTerms.find(w=>contains(normalized,w));
+  if(!matched)return denied();
+  const kind=contextKind(normalized,matched);
+  return {...denied(kind,shortlist(normalized)),
+    humanReview:kind!=='negated'&&kind!=='third_party'};
  }
  candidates.sort((a,b)=>b.score-a.score||b.term.length-a.term.length);
  const best=candidates[0],other=candidates.filter(c=>c.id!==best.id&&c.score>=best.score);
