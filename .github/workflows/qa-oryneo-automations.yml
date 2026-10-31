@@ -145,5 +145,7 @@ jobs:
       - name: Typecheck do worker e sanitização dos erros
         run: |
           deno check --node-modules-dir=auto supabase/functions/automation-api/index.ts
+          deno check supabase/functions/automation-api/executionKernel.ts
           deno check --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
+          deno test supabase/functions/tests/automation_execution_kernel_test.ts
           deno test supabase/functions/tests/automation_shadow_failure_test.ts
