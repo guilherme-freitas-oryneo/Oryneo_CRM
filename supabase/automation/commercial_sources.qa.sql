@@ -31,6 +31,13 @@ GRANT INSERT,UPDATE ON public.crm_intake_requests,public.crm_stripe_events,
 INSERT INTO public.crm_intake_requests(request_id,deal_id,created_at) VALUES(
  'c0000000-0000-4000-8000-000000000001',
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',now()-interval '1 day');
+-- Historic order without a Stripe session: its checkout must be observed
+-- when the canonical session is attached AFTER the cursor initialization.
+INSERT INTO public.crm_billing_orders(
+ id,deal_id,status,billing_environment,created_at,updated_at)
+ VALUES('c1000000-0000-4000-8000-000000000007',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','awaiting_payment','live',
+ now()-interval '1 day',now()-interval '1 day');
 SET ROLE service_role;
 DO $qa$
 DECLARE
@@ -69,6 +76,12 @@ BEGIN
  END;
  IF NOT denied THEN RAISE EXCEPTION 'Disabled runtime polled commercial data'; END IF;
 
+ -- Attach the late Stripe checkout after cursor startup. The order itself
+ -- is older than the watermark, and must NOT cause an event to disappear.
+ UPDATE public.crm_billing_orders
+ SET stripe_checkout_session_id='cs_stage3_late_attached',
+     updated_at=clock_timestamp()+interval '20 seconds'
+ WHERE id='c1000000-0000-4000-8000-000000000007';
  -- Synthetic real-business-reference fixtures: event envelopes remain UUID-only.
  INSERT INTO public.crm_intake_requests(request_id,deal_id,created_at)
  VALUES('c0000000-0000-4000-8000-000000000002',
@@ -146,7 +159,7 @@ BEGIN
     RAISE EXCEPTION 'Billing third item missing: %',result; END IF;
   END IF;
   result:=public.automation_commercial_shadow_ingest(w,stream,100);
-  IF (result->>'inserted')::int<>(CASE WHEN stream='checkout' THEN 4 ELSE 0 END)
+  IF (result->>'inserted')::int<>(CASE WHEN stream='checkout' THEN 5 ELSE 0 END)
   THEN RAISE EXCEPTION 'Unexpected bounded stream remainder: %, %',stream,result; END IF;
  END LOOP;
  -- Checkout must observe 6 live orders, but only a single first batch row
@@ -165,8 +178,9 @@ BEGIN
   'onboarding:c1000000-0000-4000-8000-000000000002',
   'proposal:c3000000-0000-4000-8000-000000000001',
   'meeting:c2000000-0000-4000-8000-000000000002',
-  'handoff:c4000000-0000-4000-8000-000000000001');
- IF n<>10 THEN RAISE EXCEPTION 'Expected ten canonical source envelopes: %',n; END IF;
+  'handoff:c4000000-0000-4000-8000-000000000001',
+  'checkout:c1000000-0000-4000-8000-000000000007');
+ IF n<>11 THEN RAISE EXCEPTION 'Expected eleven canonical source envelopes: %',n; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.automation_event_inbox
    WHERE source='whatsapp' AND event_type='conversation.human_takeover'
      AND event_id='handoff:c4000000-0000-4000-8000-000000000001'
