@@ -77,3 +77,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_crm_adapter.preview.sql
       - name: Testar bootstrap, ordem, replay e parada de emergência
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_crm_adapter.qa.sql
+      - name: Instalar adaptador espelho para mensagens inbound canônicas
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_whatsapp_adapter.preview.sql
+      - name: Validar cursor, privacidade, deduplicação e nenhum envio
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_whatsapp_adapter.qa.sql
