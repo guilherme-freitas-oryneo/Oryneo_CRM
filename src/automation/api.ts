@@ -87,3 +87,22 @@ export async function validateRemoteAutomationDraft(
   }>({ action: 'validate', workspaceId, graph });
   return result.validation;
 }
+
+
+export type DisabledPublication = {
+  flowId:string;versionId:string;revision:number;
+  contentSha256:string;enabled:false;
+};
+/**
+ * Freezes the already-saved canonical draft. The backend re-reads and validates
+ * it under a publisher role. This NEVER enables execution or message delivery.
+ */
+export async function freezeRemoteAutomationVersion(
+  workspaceId:string,flowId:string,expectedRevision:number,
+):Promise<DisabledPublication> {
+  const result=await invoke<{
+    ok:true;result:DisabledPublication;
+    publishedDisabled:true;dispatchAuthorized:false;
+  }>({action:'publish-disabled',workspaceId,flowId,expectedRevision});
+  return result.result;
+}
