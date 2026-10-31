@@ -40,6 +40,18 @@ BEGIN
    JOIN public.automation_flows f ON f.id=v.flow_id
      AND f.workspace_id=v.workspace_id AND f.enabled
      AND f.published_version_id=v.id
+   JOIN public.automation_channel_ownership own
+     ON own.workspace_id=a.workspace_id AND own.owner='new_engine'
+     AND own.legacy_dispatch_paused_at IS NOT NULL
+     AND own.release_approved_at IS NOT NULL
+     AND own.release_id IS NOT NULL
+     AND own.channel=CASE
+       WHEN a.action_type IN('whatsapp_template','whatsapp_reply','human_handoff')
+         THEN 'whatsapp'
+       WHEN a.action_type='email' THEN 'email'
+       WHEN a.action_type IN('crm_stage_change','crm_update','crm_task','notify')
+         THEN 'crm'
+       ELSE 'unsupported' END
    WHERE a.workspace_id=p_workspace_id AND a.state='queued'
      AND (a.due_at IS NULL OR a.due_at<=clock_timestamp())
      AND a.attempts<3
