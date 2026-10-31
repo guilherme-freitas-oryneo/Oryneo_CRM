@@ -67,7 +67,7 @@ BEGIN
  WHERE id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01';
  SELECT count(*) INTO old_history FROM public.crm_history;
  SELECT count(*) INTO old_events FROM public.crm_events;
- SELECT claim_token INTO token FROM public.automation_delivery_claim(w,1)
+ SELECT claim_token INTO token FROM public.automation_commercial_claim_crm(w,1)
   WHERE action_id=a;
  IF token IS NULL THEN RAISE EXCEPTION 'Next-action was not leased'; END IF;
  denied:=false;
@@ -109,7 +109,7 @@ BEGIN
   'da000000-0000-4000-8000-000000000004',
   'da000000-0000-4000-8000-000000000006',
   repeat('e',64),'crm_task','queued',clock_timestamp()-interval '1 second');
- SELECT claim_token INTO token FROM public.automation_delivery_claim(w,1)
+ SELECT claim_token INTO token FROM public.automation_commercial_claim_crm(w,1)
   WHERE action_id='da000000-0000-4000-8000-000000000007';
  IF token IS NULL THEN RAISE EXCEPTION 'Second test lease missing'; END IF;
  denied:=false;
