@@ -5,7 +5,7 @@
 BEGIN;
 CREATE TABLE IF NOT EXISTS public.automation_commercial_ingest_cursors(
  workspace_id uuid NOT NULL REFERENCES public.automation_workspaces(id) ON DELETE RESTRICT,
- stream text NOT NULL CHECK(stream IN ('intake','checkout','billing','mail','delivery')),
+ stream text NOT NULL CHECK(stream IN ('intake','checkout','billing','mail','delivery','proposal','meeting')),
  last_at timestamptz NOT NULL,
  last_key text NOT NULL DEFAULT '',
  initialized_by uuid,
@@ -65,6 +65,19 @@ WITH (security_invoker=true) AS
    jsonb_build_object('opportunity_id',e.deal_id::text)
  FROM public.crm_events e WHERE e.event_type='email_sent' AND e.deal_id IS NOT NULL
  UNION ALL
+ SELECT 'proposal',p.updated_at,p.id::text,'crm',
+   'proposal:'||p.id::text,'proposal.sent',
+   jsonb_build_object('opportunity_id',p.deal_id::text)
+ FROM public.crm_proposals p
+ WHERE p.status='sent' AND p.deal_id IS NOT NULL
+   AND p.snapshot_sha256 IS NOT NULL AND length(p.snapshot_sha256)=64
+ UNION ALL
+ SELECT 'meeting',e.created_at,e.id::text,'crm',
+   'meeting:'||e.id::text,'meeting.scheduled',
+   jsonb_build_object('opportunity_id',e.deal_id::text)
+ FROM public.crm_events e
+ WHERE e.event_type='meeting_scheduled' AND e.deal_id IS NOT NULL
+ UNION ALL
  SELECT 'delivery',d.created_at,d.order_id::text,'crm',
    'onboarding:'||d.order_id::text,'onboarding.started',
    jsonb_build_object('order_id',d.order_id::text,'opportunity_id',o.deal_id::text)
@@ -84,7 +97,7 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
 AS $fn$
 DECLARE v_anchor timestamptz;
 BEGIN
- IF p_stream NOT IN ('intake','checkout','billing','mail','delivery')
+ IF p_stream NOT IN ('intake','checkout','billing','mail','delivery','proposal','meeting')
  THEN RAISE EXCEPTION 'COMMERCIAL_SOURCE_INVALID' USING ERRCODE='22023'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.automation_workspace_members m
    JOIN public.crm_members crm ON crm.user_id=m.user_id
@@ -117,7 +130,7 @@ DECLARE c public.automation_commercial_ingest_cursors%ROWTYPE;
  v_before bigint;
  v_after bigint;
 BEGIN
- IF p_stream NOT IN ('intake','checkout','billing','mail','delivery')
+ IF p_stream NOT IN ('intake','checkout','billing','mail','delivery','proposal','meeting')
    OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 100
  THEN RAISE EXCEPTION 'COMMERCIAL_INGEST_ARGUMENTS' USING ERRCODE='22023'; END IF;
  IF NOT EXISTS(
