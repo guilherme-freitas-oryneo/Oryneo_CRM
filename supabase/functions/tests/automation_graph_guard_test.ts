@@ -83,7 +83,7 @@ Deno.test('rejects unspecified event types or extra node ports',()=>{
 Deno.test('CRM task nodes accept reviewed title and bounded due offset only',()=>{
   const x=valid();x.nodes[1].type='crm_task';x.nodes[1].ports=['in','out'];
   x.nodes[1].config={title:'Próxima ação comercial',due_offset_minutes:45};
-  x.edges[1].source_port='out';x.edges.pop();
+  x.edges[1].source_port='out';x.edges.pop();x.nodes.pop();
   const verdict=inspectServerGraph(x,refs);
   expect(verdict.ok,'Typed CRM task rejected: '+JSON.stringify(verdict.issues));
   expect(verdict.dispatchAuthorized===false,'Graph validation cannot dispatch');
