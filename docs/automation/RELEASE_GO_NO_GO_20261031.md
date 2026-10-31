@@ -33,6 +33,12 @@ automation_knowledge_release: 1 draft
 
 O SDR WhatsApp **legado** permanece preservado; o histórico da fila própria do SDR não equivale a execuções da engine de Automações.
 
+## Confirmação adicional de bloqueio jurídico e drift de backend
+
+- Fonte institucional identificada no Drive da ORYNEO: **`ORYNEO LTDA | MATRIZ DE REVISÃO JURÍDICA E LIBERAÇÃO | INTERNO | 19-10-2026`**, documento de 19/10/2026, determina **NÃO PUBLICAR** a minuta v0.9 sem aprovação legal/comercial, verificação cadastral, política de privacidade/DPA, cancelamento/reembolso, exibição integral dos termos antes do aceite e homologação financeira. Não existe, nesta auditoria, prova de superação desses gates por documento mais recente.
+- Fonte vinculada: [Matriz interna de liberação](https://docs.google.com/document/d/1X_MKTDrktwLakn_Mwttu2sFuPOMbDua1CR-3YxRVoTU/edit). O documento é referência de decisão, não validação jurídica automática.
+- Leitura das Edge Functions hospedadas evidenciou **desalinhamento com o último código da branch**: `automation-api` v6 tem `index.ts` de 20.031 caracteres, enquanto o arquivo final tem 31.908; `automation-shadow-worker` v3 tem entrada de 8.027 caracteres contra 13.417 no branch. Estes arquivos NÃO são byte a byte idênticos. O backend recém-proposto precisa de deploy versionado **depois** de comparar todos os módulos importados, contratos RPC e schemas; não assumir que a versão hospedada já corresponde à última suíte CI.
+
 ## Bloqueios para GO em produção (técnicos, não meramente administrativos)
 
 1. **Executor de produção ausente/inativo.** `automation-api` aceita `publish-disabled`, mas bloqueia `publish`, `execute` e `send` com `RUNTIME_DISABLED`; o worker atual é `shadowOnly`, e o executor CRM é limitado a canal CRM e não está implantado. **Não alterar `mode` ou flags para `live` como atalho.**
