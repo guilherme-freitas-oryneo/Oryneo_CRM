@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBranch, History, Layers3, LockKeyhole, Plus, Redo2, Search, Settings2, ShieldCheck, Undo2, Workflow, X, ZoomIn, ZoomOut } from 'lucide-react';
-import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
+import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, autoLayoutFlow, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
 import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, loadRemoteNodeCatalog, loadRemoteAutomationRuntime, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
@@ -157,6 +157,10 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const stage = useRef<HTMLDivElement>(null);
   const pointer = useRef<{ id: number; nodeId: string; originX: number; originY: number; startX: number; startY: number } | null>(null);
   const current = history?.graph;
+  const canvasSize=useMemo(()=>({
+    width:Math.max(1500,...(current?.nodes||[]).map(n=>n.position.x+330)),
+    height:Math.max(950,...(current?.nodes||[]).map(n=>n.position.y+170)),
+  }),[current]);
   const selected = current?.nodes.find(node => node.id === selectedId) || null;
   const validation = useMemo(() => current ? validateFlow(current) : null, [current]);
   const commit = (change: ReturnType<typeof moveNode>) => {
@@ -394,6 +398,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             <input aria-label="Nome do fluxo" value={current.name} maxLength={160} onChange={e => commit({ok:true,graph:{...current,name:e.target.value}})}/><span className="ory-auto-draft">RASCUNHO · V{current.version}</span>
           </div>
           <div className="ory-auto-editor-actions">
+            <button title="Organizar nós automaticamente" onClick={()=>commit(autoLayoutFlow(current))}><Layers3 size={16}/>Organizar</button>
             <button title="Desfazer" onClick={()=>setHistory(h=>h?undoEdit(h):h)} disabled={!history?.undo.length}><Undo2 size={16}/></button>
             <button title="Refazer" onClick={()=>setHistory(h=>h?redoEdit(h):h)} disabled={!history?.redo.length}><Redo2 size={16}/></button>
             <button title="Validar grafo" onClick={()=>setNotice(validation?.ok?'Grafo estruturalmente válido. Ainda requer homologação no servidor.':(validation?.issues||[]).map(x=>x.code).join(' · '))}><ShieldCheck size={16}/>Validar</button>
@@ -425,8 +430,8 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             const canvasY=(e.clientY-bounds.top+e.currentTarget.scrollTop)/zoom;
             setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:null,canvasX,canvasY});
           }}>
-            <div className="ory-auto-canvas" style={{transform:'scale('+zoom+')',transformOrigin:'top left'}}>
-              <svg aria-hidden="true" className="ory-auto-connections" viewBox="0 0 1500 950" preserveAspectRatio="none">
+            <div className="ory-auto-canvas" style={{transform:'scale('+zoom+')',transformOrigin:'top left',width:canvasSize.width,height:canvasSize.height}}>
+              <svg aria-hidden="true" className="ory-auto-connections" viewBox={`0 0 ${canvasSize.width} ${canvasSize.height}`} style={{width:canvasSize.width,height:canvasSize.height}} preserveAspectRatio="none">
                 {current.edges.map(edge=>{
                   const src=current.nodes.find(n=>n.id===edge.source),dst=current.nodes.find(n=>n.id===edge.target);if(!src||!dst)return null;
                   const x1=src.position.x+220,y1=src.position.y+43,x2=dst.position.x,y2=dst.position.y+43;
