@@ -164,7 +164,8 @@ Deno.serve(async request => {
   // Reading status does not start a worker, publish a version or change a gate.
   if (action === 'runtime') {
     const [settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
-      runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts] = await Promise.all([
+      runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts,
+      queuedActions,leasedActions,uncertainActions,sentActions] = await Promise.all([
       db.from('automation_runtime_settings').select('mode,emergency_stop,updated_at')
         .eq('workspace_id', workspaceId).maybeSingle(),
       db.from('automation_workspaces').select('active')
@@ -185,9 +186,18 @@ Deno.serve(async request => {
         .eq('workspace_id',workspaceId).eq('state','due'),
       db.from('automation_wait_timers').select('id',{head:true,count:'exact'})
         .eq('workspace_id',workspaceId).eq('state','cancelled'),
+      db.from('automation_action_outbox').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','queued'),
+      db.from('automation_action_outbox').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','leased'),
+      db.from('automation_action_outbox').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','uncertain'),
+      db.from('automation_action_outbox').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','sent'),
     ]);
     if ([settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
-      runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts].some(r => r.error) ||
+      runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts,
+      queuedActions,leasedActions,uncertainActions,sentActions].some(r => r.error) ||
       !settings.data || !workspaceState.data)
       return reply({error:'Estado do motor indisponível.'},503);
     return reply({ok:true,readOnly:true,runtime:{
@@ -203,6 +213,10 @@ Deno.serve(async request => {
       waitingTimers:waitingCounts.count||0,
       dueTimers:dueCounts.count||0,
       cancelledTimers:cancelledCounts.count||0,
+      queuedActions:queuedActions.count||0,
+      leasedActions:leasedActions.count||0,
+      uncertainActions:uncertainActions.count||0,
+      sentActions:sentActions.count||0,
       dispatchAuthorized:false,
     }});
   }
