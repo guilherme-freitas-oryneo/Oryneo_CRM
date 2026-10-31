@@ -82,12 +82,14 @@ BEGIN
  WHERE id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01';
  -- If the legacy executor remains the owner, even a valid DB lease cannot
  -- change a canonical deal. No HTTP request or real CRM is involved.
- UPDATE public.automation_channel_ownership SET owner='legacy',
-  legacy_dispatch_paused_at=NULL,release_approved_at=NULL,release_id=NULL
- WHERE workspace_id=w AND channel='crm';
  SELECT claim_token INTO token FROM public.automation_delivery_claim(w,1)
  WHERE action_id=a;
  IF token IS NULL THEN RAISE EXCEPTION 'CRM stage action not leased'; END IF;
+ -- A channel can be returned to the legacy dispatcher AFTER a prior lease;
+ -- the CRM action must still revalidate ownership before mutating.
+ UPDATE public.automation_channel_ownership SET owner='legacy',
+  legacy_dispatch_paused_at=NULL,release_approved_at=NULL,release_id=NULL
+ WHERE workspace_id=w AND channel='crm';
  refused:=false;
  BEGIN
   PERFORM public.automation_crm_stage_action(w,a,token,old_revision);
