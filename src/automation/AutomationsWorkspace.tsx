@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBra
 import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, autoLayoutFlow, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
-import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime, type ServerShadowPreview, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
 import { ConditionRuleEditor } from './ConditionRuleEditor';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
@@ -154,12 +154,18 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [zoom, setZoom] = useState(1);
   const [notice, setNotice] = useState('');
   const [preview, setPreview] = useState<ReturnType<typeof simulateFlow> | null>(null);
+  const [serverPreview,setServerPreview]=useState<ServerShadowPreview|null>(null);
   const [simulationCase,setSimulationCase]=useState<SimulationCaseId>('unknown');
   const [jsonConfig, setJsonConfig] = useState('');
   const [menu, setMenu] = useState<{ x: number; y: number; edgeId: string | null; nodeId: string | null; canvasX?: number; canvasY?: number } | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   const pointer = useRef<{ id: number; nodeId: string; originX: number; originY: number; startX: number; startY: number } | null>(null);
   const current = history?.graph;
+  const trace=serverPreview?.trace||preview?.trace||[];
+  const tracedNodeIds=new Set(trace.map(item=>item.nodeId));
+  const tracedEdgeIds=new Set((current?.edges||[]).filter(edge=>
+    trace.some((step,index)=>index+1<trace.length&&step.nodeId===edge.source&&
+      trace[index+1].nodeId===edge.target&&step.nextPort===edge.source_port)).map(edge=>edge.id));
   const canvasSize=useMemo(()=>({
     width:Math.max(1500,...(current?.nodes||[]).map(n=>n.position.x+330)),
     height:Math.max(950,...(current?.nodes||[]).map(n=>n.position.y+170)),
@@ -170,13 +176,13 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     if (!history) return;
     if (!change.ok) { setNotice('A operação não foi aplicada: ' + change.code); return; }
     setHistory(recordEdit(history, change));
-    setPreview(null);
+    setPreview(null);setServerPreview(null);
     setNotice('Alterações no rascunho. Salve para manter neste dispositivo.');
   };
   const open = (graph: FlowDefinition) => {
     setTab(graph.kind);
     setOpenId(graph.id); setHistory(createHistory(graph));
-    setSelectedId(null); setActiveEdge(null); setPreview(null);
+    setSelectedId(null); setActiveEdge(null); setPreview(null);setServerPreview(null);
     setNotice('Editor isolado: nenhum fluxo está conectado a disparos reais.');
   };
   const create = (kind: FlowKind) => open(connectedDraft(kind));
@@ -274,6 +280,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     setSyncBusy(true);
     try {
       const result=await simulateRemoteAutomationDraft(workspace.id,current,eventType,buildSimulationCase(simulationCase));
+      setPreview(null);setServerPreview(result);
       setNotice('Simulação do servidor — nenhum envio, nenhuma gravação · '+
         result.state+' · '+result.trace.length+' nós · '+
         (result.issues.map(issue=>issue.code).join(', ')||'sem erros de execução'));
@@ -435,7 +442,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             <button title="Simular no servidor sem enviar" disabled={!workspace||syncBusy}
               onClick={()=>void simulateWithServer()}><CirclePlay size={16}/>Prévia servidor</button>
             <button title="Simular sem efeitos externos" onClick={()=>{
-              setPreview(simulateFlow(current,{eventType:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||''),context:{...buildSimulationCase(simulationCase),event:{type:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||'')}}}));
+              setServerPreview(null);setPreview(simulateFlow(current,{eventType:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||''),context:{...buildSimulationCase(simulationCase),event:{type:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||'')}}}));
             }}><CirclePlay size={16}/>Simular</button>
             <button title="Exportar rascunho em JSON" onClick={exportDraft}><FileJson size={16}/></button>
             <button className="ory-auto-primary" disabled={syncBusy} onClick={()=>void saveDraft()}>{syncBusy?'Salvando…':'Salvar rascunho'}</button>
@@ -449,7 +456,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
           <label htmlFor="ory-auto-simulation-case">Cenário de teste</label>
           <select id="ory-auto-simulation-case" aria-label="Cenário de simulação hipotética"
             value={simulationCase}
-            onChange={event=>setSimulationCase(event.target.value as SimulationCaseId)}>
+            onChange={event=>{setSimulationCase(event.target.value as SimulationCaseId);setPreview(null);setServerPreview(null);}}>
             {SIMULATION_CASES.map(item=>
               <option key={item.id} value={item.id}>{item.title}</option>)}
           </select>
@@ -477,15 +484,15 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                 {current.edges.map(edge=>{
                   const src=current.nodes.find(n=>n.id===edge.source),dst=current.nodes.find(n=>n.id===edge.target);if(!src||!dst)return null;
                   const x1=src.position.x+220,y1=src.position.y+43,x2=dst.position.x,y2=dst.position.y+43;
-                  return <path key={edge.id} d={'M'+x1+' '+y1+' C'+(x1+90)+' '+y1+' '+(x2-90)+' '+y2+' '+x2+' '+y2} className={activeEdge===edge.id?'selected':''}/>;
+                  return <path key={edge.id} d={'M'+x1+' '+y1+' C'+(x1+90)+' '+y1+' '+(x2-90)+' '+y2+' '+x2+' '+y2} className={(activeEdge===edge.id?'selected ':'')+(tracedEdgeIds.has(edge.id)?'trace-path':'')}/>;
                 })}
               </svg>
               {current.edges.map(edge=>{
                 const src=current.nodes.find(n=>n.id===edge.source),dst=current.nodes.find(n=>n.id===edge.target);if(!src||!dst)return null;
                 const x=(src.position.x+220+dst.position.x)/2,y=(src.position.y+dst.position.y)/2+43;
-                return <button key={edge.id} className={'ory-auto-edge-add'+(activeEdge===edge.id?' active':'')} style={{left:x,top:y}} aria-label="Selecionar conexão para inserir nó" title="Inserir bloco nesta conexão" onClick={()=>{setActiveEdge(edge.id);setSelectedId(null)}} onContextMenu={e=>{e.preventDefault();setActiveEdge(edge.id);setMenu({x:e.clientX,y:e.clientY,edgeId:edge.id,nodeId:null})}}><Plus size={13}/></button>;
+                return <button key={edge.id} className={'ory-auto-edge-add'+(activeEdge===edge.id?' active':'')+(tracedEdgeIds.has(edge.id)?' traced':'')} style={{left:x,top:y}} aria-label="Selecionar conexão para inserir nó" title="Inserir bloco nesta conexão" onClick={()=>{setActiveEdge(edge.id);setSelectedId(null)}} onContextMenu={e=>{e.preventDefault();setActiveEdge(edge.id);setMenu({x:e.clientX,y:e.clientY,edgeId:edge.id,nodeId:null})}}><Plus size={13}/></button>;
               })}
-              {current.nodes.map(node=><div className={'ory-auto-node family-'+NODE_REGISTRY[node.type].family+(selectedId===node.id?' selected':'')+(node.disabled?' disabled':'')} key={node.id} style={{left:node.position.x,top:node.position.y}}>
+              {current.nodes.map(node=><div className={'ory-auto-node family-'+NODE_REGISTRY[node.type].family+(selectedId===node.id?' selected':'')+(node.disabled?' disabled':'')+(tracedNodeIds.has(node.id)?' traced':'')} key={node.id} style={{left:node.position.x,top:node.position.y}}>
                 <button className="ory-auto-node-body" onClick={()=>showNode(node)} onPointerDown={e=>onNodePointerDown(e,node)} onPointerUp={onNodePointerUp} onContextMenu={e=>{e.preventDefault();showNode(node);setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:node.id})}} aria-label={'Editar nó '+node.label}>
                   <span className="ory-auto-node-type">{NAMES[NODE_REGISTRY[node.type].family]}</span><strong>{node.label}</strong><small>{NODE_REGISTRY[node.type].title}</small>
                 </button>
@@ -533,7 +540,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               {(validation?.issues||[]).slice(0,4).map((issue,i)=><p key={i}>{issue.code} · {issue.path}</p>)}</div>
           </aside>
         </div>
-        {(notice||preview||sourcePort||reconnecting)&&<div className="ory-auto-status" role="status">{sourcePort?<span>Conectando: escolha o nó de destino ou pressione Esc.</span>:null}{reconnecting?<span>Reconectando: escolha o nó de destino ou pressione Esc.</span>:null}{notice&&<span>{notice}</span>}{preview&&<span>Simulação — não enviado · {preview.trace.length} nós visitados · {preview.issues.map(x=>x.code).join(', ')||'sem erro estrutural'}</span>}<button aria-label="Fechar aviso" onClick={()=>{setNotice('');setPreview(null);setSourcePort(null);setReconnecting(null)}}><X size={15}/></button></div>}
+        {(notice||preview||serverPreview||sourcePort||reconnecting)&&<div className="ory-auto-status" role="status">{sourcePort?<span>Conectando: escolha o nó de destino ou pressione Esc.</span>:null}{reconnecting?<span>Reconectando: escolha o nó de destino ou pressione Esc.</span>:null}{notice&&<span>{notice}</span>}{preview&&<span>Simulação — não enviado · {preview.trace.length} nós visitados · {preview.issues.map(x=>x.code).join(', ')||'sem erro estrutural'}</span>}{serverPreview&&<span>Traçado do servidor · {serverPreview.trace.length} nós · {serverPreview.state} · sem disparos</span>}<button aria-label="Fechar aviso" onClick={()=>{setNotice('');setPreview(null);setServerPreview(null);setSourcePort(null);setReconnecting(null)}}><X size={15}/></button></div>}
       </div>}
       {tab!=='pipeline'&&tab!=='sdr'&&<div className="ory-auto-overview">
         <div className="ory-auto-section-heading"><div><span className="ory-auto-overline">CONTROLE E GOVERNANÇA</span><h2>{subviews[tab].title}</h2><p>{subviews[tab].description}</p></div></div>
