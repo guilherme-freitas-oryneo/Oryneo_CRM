@@ -334,6 +334,27 @@ Deno.serve(async request => {
     return reply({ok:true,result:released,publishedDisabled:true,dispatchAuthorized:false});
   }
 
+  // A rollback selects an EXISTING immutable published version. It never
+  // changes a frozen graph or starts execution; the RPC also enforces the
+  // emergency-stop state and optimistic revision under a database row lock.
+  if (action === 'rollback-disabled') {
+    if (!['admin','publisher'].includes(member.role))
+      return reply({error:'Papel de publicador obrigatório.'},403);
+    if (!validUuid(body.flowId)||!validUuid(body.targetVersionId)
+      ||!Number.isSafeInteger(body.expectedRevision)||Number(body.expectedRevision)<1)
+      return reply({error:'Versão, fluxo ou revisão inválidos.'},400);
+    const {data:rolled,error:rollbackError}=await db.rpc('automation_rollback_disabled',{
+      p_workspace_id:workspaceId,p_actor_id:actor,p_flow_id:body.flowId,
+      p_target_version_id:body.targetVersionId,
+      p_expected_revision:body.expectedRevision,
+    });
+    if(rollbackError){
+      const mapped=errorCode(rollbackError.code);
+      return reply(mapped.body,mapped.status);
+    }
+    return reply({ok:true,result:rolled,rolledBackDisabled:true,dispatchAuthorized:false});
+  }
+
   if (!canEdit) return reply({ error: 'Somente editores podem modificar rascunhos.' }, 403);
 
   if (action === 'create') {
