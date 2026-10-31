@@ -5,7 +5,7 @@
 BEGIN;
 CREATE TABLE IF NOT EXISTS public.automation_commercial_ingest_cursors(
  workspace_id uuid NOT NULL REFERENCES public.automation_workspaces(id) ON DELETE RESTRICT,
- stream text NOT NULL CHECK(stream IN ('intake','checkout','billing','mail','delivery','proposal','meeting')),
+ stream text NOT NULL CHECK(stream IN ('intake','checkout','billing','mail','delivery','proposal','meeting','handoff')),
  last_at timestamptz NOT NULL,
  last_key text NOT NULL DEFAULT '',
  initialized_by uuid,
@@ -78,6 +78,13 @@ WITH (security_invoker=true) AS
  FROM public.crm_events e
  WHERE e.event_type='meeting_scheduled' AND e.deal_id IS NOT NULL
  UNION ALL
+ SELECT 'handoff',h.occurred_at,h.id::text,'whatsapp',
+   'handoff:'||h.id::text,'conversation.human_takeover',
+   jsonb_build_object('conversation_id',h.conversation_id::text)
+ FROM public.crm_wa_automation_events h
+ WHERE h.conversation_id IS NOT NULL
+   AND h.from_mode='sdr_active' AND h.to_mode IN ('human_locked','review')
+ UNION ALL
  SELECT 'delivery',d.created_at,d.order_id::text,'crm',
    'onboarding:'||d.order_id::text,'onboarding.started',
    jsonb_build_object('order_id',d.order_id::text,'opportunity_id',o.deal_id::text)
@@ -97,7 +104,7 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
 AS $fn$
 DECLARE v_anchor timestamptz;
 BEGIN
- IF p_stream NOT IN ('intake','checkout','billing','mail','delivery','proposal','meeting')
+ IF p_stream NOT IN ('intake','checkout','billing','mail','delivery','proposal','meeting','handoff')
  THEN RAISE EXCEPTION 'COMMERCIAL_SOURCE_INVALID' USING ERRCODE='22023'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.automation_workspace_members m
    JOIN public.crm_members crm ON crm.user_id=m.user_id
@@ -130,7 +137,7 @@ DECLARE c public.automation_commercial_ingest_cursors%ROWTYPE;
  v_before bigint;
  v_after bigint;
 BEGIN
- IF p_stream NOT IN ('intake','checkout','billing','mail','delivery','proposal','meeting')
+ IF p_stream NOT IN ('intake','checkout','billing','mail','delivery','proposal','meeting','handoff')
    OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 100
  THEN RAISE EXCEPTION 'COMMERCIAL_INGEST_ARGUMENTS' USING ERRCODE='22023'; END IF;
  IF NOT EXISTS(
