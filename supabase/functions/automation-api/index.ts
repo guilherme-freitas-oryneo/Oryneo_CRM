@@ -121,11 +121,13 @@ Deno.serve(async request => {
       knowledge:knowledge.data||[],dictionaries:(dictionaries.data||[]).map(d=>({
         id:d.id,version:d.release_version,status:d.status,
         approved:d.approved_by!==null,contentHash:d.content_sha256,
-        dictionary:d.status==='draft'?readDictionaryPayload({
+        // All versions are read-only snapshots here. The editor always saves
+        // a NEW draft rather than mutating a published release.
+        dictionary:readDictionaryPayload({
           id:d.id,release_version:d.release_version,language:d.language,status:d.status,
           approved_by:d.approved_by,content_sha256:d.content_sha256,
           examples:d.examples,synonyms:[],
-        }):null,
+        }),
       })),
       selected:active.data||null,role:member.role});
   }
