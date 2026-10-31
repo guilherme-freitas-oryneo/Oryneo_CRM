@@ -11,6 +11,7 @@ GRANT SELECT ON public.crm_wa_channels TO service_role;
 GRANT SELECT ON public.crm_wa_conversations TO service_role;
 ALTER TABLE public.crm_wa_messages ADD COLUMN IF NOT EXISTS
  provider_message_id text UNIQUE;
+ALTER TABLE public.crm_wa_messages ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE public.crm_wa_messages ADD COLUMN IF NOT EXISTS kind text,
  ADD COLUMN IF NOT EXISTS delivery_status text;
 ALTER TABLE public.crm_wa_conversations ADD COLUMN IF NOT EXISTS last_preview text,
@@ -111,7 +112,7 @@ DECLARE
  w uuid:='11111111-1111-4111-8111-111111111111';
  action uuid:='c9000000-0000-4000-8000-000000000008';
  convo uuid:='c9000000-0000-4000-8000-000000000002';
- v record;counted integer:=0; receipt jsonb; denied boolean:=false;
+ v record;counted integer:=0; receipt jsonb; denied boolean:=false; marketing_token uuid;
 BEGIN
  FOR v IN SELECT * FROM public.automation_whatsapp_claim_template(w,2) LOOP
   IF v.action_id<>action OR v.template_registry_id IS NULL OR
@@ -120,6 +121,9 @@ BEGIN
   counted:=counted+1;
  END LOOP;
  IF counted<>1 THEN RAISE EXCEPTION 'VALID_UTILITY_TEMPLATE_NOT_CLAIMED'; END IF;
+ IF NOT public.automation_whatsapp_pre_send(w,action,v.claim_token,convo,
+  'c9000000-0000-4000-8000-000000000003','3333333333333333')
+ THEN RAISE EXCEPTION 'UTILITY_PRESEND_FENCE_DENIED_VALID_CLAIM'; END IF;
  receipt:=public.automation_meta_template_receipt(w,action,v.claim_token,
    'wamid.macro6.qa.0001','Mensagem homologada sem envio real');
  IF receipt->>'receiptStored'<>'true'
@@ -163,13 +167,20 @@ BEGIN
   'explicit_inbound',repeat('a',64),
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   clock_timestamp()-interval '15 minutes');
- IF (SELECT count(*) FROM public.automation_whatsapp_claim_template(w,2)
- WHERE action_id=action)<>1
+ SELECT claim_token INTO marketing_token
+ FROM public.automation_whatsapp_claim_template(w,2) WHERE action_id=action;
+ IF marketing_token IS NULL
  THEN RAISE EXCEPTION 'VERIFIED_MARKETING_OPT_IN_NOT_RECOGNIZED'; END IF;
+ IF NOT public.automation_whatsapp_pre_send(w,action,marketing_token,convo,
+   'c9000000-0000-4000-8000-000000000003','3333333333333333')
+ THEN RAISE EXCEPTION 'VALID_MARKETING_PRESEND_DENIED'; END IF;
  UPDATE public.automation_action_outbox SET state='queued',
  claim_token=NULL,lease_until=NULL WHERE id=action;
  UPDATE public.automation_whatsapp_marketing_consents
  SET revoked_at=clock_timestamp() WHERE workspace_id=w AND conversation_id=convo;
+ IF public.automation_whatsapp_pre_send(w,action,marketing_token,convo,
+  'c9000000-0000-4000-8000-000000000003','3333333333333333')
+ THEN RAISE EXCEPTION 'REVOKED_MARKETING_CONSENT_ALLOWED_PRESEND'; END IF;
  IF EXISTS(SELECT 1 FROM public.automation_whatsapp_claim_template(w,2))
  THEN RAISE EXCEPTION 'REVOKED_MARKETING_CONSENT_IGNORED'; END IF;
  UPDATE public.automation_runtime_settings SET emergency_stop=true WHERE workspace_id=w;
