@@ -61,7 +61,7 @@ Deno.serve(async request=>{
   // Macroetapa 3: all commercial sources are canonical, cursor-bound and
   // NON-EMITTING. This RPC exists only after its reviewed DB migration.
   // Missing cursor/schema fails closed instead of silently dropping events.
-  const commercialStreams=['intake','checkout','billing','mail','delivery'] as const;
+  const commercialStreams=['intake','checkout','billing','mail','delivery','proposal','meeting'] as const;
   for(const stream of commercialStreams){
     const mirrored=await db.rpc('automation_commercial_shadow_ingest',{
       p_workspace_id:workspaceId,p_stream:stream,p_limit:20,
