@@ -64,3 +64,5 @@ jobs:
           name: oryneo-public-smoke-screenshots
           path: qa-*.png
           if-no-files-found: ignore
+
+# 2026-10-31: controlled post-release public browser smoke; never submit leads.
