@@ -117,6 +117,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/starter_drafts_seed.qa.sql
       - name: Validar índices de chaves estrangeiras da engine (isolado)
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/foreign_key_indexes.qa.sql
+      - name: Criar continuação auditável de timer apenas no PostgreSQL descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_resume.preview.sql
+      - name: Testar continuação, idempotência, ramo do grafo e quarentena
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_resume.qa.sql
       - name: Verificar migração idempotente, runtime desligado e outbox intacto
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
