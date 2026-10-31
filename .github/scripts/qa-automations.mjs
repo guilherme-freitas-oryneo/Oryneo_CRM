@@ -52,6 +52,15 @@ for (const c of cases) {
     await page.getByRole('heading',{name:'Automações'}).waitFor({timeout:10000});
     await page.getByText('Motor em parada de emergência',{exact:true}).waitFor({timeout:10000});
     await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Fluxos do pipeline/}).click();
+    // The eight starter journeys are drafts only and cannot authorize sends.
+    await page.getByRole('button',{name:/Nova oportunidade.*Modelo editável/i}).click();
+    const starterName=page.getByRole('textbox',{name:'Nome do fluxo'});
+    await starterName.waitFor();
+    if(await starterName.inputValue()!=='Nova oportunidade')
+      throw Error('Canonical starter draft was not created');
+    if(!await page.getByTitle('Publicação disponível após engine homologada').isDisabled())
+      throw Error('A starter preset unexpectedly enabled publishing');
+    await page.getByRole('button',{name:'Voltar à lista'}).click();
     await page.getByRole('button',{name:/Novo fluxo/i}).click();
     await page.getByRole('textbox',{name:'Nome do fluxo'}).waitFor();
     await page.getByTitle('Organizar nós automaticamente').click();
