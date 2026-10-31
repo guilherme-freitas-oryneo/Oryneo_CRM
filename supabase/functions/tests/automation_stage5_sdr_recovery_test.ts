@@ -62,7 +62,7 @@ Deno.test('S09/S10/S11: takeover, review, resolved and opt-out cannot generate e
   {optedOut:true},{consentGranted:false},{globalMode:'suggest' as const}]){
   const f=fixture(()=>({...context('1'),...change}));
   const d=await processAiJob(job('1'),f.deps);
-  expect(d.state==='superseded','Protected contact accepted AI work: '+JSON.stringify(change));
+  expect(d.state==='cancelled','Protected contact accepted AI work: '+JSON.stringify(change));
   expect(f.calls.generation===0&&f.calls.completion===0,'Blocked contact generated reply');
  }
 });
