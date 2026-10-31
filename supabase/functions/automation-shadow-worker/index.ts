@@ -8,6 +8,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { planServerShadow } from '../automation-api/shadowEngine.ts';
 import { loadTrustedReferences } from '../automation-api/trustedReferences.ts';
+import { loadShadowCanonicalContext } from '../automation-api/shadowContext.ts';
 
 const projectUrl=Deno.env.get('SUPABASE_URL')||'';
 const serviceRole=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
@@ -96,15 +97,15 @@ Deno.serve(async request=>{
           n.type==='trigger'&&n.config?.event_type===event.event_type);
       });
       if(candidates.length>20)throw new Error('SHADOW_FLOW_LIMIT');
+      const context=await loadShadowCanonicalContext(db,event.event_type,event.context_refs);
       const plans=[];
       for(const version of candidates){
         const decision=await planServerShadow(version.graph_json,{
           workspaceId,flowVersionId:version.id,
           source:event.source,eventId:event.event_id,
           eventType:event.event_type,
-          // References contain IDs only. Verified business context requires a
-          // separate canonical adapter; never infer payment or consent.
-          context:{event:{type:event.event_type}},
+          // Context is canonical, read-only, and excludes personal data.
+          context,
         },refs);
         plans.push({flowVersionId:version.id,decision});
       }
