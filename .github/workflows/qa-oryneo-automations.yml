@@ -184,6 +184,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_whatsapp_delivery.qa.sql
       - name: Homologar continuação transacional de ações CRM até estado terminal
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_crm_continue.qa.sql
+      - name: Executar compilador Deno real através de transações CRM em PostgreSQL isolado
+        run: deno run --min-dep-age=0 --allow-run=psql supabase/automation/engine_live_crm_bridge.qa.ts
       - name: Homologar armar e desarmar fluxo publicado CRM enquanto o runtime está desligado
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_crm_arm_disabled.qa.sql
       - name: Homologar métricas agregadas, RLS e custos somente comprovados
