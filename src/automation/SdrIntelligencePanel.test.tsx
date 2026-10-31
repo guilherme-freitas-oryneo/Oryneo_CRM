@@ -30,7 +30,7 @@ describe('SDR versioned semantic workbench safe interactions',()=>{
   render(<SdrIntelligencePanel workspaceId={null} role="publisher"/>);
   await user.click(screen.getByRole('button',{name:/Cancelamento/}));
   const textarea=screen.getByRole('textbox',{name:'Exemplos negativos'});
-  expect(textarea).toHaveValue(expect.stringContaining('não quero cancelar'));
+  expect((textarea as HTMLTextAreaElement).value).toContain('não quero cancelar');
   fireEvent.change(textarea,{target:{value:'não vou cancelar\nnunca cancelei'}});
   expect(textarea).toHaveValue('não vou cancelar\nnunca cancelei');
   expect(screen.getAllByRole('button',{pressed:false}).length).toBeGreaterThan(10);
