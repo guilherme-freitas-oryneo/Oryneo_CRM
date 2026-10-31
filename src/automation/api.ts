@@ -122,3 +122,26 @@ export async function loadRemoteNodeCatalog(workspaceId:string):Promise<NodeRefe
   });
   return result.catalog;
 }
+
+
+export type AutomationRuntimeStatus={
+  workspaceActive:boolean;
+  mode:'disabled'|'shadow'|'live';
+  emergencyStop:boolean;
+  updatedAt:string;
+  flows:number;
+  publishedVersions:number;
+  pendingEvents:number;
+  executions:number;
+  actionRows:number;
+  dispatchAuthorized:false;
+};
+/** Observability only; never enables a flow or dispatches an action. */
+export async function loadRemoteAutomationRuntime(
+  workspaceId:string,
+):Promise<AutomationRuntimeStatus>{
+  const result=await invoke<{
+    ok:true;readOnly:true;runtime:AutomationRuntimeStatus;
+  }>({action:'runtime',workspaceId});
+  return result.runtime;
+}
