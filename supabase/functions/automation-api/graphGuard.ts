@@ -122,6 +122,9 @@ export function inspectServerGraph(raw: unknown, refs: TrustedReferences): Graph
     if (n.type==='whatsapp_template' && (!only(n.config,['template_registry_id','locale'])
       || !uuid(n.config.template_registry_id) || !refs.templateIds.includes(n.config.template_registry_id)
       || n.config.locale!=='pt_BR')) add('TEMPLATE_NOT_VERIFIED',p);
+    if (n.type==='crm_task' && (!only(n.config,['title','due_offset_minutes'])
+      || !text(n.config.title,160) || !int(n.config.due_offset_minutes,1,43200)))
+      add('TASK_CONFIG_INVALID',p);
     if (n.type==='crm_stage_change' && (!only(n.config,['target_stage_id'])
       || !uuid(n.config.target_stage_id) || !refs.stageIds.includes(n.config.target_stage_id))) add('STAGE_NOT_VERIFIED',p);
     if (n.type==='knowledge_lookup' && (!only(n.config,['knowledge_release_id','question_field'])
@@ -132,7 +135,7 @@ export function inspectServerGraph(raw: unknown, refs: TrustedReferences): Graph
       || typeof n.config.min_confidence!=='number' || n.config.min_confidence<0.5
       || n.config.min_confidence>0.99)) add('INTENT_NOT_VERIFIED',p);
     // Never accept an action type without a reviewed adapter policy.
-    if (descriptor.effect && !['whatsapp_template','crm_stage_change'].includes(String(n.type))) {
+    if (descriptor.effect && !['whatsapp_template','crm_stage_change','crm_task'].includes(String(n.type))) {
       add('ACTION_ADAPTER_NOT_HOMOLOGATED',p);
     }
     if (n.type==='ai_generate') add('AI_POLICY_NOT_HOMOLOGATED',p);
