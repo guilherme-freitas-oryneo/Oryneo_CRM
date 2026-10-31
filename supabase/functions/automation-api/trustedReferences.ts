@@ -1,0 +1,45 @@
+/**
+ * Resolve publication references from trusted database reads on EACH request.
+ * Never accept a browser-provided allowlist or a browser-supplied validation report.
+ * Catalog status alone is not enough: Meta components require verification.
+ */
+import type { TrustedReferences } from './graphGuard.ts';
+
+type QueryClient = {
+  from: (table: string) => any;
+};
+const EVENTS = [
+  'opportunity.created','opportunity.updated','opportunity.stage_changed',
+  'lead.intake_received','checkout.started','checkout.expired',
+  'billing.paid_verified','billing.failed','conversation.inbound',
+  'conversation.human_takeover','meeting.scheduled','proposal.sent',
+] as const;
+
+export async function loadTrustedReferences(
+  db: QueryClient, workspaceId: string,
+): Promise<TrustedReferences> {
+  const [stages,templates,knowledge,dictionaries]=await Promise.all([
+    db.from('crm_records').select('id').eq('kind','stage').eq('deleted',false).limit(100),
+    db.from('automation_template_registry')
+      .select('id,provider_status,parameter_schema').eq('workspace_id',workspaceId).limit(200),
+    db.from('automation_knowledge_release')
+      .select('id').eq('workspace_id',workspaceId).eq('status','published').limit(100),
+    db.from('automation_intent_dictionary')
+      .select('id').eq('workspace_id',workspaceId).eq('status','published').limit(100),
+  ]);
+  if(stages.error||templates.error||knowledge.error||dictionaries.error)
+    throw new Error('CANONICAL_REFERENCES_UNAVAILABLE');
+  return {
+    eventTypes:[...EVENTS],
+    stageIds:(stages.data||[]).map((x:{id:string})=>x.id),
+    templateIds:(templates.data||[])
+      .filter((t:{provider_status:string;parameter_schema:unknown}) =>
+        t.provider_status==='APPROVED' &&
+        typeof t.parameter_schema==='object' && t.parameter_schema!==null &&
+        !Array.isArray(t.parameter_schema) &&
+        (t.parameter_schema as Record<string,unknown>).components_verified===true)
+      .map((t:{id:string})=>t.id),
+    knowledgeIds:(knowledge.data||[]).map((x:{id:string})=>x.id),
+    dictionaryIds:(dictionaries.data||[]).map((x:{id:string})=>x.id),
+  };
+}

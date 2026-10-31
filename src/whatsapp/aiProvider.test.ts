@@ -3,7 +3,7 @@ import { AiProviderError, requestAiReply } from '../../supabase/functions/_share
 
 describe('WhatsApp AI provider adapter', () => {
   it('uses the OpenAI Responses API without exposing the key in the payload', async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ output_text: '  Vamos marcar o diagnóstico?  ' }), { status: 200 }));
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'completed', output_text: '  Vamos marcar o diagnóstico?  ' }), { status: 200 }));
     const reply = await requestAiReply({ provider:'openai',apiKey:'sk-test-secret-key-123456789',model:'gpt-5-mini',systemPrompt:'Seja breve.',messages:[{role:'user',content:'Quero conhecer o CRM'}] }, fetcher);
     expect(reply).toEqual({ text: 'Vamos marcar o diagnóstico?', providerResponseId: null });
     expect(fetcher).toHaveBeenCalledWith('https://api.openai.com/v1/responses', expect.objectContaining({ method:'POST', headers:expect.objectContaining({Authorization:'Bearer sk-test-secret-key-123456789'}) }));

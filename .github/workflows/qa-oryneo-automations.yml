@@ -1,0 +1,131 @@
+name: QA Automações — PostgreSQL descartável
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/automation/**'
+      - '.github/workflows/qa-oryneo-automations.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schema-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Criar apenas papéis e auth.uid simulados (DB descartável)
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE ROLE service_role NOLOGIN BYPASSRLS;
+          CREATE SCHEMA auth;
+          CREATE FUNCTION auth.uid()
+          RETURNS uuid LANGUAGE sql STABLE
+          AS $$ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          GRANT USAGE ON SCHEMA auth TO authenticated;
+          GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+          SQL
+      - name: Aplicar somente o esquema proposto em PostgreSQL temporário
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/schema.preview.sql
+      - name: Testar RLS, isolamento, deduplicação e imutabilidade
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/schema.qa.sql
+      - name: Aplicar funções de rascunho exclusivamente no Postgres temporário
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_api.preview.sql
+      - name: Verificar transações, permissões, revisão otimista e trilha de auditoria
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_api.qa.sql
+      - name: Preparar publicação versionada, sem ativar o runtime (banco descartável)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/publication.preview.sql
+      - name: Verificar publicação imutável, CAS, papéis e estado desativado
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/publication.qa.sql
+      - name: Preparar inbox com leases apenas no banco descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_queue.preview.sql
+      - name: Testar deduplicação, fencing, recuperação e efeitos bloqueados
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_queue.qa.sql
+      - name: Criar registros comerciais isolados para validação de renomeação
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_fixture.qa.sql
+      - name: Testar migração de nomes mantendo IDs
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_migration.preview.sql
+      - name: Verificar idempotência da migração na segunda passagem
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_migration.preview.sql
+      - name: Confirmar negócios, IDs e auditoria preservados
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_assert.qa.sql
+      - name: Instalar cursor idempotente para eventos reais do CRM (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_crm_adapter.preview.sql
+      - name: Testar bootstrap, ordem, replay e parada de emergência
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_crm_adapter.qa.sql
+      - name: Instalar adaptador espelho para mensagens inbound canônicas
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_whatsapp_adapter.preview.sql
+      - name: Validar cursor, privacidade, deduplicação e nenhum envio
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_whatsapp_adapter.qa.sql
+      - name: Criar esperas persistentes sem dispatcher real (banco descartável)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_timers.preview.sql
+      - name: Testar cancelamento por resposta canônica, dedupe, tentativas e parada
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_timers.qa.sql
+      - name: Habilitar apenas registro atômico de espera em execução espelho
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_trace_atomic.preview.sql
+      - name: Testar confirmação transacional de espera, cancelamento e rollback
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_trace_atomic.qa.sql
+      - name: Preparar reconciliação de espera por takeover e opt-out canônico
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_policy_reconcile.preview.sql
+      - name: Bloquear follow-ups em contexto humano, consentimento ausente e parada
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_policy_reconcile.qa.sql
+      - name: Proteger fila de ações no próprio banco antes do cutover
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_runtime_gate.preview.sql
+      - name: Testar fila bloqueada em disabled/shadow e conciliação após parada
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_runtime_gate.qa.sql
+      - name: Testar ponte para o onboarding existente, sem envios (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/onboarding_paid_bridge.qa.sql
+      - name: Sincronizar 33 componentes Meta oficiais com auditoria (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/meta_components_sync.qa.sql
+      - name: Reaplicar DDL consolidado de automação sem perder os dados anteriores
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_adoption_reapply.qa.sql
+      - name: Pinar fontes oficiais do playbook como rascunho sem substituir treinamento
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/knowledge_draft_pin.qa.sql
+      - name: Preparar lease com fencing e protocolo de confirmação do provedor (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_delivery_protocol.preview.sql
+      - name: Provar ausência de envio duplicado, reconciliação de timeout e parada global
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_delivery_protocol.qa.sql
+      - name: Validar oito jornadas de exemplo em banco descartável, desativadas
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/starter_drafts_seed.qa.sql
+      - name: Validar índices de chaves estrangeiras da engine (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/foreign_key_indexes.qa.sql
+      - name: Verificar migração idempotente, runtime desligado e outbox intacto
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $qa$
+          BEGIN
+            IF NOT EXISTS(SELECT 1 FROM public.automation_runtime_settings
+              WHERE mode='disabled' AND emergency_stop)
+              OR NOT EXISTS(SELECT 1 FROM pg_trigger
+                WHERE tgname='automation_outbox_runtime_gate' AND NOT tgisinternal)
+              OR NOT EXISTS(SELECT 1 FROM pg_trigger
+                WHERE tgname='automation_shadow_trace_wait_insert' AND NOT tgisinternal)
+              OR EXISTS(SELECT 1 FROM public.automation_action_outbox
+                WHERE state IN ('queued','leased'))
+            THEN RAISE EXCEPTION 'Consolidated idempotent schema replay is unsafe'; END IF;
+          END $qa$;
+          SQL

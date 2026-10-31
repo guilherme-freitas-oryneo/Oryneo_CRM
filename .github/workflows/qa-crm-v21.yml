@@ -7,6 +7,7 @@ on:
       - 'contratar/**'
       - 'public/**'
       - '.github/scripts/qa-crm-v21.mjs'
+      - '.github/scripts/qa-automations.mjs'
       - '.github/scripts/qa-login-brand.mjs'
       - '.github/scripts/qa-direct-checkout.mjs'
       - '.github/scripts/qa-pix-generated.mjs'
@@ -77,6 +78,7 @@ jobs:
           node .github/scripts/qa-direct-checkout.mjs
           node .github/scripts/qa-pix-generated.mjs
           node .github/scripts/qa-crm-v21.mjs
+          node .github/scripts/qa-automations.mjs
           node .github/scripts/qa-playbook.mjs
       - name: Publicar capturas de QA
         if: always()

@@ -48,7 +48,11 @@ function openAiText(payload: Record<string, unknown>): string {
       ? (item as { content: unknown[] }).content
       : [];
     for (const block of content) {
-      const text = clean(typeof block === 'object' && block ? (block as { text?: unknown }).text : '');
+      // Only assistant output_text content is eligible for customer delivery.
+      // Refusals, annotations and reasoning-like blocks are not replies.
+      if (typeof block !== 'object' || !block
+          || (block as { type?: unknown }).type !== 'output_text') continue;
+      const text = clean((block as { text?: unknown }).text);
       if (text) return text;
     }
   }
@@ -108,6 +112,13 @@ export async function requestAiReply(input: AiRequest, fetcher: Fetcher = fetch)
       : null;
     const code = details?.reason === 'max_output_tokens' ? 'AI_INCOMPLETE_MAX_OUTPUT_TOKENS' : 'AI_INCOMPLETE';
     throw new AiProviderError(code, true, response.status, providerResponseId);
+  }
+
+  // A 200 HTTP result may still represent an incomplete, failed, queued or
+  // cancelled OpenAI Response. Never emit partial or unconfirmed output.
+  if (input.provider === 'openai' && payload.status !== 'completed') {
+    throw new AiProviderError('AI_PROVIDER_INVALID_RESPONSE', true,
+      response.status, providerResponseId);
   }
 
   const text = input.provider === 'openai' ? openAiText(payload) : anthropicText(payload);

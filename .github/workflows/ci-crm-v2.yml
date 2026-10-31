@@ -19,6 +19,8 @@ jobs:
         run: npm run build -- --base=/Oryneo_CRM/
       - name: Testar todo o frontend, caixa de e-mail e pipeline
         run: npm run test -- --run
+      - name: Detectar divergência de playbook e catálogo da base de conhecimento
+        run: node .github/scripts/qa-automation-knowledge-sources.mjs
       - name: Validar arquivos compilados
         run: |
           test -s dist/index.html
@@ -42,6 +44,18 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/whatsapp-inbox/index.ts
           deno check --node-modules-dir=auto supabase/functions/whatsapp-media/index.ts
           deno check --node-modules-dir=auto supabase/functions/whatsapp-ai-worker/index.ts
+          deno check --node-modules-dir=auto supabase/functions/automation-api/index.ts
+          deno check --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
+          deno test supabase/functions/tests/automation_graph_guard_test.ts
+          deno test supabase/functions/tests/automation_shadow_engine_test.ts
+          deno test supabase/functions/tests/automation_action_policy_test.ts
+          deno test supabase/functions/tests/automation_shadow_context_test.ts
+          deno test supabase/functions/tests/automation_meta_template_verifier_test.ts
+          deno test supabase/functions/tests/automation_meta_snapshot_test.ts
+          deno test supabase/functions/tests/automation_intent_boundary_test.ts
+          deno test supabase/functions/tests/automation_worker_guards_test.ts
+          deno test supabase/functions/tests/automation_starter_cross_contract_test.ts
+          deno test supabase/functions/tests/automation_simulation_boundary_test.ts
           deno check --node-modules-dir=auto supabase/functions/intake-mail-worker/index.ts
           deno check --node-modules-dir=auto supabase/functions/stripe-webhook/index.ts
           deno check --node-modules-dir=auto supabase/functions/proposal-create/index.ts
@@ -66,6 +80,7 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/_shared/billing/fulfillment.ts
           deno test --node-modules-dir=auto supabase/functions/tests/billing_renewal_welcome_test.ts
           deno test supabase/functions/tests/whatsapp_outbound_message_test.ts
+          deno test supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts
           deno test supabase/functions/tests/refund_event_policy_test.ts
           deno test supabase/functions/tests/stripe_orphan_checkout_policy_test.ts
           deno test supabase/functions/tests/webhook_environment_test.ts
