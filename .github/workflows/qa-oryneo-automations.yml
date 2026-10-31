@@ -101,3 +101,21 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/onboarding_paid_bridge.qa.sql
       - name: Sincronizar 33 componentes Meta oficiais com auditoria (isolado)
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/meta_components_sync.qa.sql
+      - name: Reaplicar DDL consolidado de automação sem perder os dados anteriores
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_adoption_reapply.qa.sql
+      - name: Verificar migração idempotente, runtime desligado e outbox intacto
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $qa$
+          BEGIN
+            IF NOT EXISTS(SELECT 1 FROM public.automation_runtime_settings
+              WHERE mode='disabled' AND emergency_stop)
+              OR NOT EXISTS(SELECT 1 FROM pg_trigger
+                WHERE tgname='automation_outbox_runtime_gate' AND NOT tgisinternal)
+              OR NOT EXISTS(SELECT 1 FROM pg_trigger
+                WHERE tgname='automation_shadow_trace_wait_insert' AND NOT tgisinternal)
+              OR EXISTS(SELECT 1 FROM public.automation_action_outbox
+                WHERE state IN ('queued','leased'))
+            THEN RAISE EXCEPTION 'Consolidated idempotent schema replay is unsafe'; END IF;
+          END $qa$;
+          SQL
