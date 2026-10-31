@@ -61,7 +61,8 @@ export function TypedNodeConfigEditor({node,catalog,onChange}:Props){
 
   const approvedTemplateFields=[
     'conversation.customer_name','opportunity.title','opportunity.source',
-    'opportunity.plan','opportunity.cycle','opportunity.next_action.title',
+    'opportunity.plan','opportunity.cycle','opportunity.next_action.title','opportunity.priority',
+    'meeting.date','meeting.time','meeting.format',
     'billing.company',
   ];
   const template=catalog?.templates.find(t=>t.id===cfg.template_registry_id);
