@@ -1,6 +1,10 @@
 -- Disposable PostgreSQL QA for idempotent eight safe starter drafts.
 \set ON_ERROR_STOP on
--- Test after all earlier queue and migration QA, with runtime disabled.
+-- Earlier independent tests may leave their synthetic workspace in shadow.
+-- Reset ONLY the disposable 'oryneo-crm' fixture, never weaken the migration.
+UPDATE public.automation_runtime_settings SET mode='disabled',emergency_stop=true
+ WHERE workspace_id=(SELECT id FROM public.automation_workspaces WHERE slug='oryneo-crm');
+UPDATE public.automation_workspaces SET active=false WHERE slug='oryneo-crm';
 \i supabase/automation/starter_drafts_seed.preview.sql
 \i supabase/automation/starter_drafts_seed.preview.sql
 DO $qa$
