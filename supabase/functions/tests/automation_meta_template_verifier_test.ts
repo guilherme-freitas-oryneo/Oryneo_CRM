@@ -3,7 +3,7 @@ const reg={template_name:'oryneo_fup_1h_aquisicao_v3',provider_template_id:'9960
 const body={type:'BODY',text:'Oi, {{1}}! Como estão as oportunidades?',example:{body_text:[['Mariana']]}};
 const source=()=>({id:reg.provider_template_id,name:reg.template_name,
  language:reg.language,category:reg.category,status:'APPROVED',
- parameter_format:'POSITIONAL',components:[structuredClone(body)]});
+ parameter_format:'POSITIONAL',components:[structuredClone(body)] as unknown[]});
 const assert=(ok:boolean,why:string)=>{if(!ok)throw new Error(why)};
 Deno.test('Meta official body and examples match exact approved ID',()=>{
  const x=verify(source(),reg);
