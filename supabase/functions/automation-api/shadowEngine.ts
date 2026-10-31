@@ -22,7 +22,7 @@ export type ShadowResult={
   issues:{code:string;path:string}[];
 };
 const STOP_AT_SERVER=new Set([
-  'intent_classifier','knowledge_lookup','ai_generate','billing_read','wait',
+  'intent_classifier','knowledge_lookup','ai_generate','wait',
   'whatsapp_template','whatsapp_reply','email','crm_stage_change','crm_task','crm_update',
   'human_handoff','notify',
 ]);
@@ -116,6 +116,16 @@ export async function planServerShadow(
         activationKey,trace,plannedActions,issues};
     }
     let nextPort='out';
+    if(type==='billing_read'){
+      // Only the canonical server-hydrated billing context is observable.
+      // This node NEVER infers payment verification from a paid status or text.
+      const billing=field(env.context,'billing.status');
+      if(!billing.found||typeof billing.value!=='string'){
+        issues.push({code:'BILLING_CONTEXT_NOT_VERIFIED',path:'node:'+nodeId});
+        return {shadowOnly:true,dispatchAuthorized:false,state:'blocked',
+          activationKey,trace,plannedActions,issues};
+      }
+    }
     if(type==='condition'){
       const cfg=obj(current.config)?current.config:{};
       const result=evaluate(cfg.rule,env.context);
