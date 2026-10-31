@@ -1,0 +1,820 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent, DragEvent as ReactDragEvent, ChangeEvent as ReactChangeEvent } from 'react';
+import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBranch, History, Layers3, LockKeyhole, Plus, Redo2, Search, Settings2, ShieldCheck, Undo2, Workflow, X, ZoomIn, ZoomOut, PanelLeftClose, PanelRightClose, Scan, Upload, LocateFixed } from 'lucide-react';
+import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, autoLayoutFlow, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
+import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
+import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, loadRemoteAutomationExecutionDetail, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime,loadRemoteCommercialReadiness, type CommercialReadiness, type ServerShadowPreview, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution, type AutomationExecutionDetail } from './api';
+import { ConditionRuleEditor } from './ConditionRuleEditor';
+import { duplicateDraftNode,fitGraphView,importDraftJson,moveSelectedNodes,removeEdgeById,removeSelectedNodes,routeBranchLabel,viewportToGraph } from './editorCommands';
+import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
+import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
+import { SIMULATION_CASES, buildSimulationCase, type SimulationCaseId } from './simulationCases';
+import './automations-workspace.css';
+import './commercial-readiness.css';
+import {SdrIntelligencePanel} from './SdrIntelligencePanel.tsx';
+
+type Tab = 'overview' | 'pipeline' | 'sdr' | 'triggers' | 'intelligence' | 'templates' | 'executions';
+const TABS: { key: Tab; label: string; icon: typeof Workflow }[] = [
+  { key: 'overview', label: 'Visão geral', icon: Layers3 },
+  { key: 'pipeline', label: 'Fluxos do pipeline', icon: Workflow },
+  { key: 'sdr', label: 'Fluxos do SDR', icon: GitBranch },
+  { key: 'triggers', label: 'Gatilhos e condições', icon: Settings2 },
+  { key: 'intelligence', label: 'Inteligência SDR', icon: BookOpen },
+  { key: 'templates', label: 'Templates e canais', icon: BookOpen },
+  { key: 'executions', label: 'Execuções e diagnóstico', icon: History },
+];
+const NAMES: Record<NodeFamily, string> = {
+  trigger: 'Gatilhos', logic: 'Condições', intelligence: 'Inteligência',
+  communication: 'Comunicação', crm: 'CRM', control: 'Controle',
+};
+const defaultConfig = (type: NodeKind, kind: FlowKind): Record<string, unknown> => {
+  switch (type) {
+    case 'trigger': return { event_type: kind === 'sdr' ? 'conversation.inbound' : 'opportunity.created' };
+    case 'condition': return { rule: { kind: 'compare', field: 'conversation.mode', op: 'eq', value: 'sdr_active' } };
+    case 'wait': return { duration_minutes: 60, cancel_on_reply: true };
+    case 'crm_task': return { title: 'Verificar oportunidade', due_offset_minutes: 60 };
+    case 'human_handoff': return { reason_code: 'manual_review' };
+    case 'notify': return { event_code: 'review_needed' };
+    case 'ai_generate': return { prompt_ref: 'aguardando_homologacao', max_tokens: 400 };
+    case 'whatsapp_template': return { template_registry_id: '', locale: 'pt_BR' };
+    case 'whatsapp_reply': return { text_ref: '' };
+    case 'knowledge_lookup': return { knowledge_release_id: '' };
+    case 'intent_classifier': return { dictionary_release_id: '', min_confidence: 0.8 };
+    case 'crm_stage_change': return { target_stage_id: '' };
+    case 'crm_update': return { allowed_field: 'notes', value_ref: '' };
+    case 'email': return { template_id: '', recipient_field: 'lead.email' };
+    default: return {};
+  }
+};
+const makeDraft = (kind: FlowKind): FlowDefinition => {
+  const id = crypto.randomUUID();
+  return {
+    schema_version: '1.0.0', id, name: kind === 'sdr' ? 'Novo fluxo SDR' : 'Novo fluxo do pipeline',
+    kind, status: 'draft', version: 1,
+    nodes: [
+      { id: crypto.randomUUID(), type: 'trigger', label: 'Gatilho inicial', position: { x: 100, y: 150 },
+        config: defaultConfig('trigger', kind), ports: ['out'] },
+      { id: crypto.randomUUID(), type: 'end', label: 'Fim', position: { x: 560, y: 150 },
+        config: {}, ports: ['in'] },
+    ],
+    edges: [],
+  };
+};
+function connectedDraft(kind: FlowKind) {
+  const draft = makeDraft(kind);
+  draft.edges = [{
+    id: crypto.randomUUID(), source: draft.nodes[0].id,
+    source_port: 'out', target: draft.nodes[1].id, target_port: 'in',
+  }];
+  return draft;
+}
+function safeRead(storageKey: string): FlowDefinition[] {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((graph): graph is FlowDefinition => {
+      if (!graph || typeof graph !== 'object' || graph.status !== 'draft'
+        || !['pipeline','sdr'].includes(String(graph.kind))
+        || typeof graph.id !== 'string' || graph.id.length > 128
+        || typeof graph.name !== 'string' || graph.name.length > 160
+        || !Array.isArray(graph.nodes) || graph.nodes.length > 500
+        || !Array.isArray(graph.edges) || graph.edges.length > 1000) return false;
+      // Incomplete drafts must survive a reload. Validation is shown separately.
+      return graph.nodes.every((node: FlowNode) => node
+        && typeof node.id === 'string' && node.position
+        && Number.isFinite(node.position.x) && Number.isFinite(node.position.y)
+        && node.config && typeof node.config === 'object' && !Array.isArray(node.config)
+        && Array.isArray(node.ports) && Object.prototype.hasOwnProperty.call(NODE_REGISTRY, node.type));
+    }).slice(0, 30);
+  } catch { return []; }
+}
+
+function useDrafts(userId: string) {
+  const key = 'oryneo:automations:draft:' + userId;
+  const [drafts, setDrafts] = useState<FlowDefinition[]>(() => safeRead(key));
+  const [dirtyError, setDirtyError] = useState('');
+  const save = (next: FlowDefinition[]) => {
+    if (next.length > 30) { setDirtyError('Máximo de 30 rascunhos locais.'); return false; }
+    try {
+      const json = JSON.stringify(next);
+      if (json.length > 500_000) { setDirtyError('Rascunhos excedem o limite local.'); return false; }
+      localStorage.setItem(key, json);
+      setDrafts(next);
+      setDirtyError('');
+      return true;
+    } catch {
+      setDirtyError('Armazenamento local indisponível. Exporte seu rascunho para não perdê-lo.');
+      return false;
+    }
+  };
+  return { drafts, save, dirtyError };
+}
+
+export function AutomationsWorkspace({ userId }: { userId: string }) {
+  const [tab, setTab] = useState<Tab>('overview');
+  const { drafts, save, dirtyError } = useDrafts(userId);
+  const [workspace, setWorkspace] = useState<WorkspaceGrant | null>(null);
+  const [remoteFlows, setRemoteFlows] = useState<RemoteFlow[]>([]);
+  const [metaTemplates, setMetaTemplates] = useState<AutomationTemplate[]>([]);
+  const [nodeCatalog, setNodeCatalog] = useState<NodeReferenceCatalog | null>(null);
+  const [runtimeStatus,setRuntimeStatus] = useState<AutomationRuntimeStatus | null>(null);
+  const [commercialReadiness,setCommercialReadiness]=useState<CommercialReadiness|null>(null);
+  const [remoteExecutions, setRemoteExecutions] = useState<AutomationExecution[]>([]);
+  const [remoteRevision, setRemoteRevision] = useState<Record<string, number>>({});
+  const [lastRemoteJson, setLastRemoteJson] = useState<Record<string,string>>({});
+  const [syncError, setSyncError] = useState('');
+  const [syncBusy, setSyncBusy] = useState(false);
+  useEffect(() => {
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(userId)) return;
+    let cancelled = false;
+    void loadAutomationWorkspaces().then(async grants => {
+      if (cancelled) return;
+      const first = grants.find(item => item.slug === 'oryneo-crm') || grants[0];
+      if (!first) { setSyncError('Sem autorização para o workspace de automações.'); return; }
+      setWorkspace(first);
+      const saved = await listRemoteAutomationFlows(first.id);
+      if (!cancelled) { setRemoteFlows(saved); setRemoteRevision(Object.fromEntries(saved.map(flow => [flow.id, flow.revision]))); }
+      const [registry, executions, catalog, runtime, readiness] = await Promise.allSettled([
+        listRemoteAutomationTemplates(first.id), listRemoteAutomationExecutions(first.id),
+        loadRemoteNodeCatalog(first.id), loadRemoteAutomationRuntime(first.id),
+        loadRemoteCommercialReadiness(first.id),
+      ]);
+      if (cancelled) return;
+      if (registry.status === 'fulfilled') setMetaTemplates(registry.value);
+      if (executions.status === 'fulfilled') setRemoteExecutions(executions.value);
+      if (catalog.status === 'fulfilled') setNodeCatalog(catalog.value);
+      if (runtime.status === 'fulfilled') setRuntimeStatus(runtime.value);
+      if (readiness.status === 'fulfilled')setCommercialReadiness(readiness.value);
+    }).catch(() => { if (!cancelled) setSyncError('Serviço de rascunhos indisponível. Use a cópia local.'); });
+    return () => { cancelled = true; };
+  }, [userId]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [history, setHistory] = useState<DraftHistory | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeEdge, setActiveEdge] = useState<string | null>(null);
+  const [selectedIds,setSelectedIds]=useState<string[]>([]);
+  const [showPalette,setShowPalette]=useState(true);
+  const [showInspector,setShowInspector]=useState(true);
+  const [executionDetail,setExecutionDetail]=useState<AutomationExecutionDetail|null>(null);
+  const [detailLoading,setDetailLoading]=useState(false);
+  const [nodeClipboard,setNodeClipboard]=useState<string|null>(null);
+  const [reconnecting, setReconnecting] = useState<string | null>(null);
+  const [sourcePort, setSourcePort] = useState<{ nodeId: string; port: string } | null>(null);
+  const [search, setSearch] = useState('');
+  const [nodeSearch,setNodeSearch]=useState('');
+  const [zoom, setZoom] = useState(1);
+  const [notice, setNotice] = useState('');
+  const [preview, setPreview] = useState<ReturnType<typeof simulateFlow> | null>(null);
+  const [serverPreview,setServerPreview]=useState<ServerShadowPreview|null>(null);
+  const [simulationCase,setSimulationCase]=useState<SimulationCaseId>('unknown');
+  const [jsonConfig, setJsonConfig] = useState('');
+  const [menu, setMenu] = useState<{ x: number; y: number; edgeId: string | null; nodeId: string | null; canvasX?: number; canvasY?: number } | null>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const importInput=useRef<HTMLInputElement>(null);
+  const pointer = useRef<{ id: number; nodeId: string; originX: number; originY: number; startX: number; startY: number } | null>(null);
+  const current = history?.graph;
+  const trace=serverPreview?.trace||preview?.trace||[];
+  const tracedNodeIds=new Set(trace.map(item=>item.nodeId));
+  const tracedEdgeIds=new Set((current?.edges||[]).filter(edge=>
+    trace.some((step,index)=>index+1<trace.length&&step.nodeId===edge.source&&
+      trace[index+1].nodeId===edge.target&&step.nextPort===edge.source_port)).map(edge=>edge.id));
+  const canvasSize=useMemo(()=>({
+    width:Math.max(1500,...(current?.nodes||[]).map(n=>n.position.x+330)),
+    height:Math.max(950,...(current?.nodes||[]).map(n=>n.position.y+170)),
+  }),[current]);
+  const selected = current?.nodes.find(node => node.id === selectedId) || null;
+  const validation = useMemo(() => current ? validateFlow(current) : null, [current]);
+  const commit = (change: ReturnType<typeof moveNode>) => {
+    if (!history) return;
+    if (!change.ok) { setNotice('A operação não foi aplicada: ' + change.code); return; }
+    setHistory(recordEdit(history, change));
+    setPreview(null);setServerPreview(null);
+    setNotice('Alterações no rascunho. Salve para manter neste dispositivo.');
+  };
+  const open = (graph: FlowDefinition) => {
+    setTab(graph.kind);
+    setOpenId(graph.id); setHistory(createHistory(graph));
+    setSelectedId(null);setSelectedIds([]); setActiveEdge(null); setPreview(null);setServerPreview(null);
+    setNotice('Editor isolado: nenhum fluxo está conectado a disparos reais.');
+  };
+  const create = (kind: FlowKind) => open(connectedDraft(kind));
+  const createFromStarter = (starterId: Parameters<typeof buildStarterFlow>[0]) => {
+    open(buildStarterFlow(starterId));
+    setNotice('Modelo editável, sem disparos. Revise consentimento e integrações antes de publicar.');
+  };
+  const openRemote = async (flowId: string) => {
+    if (!workspace) return;
+    setSyncBusy(true);
+    try {
+      const result = await loadRemoteAutomationFlow(workspace.id, flowId);
+      if (!result.version?.graph_json) {
+        setNotice('Ainda não existe versão do fluxo.');
+        return;
+      }
+      // Published snapshots stay immutable; editing starts a NEW draft via CAS.
+      const isPublished=result.version.status==='published';
+      const draft:FlowDefinition=isPublished
+        ? {...result.version.graph_json,status:'draft',version:result.version.version+1}
+        : result.version.graph_json;
+      open(draft);
+      setRemoteRevision(revisions => ({ ...revisions, [flowId]: result.flow.revision }));
+      if (!isPublished) setLastRemoteJson(previous=>({...previous,[flowId]:JSON.stringify(draft)}));
+      setNotice(isPublished?'Versão publicada preservada. Edite e salve para criar um novo rascunho.':'Rascunho carregado do workspace ORYNEO, sem disparos.');
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : 'Não foi possível abrir o fluxo.');
+    } finally { setSyncBusy(false); }
+  };
+  const saveDraft = async () => {
+    if (!current || syncBusy) return;
+    const next = drafts.filter(d => d.id !== current.id).concat(current);
+    if (!save(next)) return;
+    setNotice('Cópia de segurança salva neste navegador.');
+    if (!workspace) return;
+    if (!['admin','publisher','editor'].includes(workspace.role)) {
+      setNotice('Cópia local salva. Seu perfil não pode modificar o workspace.');
+      return;
+    }
+    setSyncBusy(true);
+    try {
+      const result = await saveRemoteAutomationDraft(workspace.id, current, remoteRevision[current.id]);
+      setRemoteRevision(revisions => ({ ...revisions, [current.id]: result.revision }));
+      setLastRemoteJson(previous=>({...previous,[current.id]:JSON.stringify(current)}));
+      const saved = await listRemoteAutomationFlows(workspace.id);
+      setRemoteFlows(saved);
+      setNotice('Rascunho salvo no workspace ORYNEO com revisão ' + result.revision + '. Nenhum disparo executado.');
+    } catch (reason) {
+      setNotice('Cópia local preservada. Sincronização não concluída: ' +
+        (reason instanceof Error ? reason.message : 'servidor indisponível'));
+    } finally { setSyncBusy(false); }
+  };
+  const freezeCanonicalVersion=async()=>{
+    if (!workspace||!current||syncBusy||remoteRevision[current.id]===undefined
+      || JSON.stringify(current)!==lastRemoteJson[current.id]) {
+      setNotice('Salve o rascunho remoto antes de congelar a versão.');
+      return;
+    }
+    if (!['admin','publisher'].includes(workspace.role)) {
+      setNotice('É necessário o papel de publicador.');return;
+    }
+    setSyncBusy(true);
+    try {
+      const result=await freezeRemoteAutomationVersion(workspace.id,current.id,remoteRevision[current.id]);
+      setRemoteRevision(prev=>({...prev,[current.id]:result.revision}));
+      setLastRemoteJson(prev=>{const copy={...prev};delete copy[current.id];return copy;});
+      setRemoteFlows(await listRemoteAutomationFlows(workspace.id));
+      setNotice('Versão congelada sem ativar o runtime, nem enviar mensagens.');
+      setOpenId(null);setHistory(null);
+    } catch(reason) {
+      setNotice('Publicação desativada não concluída: '+(reason instanceof Error?reason.message:'falha desconhecida'));
+    } finally {setSyncBusy(false);}
+  };
+  const validateWithServer = async () => {
+    if (!current) return;
+    if (!workspace) {
+      setNotice('Selecione um workspace autorizado para validar no servidor.');
+      return;
+    }
+    setSyncBusy(true);
+    try {
+      const result = await validateRemoteAutomationDraft(workspace.id, current);
+      setNotice(result.ok
+        ? 'Pré-validação do servidor aprovada. Nenhuma publicação ou envio autorizado.'
+        : 'Servidor: ' + result.issues.slice(0, 6)
+          .map(issue => issue.code + ' (' + issue.path + ')').join(' · '));
+    } catch (reason) {
+      setNotice('Pré-validação indisponível: ' +
+        (reason instanceof Error ? reason.message : 'falha de conexão'));
+    } finally { setSyncBusy(false); }
+  };
+  const simulateWithServer = async () => {
+    if(!current||!workspace)return;
+    const eventType=String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||'');
+    setSyncBusy(true);
+    try {
+      const result=await simulateRemoteAutomationDraft(workspace.id,current,eventType,buildSimulationCase(simulationCase));
+      setPreview(null);setServerPreview(result);
+      setNotice('Simulação do servidor — nenhum envio, nenhuma gravação · '+
+        result.state+' · '+result.trace.length+' nós · '+
+        (result.issues.map(issue=>issue.code).join(', ')||'sem erros de execução'));
+    }catch(error){
+      setNotice('Simulação do servidor indisponível: '+
+        (error instanceof Error?error.message:'falha desconhecida'));
+    }finally{setSyncBusy(false);}
+  };
+  const exportDraft = () => {
+    if (!current) return;
+    const blob = new Blob([JSON.stringify(current, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = 'oryneo-fluxo-' + current.kind + '.json'; link.click();
+    URL.revokeObjectURL(url);
+  };
+  const addToEdge = (edgeId: string, type: NodeKind) => {
+    if (!current || !history || ['trigger','stop','end'].includes(type)) return;
+    const selectedEdge = current.edges.find(e => e.id === edgeId);
+    if (!selectedEdge) return;
+    const src = current.nodes.find(n => n.id === selectedEdge.source);
+    const dst = current.nodes.find(n => n.id === selectedEdge.target);
+    const descriptor = NODE_REGISTRY[type];
+    const node: FlowNode = {
+      id: crypto.randomUUID(), type, label: descriptor.title,
+      position: {
+        x: ((src?.position.x || 0) + (dst?.position.x || 0)) / 2,
+        y: ((src?.position.y || 0) + (dst?.position.y || 0)) / 2 + 95,
+      },
+      ports: [...(descriptor.input ? ['in'] : []), ...descriptor.outputs],
+      config: defaultConfig(type, current.kind),
+    };
+    const candidate = insertNodeOnEdge(current, edgeId, node, descriptor.outputs.includes('out') ? 'out' : descriptor.outputs[0], crypto.randomUUID());
+    commit(candidate);
+    if (candidate.ok) { setSelectedId(node.id); setJsonConfig(JSON.stringify(node.config, null, 2)); setActiveEdge(null); }
+  };
+  const placeNodeAt=(type:NodeKind,x:number,y:number)=>{
+    if(!current||!history||current.nodes.length>=500||type==='trigger'
+      ||!nodePalette(current.kind).some(item=>item.type===type))return;
+    const descriptor=NODE_REGISTRY[type];
+    const node:FlowNode={id:crypto.randomUUID(),type,label:descriptor.title,
+      position:{x:Math.max(12,Math.min(16000,Math.round(x))),
+        y:Math.max(12,Math.min(16000,Math.round(y)))},
+      ports:[...(descriptor.input?['in']:[]),...descriptor.outputs],
+      config:defaultConfig(type,current.kind)};
+    commit({ok:true,graph:{...current,nodes:[...current.nodes,node]}});
+    setSelectedId(node.id);setSelectedIds([node.id]);
+    setJsonConfig(JSON.stringify(node.config,null,2));setMenu(null);
+    // In a narrow viewport, center the inserted node rather than cutting its
+    // body beyond the canvas edge. Large layouts retain the user's scroll.
+    if(stage.current?.clientWidth&&stage.current.clientWidth<600&&typeof requestAnimationFrame==='function'){
+      requestAnimationFrame(()=>{
+        const el=stage.current;
+        if(el){
+          el.scrollLeft=Math.max(0,node.position.x*zoom-el.clientWidth/2+110);
+          el.scrollTop=Math.max(0,node.position.y*zoom-el.clientHeight/2+65);
+        }
+      });
+    }
+    setNotice('Bloco inserido. Conecte as portas antes de validar ou publicar.');
+  };
+  const addAtCanvas=(type:NodeKind)=>{
+    if(!menu)return;
+    placeNodeAt(type,menu.canvasX??200,menu.canvasY??150);
+  };
+  const spawnFromPalette=(type:NodeKind)=>{
+    if(activeEdge&&type!=='end'&&type!=='stop'&&type!=='trigger'){
+      addToEdge(activeEdge,type);return;
+    }
+    const el=stage.current;
+    placeNodeAt(type,el?(el.scrollLeft+el.clientWidth*.52)/zoom:340,
+      el?(el.scrollTop+el.clientHeight*.4)/zoom:180);
+  };
+  const beginPaletteDrag=(e:ReactDragEvent<HTMLButtonElement>,type:NodeKind)=>{
+    e.dataTransfer.effectAllowed='copy';
+    e.dataTransfer.setData('application/x-oryneo-node',type);
+    e.dataTransfer.setData('text/plain',type);
+  };
+  const dropPaletteNode=(e:ReactDragEvent<HTMLDivElement>)=>{
+    const raw=e.dataTransfer.getData('application/x-oryneo-node');
+    if(!raw||!current||!nodePalette(current.kind).some(item=>item.type===raw))return;
+    e.preventDefault();
+    const rect=e.currentTarget.getBoundingClientRect();
+    const point=viewportToGraph({x:e.clientX,y:e.clientY},
+      {left:rect.left,top:rect.top},
+      {left:e.currentTarget.scrollLeft,top:e.currentTarget.scrollTop},zoom);
+    placeNodeAt(raw as NodeKind,point.x-110,point.y-42);
+  };
+  const uploadDraft=async(event:ReactChangeEvent<HTMLInputElement>)=>{
+    const file=event.target.files?.[0];
+    event.target.value='';
+    if(!file||!current)return;
+    if(file.size>250_000||!(/\.json$/i).test(file.name)){
+      setNotice('Importação recusada: escolha JSON com até 250 KB.');return;
+    }
+    try{
+      const result=importDraftJson(await file.text(),current.kind);
+      if(!result.ok){setNotice('Importação recusada: '+result.code);return;}
+      open(result.graph);
+      setNotice('Fluxo importado como NOVO rascunho; nenhuma versão existente foi sobrescrita.');
+    }catch{setNotice('Não foi possível ler o arquivo. Nenhum fluxo foi modificado.');}
+  };
+  const selectNode=(node:FlowNode,shift:boolean)=>{
+    if(shift){
+      const next=selectedIds.includes(node.id)?selectedIds.filter(id=>id!==node.id):[...selectedIds,node.id];
+      setSelectedIds(next);setSelectedId(next.length===1?next[0]:null);
+      setActiveEdge(null);return;
+    }
+    setSelectedIds([node.id]);setSelectedId(node.id);setActiveEdge(null);
+    setJsonConfig(JSON.stringify(node.config,null,2));
+  };
+  const duplicateSelected=()=>{
+    if(!current||!selectedId)return;
+    const nextId=crypto.randomUUID();
+    const change=duplicateDraftNode(current,selectedId,nextId);
+    commit(change);
+    if(change.ok){setSelectedId(nextId);setSelectedIds([nextId]);}
+    setMenu(null);
+  };
+  const removeSelection=()=>{
+    if(!current)return;
+    const selected=selectedIds.length?selectedIds:(selectedId?[selectedId]:[]);
+    if(selected.length)commit(removeSelectedNodes(current,selected));
+    else if(activeEdge)commit(removeEdgeById(current,activeEdge));
+    setSelectedId(null);setSelectedIds([]);setActiveEdge(null);setMenu(null);
+  };
+  const toggleDisabled=()=>{
+    if(!current||!selectedId)return;
+    const node=current.nodes.find(n=>n.id===selectedId);
+    if(!node||node.type==='trigger')return;
+    commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>
+      n.id===node.id?{...n,disabled:!n.disabled}:n)}});
+    setMenu(null);
+  };
+  const focusMatchingNode=()=>{
+    const term=nodeSearch.trim().toLocaleLowerCase('pt-BR');
+    const node=current?.nodes.find(n=>n.label.toLocaleLowerCase('pt-BR').includes(term));
+    if(!term||!node){setNotice('Não foi encontrado um bloco com esse nome.');return;}
+    selectNode(node,false);
+    if(stage.current){
+      stage.current.scrollLeft=Math.max(0,node.position.x*zoom-stage.current.clientWidth/2+110);
+      stage.current.scrollTop=Math.max(0,node.position.y*zoom-stage.current.clientHeight/2+65);
+    }
+  };
+  const inspectExecution=async(item:AutomationExecution)=>{
+    if(!workspace)return;
+    setDetailLoading(true);setExecutionDetail(null);
+    try{setExecutionDetail(await loadRemoteAutomationExecutionDetail(workspace.id,item.id));}
+    catch(e){setNotice('Detalhes indisponíveis: '+(e instanceof Error?e.message:'erro de consulta'));}
+    finally{setDetailLoading(false);}
+  };
+  const onNodePointerDown = (event: ReactPointerEvent<HTMLButtonElement>, node: FlowNode) => {
+    if (event.button !== 0) return;
+    pointer.current = { id: event.pointerId, nodeId: node.id, originX: event.clientX, originY: event.clientY, startX: node.position.x, startY: node.position.y };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const onNodePointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const p = pointer.current;
+    if (!p || !current || p.id !== event.pointerId) return;
+    pointer.current = null;
+    const dx = (event.clientX - p.originX) / zoom, dy = (event.clientY - p.originY) / zoom;
+    if (Math.abs(dx) + Math.abs(dy) > 3) {
+      if(selectedIds.includes(p.nodeId)&&selectedIds.length>1){
+        commit(moveSelectedNodes(current,selectedIds,dx,dy));
+      }else commit(moveNode(current,p.nodeId,{x:Math.max(12,p.startX+dx),y:Math.max(12,p.startY+dy)}));
+    }
+  };
+  const showNode = (node: FlowNode,shift=false) => {
+    if (reconnecting && current) {
+      commit(reconnectEdge(current, reconnecting, node.id));
+      setReconnecting(null); setActiveEdge(null); return;
+    }
+    if (sourcePort && current && sourcePort.nodeId !== node.id) {
+      const edge = {
+        id: crypto.randomUUID(), source: sourcePort.nodeId, source_port: sourcePort.port, target: node.id, target_port: 'in',
+      };
+      commit(connectPorts(current, edge));
+      setSourcePort(null); return;
+    }
+    selectNode(node,shift);
+  };
+  const applyJsonConfig = () => {
+    if (!current || !selected) return;
+    try {
+      const cfg: unknown = JSON.parse(jsonConfig);
+      if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) throw new Error('INVALID_CONFIG');
+      const next = current.nodes.map(node =>
+        node.id === selected.id ? { ...node, config: cfg as Record<string, unknown> } : node);
+      commit({ ok: true, graph: { ...current, nodes: next } });
+    } catch {
+      setNotice('JSON inválido: o nó não foi alterado.');
+    }
+  };
+  const fit=()=>{
+    const el=stage.current;
+    if(!el||!current)return;
+    const view=fitGraphView(current.nodes,{width:el.clientWidth,height:el.clientHeight});
+    setZoom(view.zoom);
+    requestAnimationFrame(()=>{
+      if(stage.current){stage.current.scrollLeft=view.left;stage.current.scrollTop=view.top;}
+    });
+  };
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!history) return;
+      if (event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement ||
+        (event.target instanceof HTMLElement&&event.target.isContentEditable)) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault(); setHistory(h => h ? (event.shiftKey ? redoEdit(h) : undoEdit(h)) : null);
+      }
+      if ((event.key==='Delete'||event.key==='Backspace')&&(selectedIds.length||selectedId||activeEdge)){
+        event.preventDefault();removeSelection();
+      }
+      if ((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='d'&&selectedId){
+        event.preventDefault();duplicateSelected();
+      }
+      if ((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='c'&&selectedId){
+        event.preventDefault();setNodeClipboard(selectedId);
+      }
+      if ((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='v'&&nodeClipboard&&current){
+        event.preventDefault();
+        const id=crypto.randomUUID();
+        const change=duplicateDraftNode(current,nodeClipboard,id);
+        commit(change);
+        if(change.ok){setSelectedId(id);setSelectedIds([id]);}
+      }
+      if (event.key === 'Escape') {
+        setSourcePort(null);setReconnecting(null);setMenu(null);setSelectedIds([]);setSelectedId(null);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [history,selectedIds,selectedId,activeEdge,nodeClipboard,current]);
+  const subviews: Record<Exclude<Tab,'pipeline'|'sdr'>, { title: string; description: string }> = {
+    overview: { title: 'Orquestração comercial', description: 'Centralize seus fluxos e acompanhe a transição para o novo motor com segurança.' },
+    triggers: { title: 'Gatilhos e condições', description: 'Biblioteca de regras tipadas. Condições editáveis exigem confirmação do backend.' },
+    intelligence: { title: 'Playbook e intenções do SDR', description: 'Fontes versionadas e aprovação controlada, sem mexer no atendimento operacional.' },
+    templates: { title: 'Templates e canais', description: 'Os modelos precisam ser sincronizados com a Meta antes de qualquer envio.' },
+    executions: { title: 'Execuções e diagnóstico', description: 'A nova engine ainda não está habilitada. As execuções legadas permanecem no sistema atual.' },
+  };
+  const displayBuilder = current && (tab === 'pipeline' || tab === 'sdr') && current.kind === tab;
+  return (
+    <div className="ory-auto" aria-label="Centro de Automações" data-open-flow={openId||undefined}>
+      <div className="ory-auto-header">
+        <div><span className="ory-auto-overline">ORYNEO / OPERAÇÃO</span><h1>Automações</h1><p>Fluxos inteligentes, com controle humano e rastreabilidade.</p></div>
+        <span className="ory-auto-safe"><LockKeyhole size={14}/> {runtimeStatus ? (runtimeStatus.emergencyStop?'Motor em parada de emergência':`Motor ${runtimeStatus.mode}`) : 'Estado do motor não confirmado'}</span>
+      </div>
+      <nav className="ory-auto-tabs" aria-label="Áreas de automações">
+        {TABS.map(item => <button key={item.key} type="button" className={tab===item.key?'active':''} onClick={() => {
+          setTab(item.key); setMenu(null); setSourcePort(null); if (item.key !== 'pipeline' && item.key !== 'sdr') setOpenId(null);
+        }}><item.icon size={15}/>{item.label}</button>)}
+      </nav>
+      {dirtyError && <div role="alert" className="ory-auto-warning"><AlertCircle size={15}/>{dirtyError}</div>}
+      {syncError && <div role="status" className="ory-auto-warning"><AlertCircle size={15}/>{syncError}</div>}
+      {(tab === 'pipeline' || tab === 'sdr') && !displayBuilder && <div className="ory-auto-list">
+        <div className="ory-auto-list-heading">
+          <div><span className="ory-auto-overline">BIBLIOTECA DE FLUXOS</span><h2>{tab === 'sdr' ? 'Fluxos conversacionais SDR' : 'Fluxos do pipeline'}</h2><p>Rascunhos locais e não publicados. Os disparos atuais permanecem no motor existente.</p></div>
+          <button className="ory-auto-primary" onClick={()=>create(tab)}><Plus size={17}/> Novo fluxo</button>
+        </div>
+        <div className="ory-auto-flows">
+          {remoteFlows.filter(g=>g.kind===tab).map(flow=><button className="ory-auto-flow-card" disabled={syncBusy} key={'remote-'+flow.id} onClick={()=>void openRemote(flow.id)}>
+            <span className="ory-auto-flow-icon"><Workflow size={21}/></span>
+            <span><strong>{flow.name}</strong><small>Workspace ORYNEO · revisão {flow.revision} · {flow.enabled?'ativo':'inativo'}</small></span><ArrowRight size={17}/>
+          </button>)}
+          {drafts.filter(g=>g.kind===tab && !remoteFlows.some(remote=>remote.id===g.id)).map(flow=><button className="ory-auto-flow-card" key={flow.id} onClick={()=>open(flow)}>
+            <span className="ory-auto-flow-icon"><Workflow size={21}/></span>
+            <span><strong>{flow.name}</strong><small>{flow.nodes.length} nós · {flow.edges.length} conexões · rascunho local</small></span><ArrowRight size={17}/>
+          </button>)}
+          <button className="ory-auto-flow-card ory-auto-create-card" onClick={()=>create(tab)}><Plus size={21}/><span><strong>Criar fluxo</strong><small>Começar com gatilho e conclusão conectados</small></span></button>
+          {STARTER_FLOWS.filter(starter=>starter.kind===tab).map(starter=>(
+            <button className="ory-auto-flow-card" key={'starter-'+starter.id}
+              title={starter.note} onClick={()=>createFromStarter(starter.id)}>
+              <span className="ory-auto-flow-icon"><GitBranch size={20}/></span>
+              <span><strong>{starter.name}</strong><small>Modelo editável · sem envio · aprovação necessária</small></span>
+              <ArrowRight size={17}/>
+            </button>
+          ))}
+        </div>
+      </div>}
+      {displayBuilder && <div className="ory-auto-editor">
+        <div className="ory-auto-editor-toolbar">
+          <div className="ory-auto-editor-name"><button aria-label="Voltar à lista" onClick={()=>{setOpenId(null);setHistory(null)}}><ArrowRight size={17} style={{transform:'rotate(180deg)'}}/></button>
+            <input aria-label="Nome do fluxo" value={current.name} maxLength={160} onChange={e => commit({ok:true,graph:{...current,name:e.target.value}})}/><span className="ory-auto-draft">RASCUNHO · V{current.version}</span>
+          </div>
+          <div className="ory-auto-editor-actions">
+            <button title="Organizar nós automaticamente" onClick={()=>commit(autoLayoutFlow(current))}><Layers3 size={16}/>Organizar</button>
+            <button title="Desfazer" onClick={()=>setHistory(h=>h?undoEdit(h):h)} disabled={!history?.undo.length}><Undo2 size={16}/></button>
+            <button title="Refazer" onClick={()=>setHistory(h=>h?redoEdit(h):h)} disabled={!history?.redo.length}><Redo2 size={16}/></button>
+            <button title="Validar grafo" onClick={()=>setNotice(validation?.ok?'Grafo estruturalmente válido. Ainda requer homologação no servidor.':(validation?.issues||[]).map(x=>x.code).join(' · '))}><ShieldCheck size={16}/>Validar</button>
+            <button title="Pré-validar no servidor (sem publicar)" disabled={syncBusy || !workspace} onClick={()=>void validateWithServer()}><ShieldCheck size={16}/>Servidor</button>
+            <button title="Simular no servidor sem enviar" disabled={!workspace||syncBusy}
+              onClick={()=>void simulateWithServer()}><CirclePlay size={16}/>Prévia servidor</button>
+            <button title="Simular sem efeitos externos" onClick={()=>{
+              setServerPreview(null);setPreview(simulateFlow(current,{eventType:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||''),context:{...buildSimulationCase(simulationCase),event:{type:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||'')}}}));
+            }}><CirclePlay size={16}/>Simular</button>
+            <button title="Exportar rascunho em JSON" onClick={exportDraft}><FileJson size={16}/></button>
+            <button title="Importar grafo JSON como novo rascunho, nunca substituir" onClick={()=>importInput.current?.click()}><Upload size={16}/><span>Importar</span></button>
+            <input ref={importInput} type="file" accept="application/json,.json" className="ory-auto-hidden-input"
+              aria-label="Importar fluxo JSON" onChange={e=>void uploadDraft(e)}/>
+            <button title="Alternar biblioteca de nós" aria-pressed={showPalette}
+              onClick={()=>setShowPalette(v=>!v)}><PanelLeftClose size={16}/></button>
+            <button title="Alternar inspetor" aria-pressed={showInspector}
+              onClick={()=>setShowInspector(v=>!v)}><PanelRightClose size={16}/></button>
+            <button title="Enquadrar todos os nós" onClick={fit}><Scan size={16}/></button>
+            <input className="ory-auto-node-search" type="search" aria-label="Procurar nó no fluxo"
+              placeholder="Localizar bloco…" value={nodeSearch} onChange={e=>setNodeSearch(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Enter')focusMatchingNode();}}/>
+            <button title="Centralizar nó pesquisado" onClick={focusMatchingNode} disabled={!nodeSearch.trim()}><Search size={15}/></button>
+            <button className="ory-auto-primary" disabled={syncBusy} onClick={()=>void saveDraft()}>{syncBusy?'Salvando…':'Salvar rascunho'}</button>
+            {workspace&&['admin','publisher'].includes(workspace.role)&&<button
+              title="Congelar versão homologada sem ativar automações" disabled={syncBusy||!current||remoteRevision[current.id]===undefined||JSON.stringify(current)!==lastRemoteJson[current.id]}
+              onClick={()=>void freezeCanonicalVersion()}><ShieldCheck size={14}/>Congelar versão</button>}
+            <button title="Publicação disponível após engine homologada" disabled>Ativar <LockKeyhole size={13}/></button>
+          </div>
+        </div>
+        <div className="ory-auto-simulation-bar">
+          <label htmlFor="ory-auto-simulation-case">Cenário de teste</label>
+          <select id="ory-auto-simulation-case" aria-label="Cenário de simulação hipotética"
+            value={simulationCase}
+            onChange={event=>{setSimulationCase(event.target.value as SimulationCaseId);setPreview(null);setServerPreview(null);}}>
+            {SIMULATION_CASES.map(item=>
+              <option key={item.id} value={item.id}>{item.title}</option>)}
+          </select>
+          <span>{SIMULATION_CASES.find(item=>item.id===simulationCase)?.description}</span>
+          <small>Nenhum dado real, mensagem ou cobrança é utilizado na simulação.</small>
+        </div>
+        <div className={'ory-auto-editor-main'+(!showPalette?' palette-collapsed':'')+(!showInspector?' inspector-collapsed':'')}>
+          {showPalette&&<aside className="ory-auto-palette"><h3>Biblioteca de nós</h3><label className="ory-auto-palette-search"><Search size={15}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar bloco"/></label>
+            {([...new Set(nodePalette(current.kind).map(x=>x.descriptor.family))] as NodeFamily[]).map(family=><div className="ory-auto-palette-group" key={family}><h4>{NAMES[family]}</h4>
+              {nodePalette(current.kind).filter(x=>x.descriptor.family===family && x.descriptor.title.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))).map(({type,descriptor})=>
+                <button key={type} type="button" draggable={type!=='trigger'} disabled={type==='trigger'}
+                  title={activeEdge&&type!=='end'&&type!=='stop'?'Inserir na conexão selecionada':'Clique para posicionar ou arraste para o canvas'}
+                  aria-label={'Adicionar bloco '+descriptor.title}
+                  onDragStart={e=>beginPaletteDrag(e,type)}
+                  onClick={()=>spawnFromPalette(type)}>
+                  <span className={'ory-auto-palette-dot family-'+family}/>{descriptor.title}<Plus size={13}/>
+                </button>)}</div>)}
+          </aside>}
+          <div className="ory-auto-canvas-scroll" ref={stage}
+            role="region" aria-label={'Canvas visual do '+(current.kind==='sdr'?'SDR':'pipeline')}
+            onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-oryneo-node'))e.preventDefault();}}
+            onDrop={dropPaletteNode} onContextMenu={e=>{
+            if ((e.target as Element).closest('.ory-auto-node,.ory-auto-edge-add,.ory-auto-context')) return;
+            e.preventDefault();
+            const bounds=e.currentTarget.getBoundingClientRect();
+            const canvasX=(e.clientX-bounds.left+e.currentTarget.scrollLeft)/zoom;
+            const canvasY=(e.clientY-bounds.top+e.currentTarget.scrollTop)/zoom;
+            setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:null,canvasX,canvasY});
+          }}>
+            <div className="ory-auto-canvas" style={{transform:'scale('+zoom+')',transformOrigin:'top left',width:canvasSize.width,height:canvasSize.height}}> 
+              <svg aria-hidden="true" className="ory-auto-connections" viewBox={`0 0 ${canvasSize.width} ${canvasSize.height}`} style={{width:canvasSize.width,height:canvasSize.height}} preserveAspectRatio="none">
+                {current.edges.map(edge=>{
+                  const src=current.nodes.find(n=>n.id===edge.source),dst=current.nodes.find(n=>n.id===edge.target);if(!src||!dst)return null;
+                  const x1=src.position.x+220,y1=src.position.y+115,x2=dst.position.x,y2=dst.position.y+43;
+                  const d='M'+x1+' '+y1+' C'+(x1+90)+' '+y1+' '+(x2-90)+' '+y2+' '+x2+' '+y2;
+                  const label=edge.label|| (src.type==='condition'||edge.source_port!=='out'?routeBranchLabel(edge.source_port):'');
+                  return <g key={edge.id}>
+                    <path d={d} className={(activeEdge===edge.id?'selected ':'')+(tracedEdgeIds.has(edge.id)?'trace-path':'')}/>
+                    <path d={d} className="ory-auto-edge-hit" style={{pointerEvents:'stroke'}}
+                      onClick={()=>{setActiveEdge(edge.id);setSelectedId(null);setSelectedIds([]);}}
+                      onContextMenu={event=>{event.preventDefault();setActiveEdge(edge.id);setMenu({x:event.clientX,y:event.clientY,edgeId:edge.id,nodeId:null});}}/>
+                    {label&&<text className="ory-auto-edge-label" x={(x1+x2)/2} y={(y1+y2)/2-12} textAnchor="middle">{label}</text>}
+                  </g>;
+                })}
+              </svg>
+              {current.edges.map(edge=>{
+                const src=current.nodes.find(n=>n.id===edge.source),dst=current.nodes.find(n=>n.id===edge.target);if(!src||!dst)return null;
+                const x=(src.position.x+220+dst.position.x)/2,y=(src.position.y+115+dst.position.y+43)/2;
+                return <button key={edge.id} className={'ory-auto-edge-add'+(activeEdge===edge.id?' active':'')+(tracedEdgeIds.has(edge.id)?' traced':'')} style={{left:x,top:y}} aria-label="Selecionar conexão para inserir nó" title="Inserir bloco nesta conexão" onClick={()=>{setActiveEdge(edge.id);setSelectedId(null)}} onContextMenu={e=>{e.preventDefault();setActiveEdge(edge.id);setMenu({x:e.clientX,y:e.clientY,edgeId:edge.id,nodeId:null})}}><Plus size={13}/></button>;
+              })}
+              {current.nodes.map(node=><div className={'ory-auto-node family-'+NODE_REGISTRY[node.type].family+((selectedId===node.id||selectedIds.includes(node.id))?' selected':'')+(node.disabled?' disabled':'')+(tracedNodeIds.has(node.id)?' traced':'')} key={node.id} style={{left:node.position.x,top:node.position.y}}>
+                <button className="ory-auto-node-body" aria-pressed={selectedIds.includes(node.id)} onClick={e=>showNode(node,e.shiftKey)}
+                  onPointerDown={e=>onNodePointerDown(e,node)} onPointerUp={onNodePointerUp}
+                  onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-oryneo-port'))e.preventDefault();}}
+                  onDrop={e=>{
+                    const data=e.dataTransfer.getData('application/x-oryneo-port');
+                    if(!data||!current)return;
+                    e.preventDefault();e.stopPropagation();
+                    const [nodeId,port]=data.split('|');
+                    commit(connectPorts(current,{id:crypto.randomUUID(),source:nodeId,source_port:port,target:node.id,target_port:'in'}));
+                    setSourcePort(null);
+                  }}
+                  onContextMenu={e=>{e.preventDefault();showNode(node);setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:node.id})}} aria-label={'Editar nó '+node.label}>
+                  <span className="ory-auto-node-type">{NAMES[NODE_REGISTRY[node.type].family]}</span><strong>{node.label}</strong><small>{NODE_REGISTRY[node.type].title}</small>
+                </button>
+                <button type="button" className="ory-auto-node-more" aria-label={'Menu do nó '+node.label}
+                  onClick={e=>{showNode(node);const rect=e.currentTarget.getBoundingClientRect();setMenu({x:rect.right,y:rect.top,edgeId:null,nodeId:node.id});}}>···</button>
+                {node.type!=='trigger'&&<span className="ory-auto-node-input" title="Entrada"/>}
+                <div className="ory-auto-node-outputs">{node.ports.filter(port=>port!=='in').map(port=>
+                  <button key={port} draggable className={sourcePort?.nodeId===node.id&&sourcePort.port===port?'active':''}
+                    onDragStart={e=>{e.dataTransfer.effectAllowed='link';e.dataTransfer.setData('application/x-oryneo-port',node.id+'|'+port);}}
+                    onClick={()=>setSourcePort({nodeId:node.id,port})}
+                    title={'Conectar saída '+routeBranchLabel(port)} aria-label={'Conectar saída '+port+' do nó '+node.label}>{routeBranchLabel(port)}</button>)}</div>
+              </div>)}
+            </div>
+            <div className="ory-auto-canvas-controls"><button onClick={()=>setZoom(v=>Math.max(0.4,+(v-0.1).toFixed(2)))} aria-label="Diminuir zoom"><ZoomOut size={16}/></button><span>{Math.round(zoom*100)}%</span><button onClick={()=>setZoom(v=>Math.min(1.5,+(v+0.1).toFixed(2)))} aria-label="Aumentar zoom"><ZoomIn size={16}/></button><button onClick={()=>setZoom(1)} title="Zoom real">100%</button><button onClick={fit} title="Enquadrar fluxo"><LocateFixed size={15}/></button></div>
+            {menu&&<div className="ory-auto-context" style={{position:'fixed',left:Math.min(menu.x,window.innerWidth-205),top:Math.min(menu.y,window.innerHeight-150)}}>
+              {menu.nodeId&&current.edges.some(edge=>edge.source===menu.nodeId) && <button onClick={()=>{
+                const outgoing=current.edges.find(edge=>edge.source===menu.nodeId && edge.source_port==='out') ||
+                  current.edges.find(edge=>edge.source===menu.nodeId);
+                if(outgoing) addToEdge(outgoing.id,'condition');
+                setMenu(null);
+              }}>Criar condição conectada</button>}
+              {!menu.nodeId&&!menu.edgeId&&current&&nodePalette(current.kind)
+                .filter(item=>item.type!=='trigger')
+                .map(({type,descriptor})=><button key={type} type="button"
+                  onClick={()=>addAtCanvas(type)}>Adicionar: {descriptor.title}</button>)}
+              {menu.edgeId&&<button onClick={()=>{setActiveEdge(menu.edgeId);setMenu(null)}}>Inserir nó nesta conexão</button>}
+              {menu.edgeId&&<button onClick={()=>{setReconnecting(menu.edgeId);setMenu(null);setNotice('Clique no nó de destino para reconectar.')}}>Reconectar destino</button>}
+              {menu.edgeId&&<button onClick={()=>{if(current)commit(removeEdgeById(current,menu.edgeId!));setActiveEdge(null);setMenu(null);}}>Remover conexão</button>}
+              {menu.nodeId&&<button onClick={()=>{setSelectedId(menu.nodeId!);setSelectedIds([menu.nodeId!]);const id=crypto.randomUUID();const edit=duplicateDraftNode(current,menu.nodeId!,id);commit(edit);if(edit.ok){setSelectedId(id);setSelectedIds([id]);}setMenu(null);}}>Duplicar nó</button>}
+              {menu.nodeId&&current.nodes.find(n=>n.id===menu.nodeId)?.type!=='trigger'&&
+                <button onClick={toggleDisabled}>{current.nodes.find(n=>n.id===menu.nodeId)?.disabled?'Reativar bloco':'Desativar bloco'}</button>}
+              {menu.nodeId&&current.nodes.find(n=>n.id===menu.nodeId)?.type!=='trigger'&&
+                <button onClick={removeSelection}>Remover nó selecionado</button>}
+              <button onClick={()=>{setMenu(null);setSourcePort(null);setReconnecting(null)}}>Fechar menu</button>
+            </div>}
+          </div>
+          {showInspector&&<aside className="ory-auto-inspector">
+            <div className="ory-auto-inspector-title"><Settings2 size={16}/><h3>Inspetor</h3></div>
+            {selectedIds.length>1 ? <div className="ory-auto-multiselect">
+              <strong>{selectedIds.length} nós selecionados</strong>
+              <p>Arraste qualquer nó selecionado para mover o grupo preservando conexões, ou pressione Delete para remover os blocos (o gatilho é protegido).</p>
+              <button type="button" onClick={removeSelection}>Remover seleção</button>
+            </div> : selected ? <><span className="ory-auto-overline">PROPRIEDADES DO BLOCO</span><label>Nome<input value={selected.label} onChange={e=>commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,label:e.target.value}:n)}})}/></label>
+              {selected.type==='condition' ? <ConditionRuleEditor value={selected.config.rule} onChange={rule=>commit({ok:true,graph:{
+                ...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,config:{rule}}:n),
+              }})}/> : <>
+                <TypedNodeConfigEditor node={selected} catalog={nodeCatalog} onChange={config=>{
+                  commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,config}:n)}});
+                  setJsonConfig(JSON.stringify(config,null,2));
+                }}/>
+                <p className="ory-auto-inspector-advanced">Configuração avançada · JSON</p>
+                <label>Configuração JSON<textarea aria-label="Configuração JSON do nó" spellCheck={false} rows={7} value={jsonConfig} onChange={e=>setJsonConfig(e.target.value)}/></label>
+                <button onClick={applyJsonConfig}>Aplicar configuração</button>
+              </>}
+              {selected.type!=='trigger'&&<button className="ory-auto-danger" onClick={()=>{commit(removeNode(current,selected.id));setSelectedId(null);setSelectedIds([])}}>Remover bloco</button>}
+              <p className="ory-auto-aside-hint">Alterações locais exigem validação e publicação por servidor antes de produzir efeitos.</p>
+            </> : activeEdge ? <><p>Conexão selecionada. O rótulo não altera a porta lógica da condição.</p>
+                <label>Rótulo visual da conexão<input aria-label="Rótulo da conexão"
+                  value={current.edges.find(e=>e.id===activeEdge)?.label||''}
+                  maxLength={90} onChange={e=>commit({ok:true,graph:{...current,edges:current.edges.map(item=>
+                    item.id===activeEdge?{...item,label:e.target.value}:item)}})}/></label>
+                <button onClick={()=>{setReconnecting(activeEdge);setNotice('Selecione o novo nó de destino no canvas.')}}>Reconectar destino</button>
+                <button className="ory-auto-danger" onClick={()=>{commit(removeEdgeById(current,activeEdge));setActiveEdge(null);}}>Excluir conexão</button>
+                <button onClick={()=>setActiveEdge(null)}>Desmarcar conexão</button></> :
+              <div className="ory-auto-empty-inspector"><GitBranch size={26}/><strong>Selecione um bloco</strong><p>Clique em um nó para editar. Use os botões + nas linhas para inserir etapas.</p></div>}
+            <div className="ory-auto-check"><h4>Integridade do fluxo</h4><span className={validation?.ok?'valid':'invalid'}>{validation?.ok?'Estrutura conectada':(validation?.issues.length||0)+' observações'}</span>
+              {(validation?.issues||[]).slice(0,4).map((issue,i)=><p key={i}>{issue.code} · {issue.path}</p>)}</div>
+          </aside>}
+        </div>
+        {(notice||preview||serverPreview||sourcePort||reconnecting)&&<div className="ory-auto-status" role="status">{sourcePort?<span>Conectando: escolha o nó de destino ou pressione Esc.</span>:null}{reconnecting?<span>Reconectando: escolha o nó de destino ou pressione Esc.</span>:null}{notice&&<span>{notice}</span>}{preview&&<span>Simulação — não enviado · {preview.trace.length} nós visitados · {preview.issues.map(x=>x.code).join(', ')||'sem erro estrutural'}</span>}{serverPreview&&<span>Traçado do servidor · {serverPreview.trace.length} nós · {serverPreview.state} · sem disparos</span>}<button aria-label="Fechar aviso" onClick={()=>{setNotice('');setPreview(null);setServerPreview(null);setSourcePort(null);setReconnecting(null)}}><X size={15}/></button></div>}
+      </div>}
+      {tab!=='pipeline'&&tab!=='sdr'&&<div className="ory-auto-overview">
+        <div className="ory-auto-section-heading"><div><span className="ory-auto-overline">CONTROLE E GOVERNANÇA</span><h2>{subviews[tab].title}</h2><p>{subviews[tab].description}</p></div></div>
+        {tab==='overview' ? <div className="ory-auto-stat-grid">
+          <div><span>Rascunhos locais</span><strong>{drafts.length}</strong><small>Backups neste dispositivo</small></div>
+          <div><span>Fluxos no workspace</span><strong>{runtimeStatus?.flows ?? remoteFlows.length}</strong><small>{runtimeStatus ? `${runtimeStatus.publishedVersions} versões congeladas · ${runtimeStatus.mode}` : 'Motor sem telemetria confirmada'}</small></div>
+          <div><span>Templates Meta sincronizados</span><strong>{metaTemplates.length||'—'}</strong><small>Envios exigem status e consentimento válidos no momento do disparo</small></div>
+          <div><span>Eventos pendentes</span><strong>{runtimeStatus?.pendingEvents ?? '—'}</strong><small>Observação autorizada do servidor</small></div>
+          <div><span>Registros de ação</span><strong>{runtimeStatus?.actionRows ?? '—'}</strong><small>{runtimeStatus?.emergencyStop ? 'Bloqueados pela parada de emergência' : 'Consulte a política ativa'}</small></div>
+          <div><span>Esperas em andamento</span><strong>{runtimeStatus?.waitingTimers ?? '—'}</strong><small>Canceladas por resposta: {runtimeStatus?.cancelledTimers ?? '—'}</small></div>
+          <div><span>Esperas vencidas</span><strong>{runtimeStatus?.dueTimers ?? '—'}</strong><small>Somente observação, sem envio automático</small></div>
+          <div><span>Envios com resultado incerto</span><strong>{runtimeStatus?.uncertainActions ?? '—'}</strong><small>Exigem reconciliação com o provedor; não reenviar automaticamente</small></div>
+          <div><span>Envios confirmados pela nova engine</span><strong>{runtimeStatus?.sentActions ?? '—'}</strong><small>Na fila: {runtimeStatus?.queuedActions ?? '—'} · Reservados: {runtimeStatus?.leasedActions ?? '—'}</small></div>
+        </div> : tab==='intelligence' ? <SdrIntelligencePanel workspaceId={workspace?.id||null} role={workspace?.role||null}/> : tab==='templates' ? <div className="ory-auto-catalog">
+          <div className="ory-auto-catalog-heading"><div><strong>Catálogo oficial de templates</strong><p>Sincronização read-only da Meta. Status pode mudar; envio exige revalidação no servidor.</p></div><span>{metaTemplates.length} cadastrados</span></div>
+          {metaTemplates.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Nome do template</th><th>Categoria</th><th>Idioma</th><th>Status</th></tr></thead><tbody>
+            {metaTemplates.map(item=><tr key={item.id}><td>{item.template_name}<small>ID {item.provider_template_id||'não disponível'}</small></td>
+              <td>{item.category}</td><td>{item.language}</td>
+              <td><span className="ory-auto-approved">{item.provider_status}</span></td></tr>)}
+          </tbody></table></div>:<p className="ory-auto-no-data">Sem catálogo carregado. O CRM não autoriza envios pela nova engine enquanto a sincronização não for verificada.</p>}
+          <section className="ory-auto-commercial-readiness" aria-label="Proprietários das integrações comerciais">
+            <h3>Integrações comerciais — propriedade de execução</h3>
+            <p>Consulta canônica e somente leitura. Nenhum botão transfere a execução
+              do SDR, e-mail, faturamento ou CRM para a nova engine.</p>
+            {commercialReadiness?.channels.length ? (
+              <div className="ory-auto-catalog-scroll"><table>
+                <thead><tr><th>Canal</th><th>Executor atual</th><th>Preparação</th></tr></thead><tbody>
+                {commercialReadiness.channels.map(item=><tr key={item.channel}>
+                  <td>{({whatsapp:'WhatsApp',email:'E-mail',crm:'CRM e pipeline',
+                    onboarding:'Implantação',billing:'Cobrança — leitura'} as Record<string,string>)[item.channel]}</td>
+                  <td>{item.owner==='legacy'?'Sistema existente':'Nova engine (verificar release)'}</td>
+                  <td>{item.eligibleForControlledQueue?'Pré-validação concluída; sem envio autorizado':
+                    'Desativado / dependente de homologação e liberação'}</td>
+                </tr>)}
+                </tbody></table></div>
+            ):<p className="ory-auto-no-data">Estado dos conectores ainda não confirmado.
+              Nenhum disparo está autorizado por esta tela.</p>}
+          </section>
+        </div> : tab==='executions' ? <div className="ory-auto-catalog">
+          <div className="ory-auto-catalog-heading"><div><strong>Execuções registradas</strong><p>Consulta autorizada aos registros da nova engine. Sem disparos ativos.</p></div><span>{remoteExecutions.length} registros</span></div>
+          {remoteExecutions.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Execução</th><th>Estado</th><th>Início</th></tr></thead><tbody>
+            {remoteExecutions.map(item=><tr key={item.id}><td><button className="ory-auto-execution-link"
+               type="button" onClick={()=>void inspectExecution(item)}
+               title="Abrir percurso sanitizado desta execução">{item.id.slice(0,12)}…</button></td>
+              <td>{item.state}</td><td>{new Date(item.started_at).toLocaleString('pt-BR')}</td></tr>)}
+          </tbody></table></div> : <div className="ory-auto-no-data"><History size={26}/><p>Nenhuma execução registrada na nova engine. O SDR atual continua no processamento original.</p></div>}
+          {detailLoading&&<p className="ory-auto-execution-detail" role="status">Carregando o percurso autorizado…</p>}
+          {executionDetail&&<section className="ory-auto-execution-detail" aria-label="Percurso sanitizado da execução">
+            <h3>Inspeção por nó — {executionDetail.execution.id.slice(0,12)}…</h3>
+            <p>Estado: {executionDetail.execution.state} · {executionDetail.nodes.length} nós ·
+               {executionDetail.actions.length} ações registradas · {executionDetail.timers.length} esperas</p>
+            <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Nó</th><th>Estado</th><th>Código</th><th>Horário</th></tr></thead><tbody>
+              {executionDetail.nodes.map(n=><tr key={n.id}><td>{n.node_id.slice(0,12)}…</td><td>{n.state}</td>
+                <td>{n.result_code||'—'}</td><td>{new Date(n.created_at).toLocaleString('pt-BR')}</td></tr>)}
+            </tbody></table></div>
+            <p>Dados de mensagens, clientes, prompts e resultados de provedores não são exibidos.</p>
+            <button type="button" className="ory-auto-execution-link" onClick={()=>setExecutionDetail(null)}>Fechar diagnóstico</button>
+          </section>}
+        </div> : <div className="ory-auto-panel">
+          <ShieldCheck size={26}/><h3>Condições e eventos canônicos</h3>
+          <p>O editor aceita condições estruturadas e não executa JavaScript ou SQL arbitrário. Configurações precisam ser validadas pelo backend antes da publicação.</p>
+          <button className="ory-auto-primary" onClick={()=>setTab('pipeline')}>Abrir biblioteca de fluxos <ArrowRight size={15}/></button>
+        </div>}
+      </div>}
+      <footer className="ory-auto-foot"><Clock3 size={14}/> Editor de preparação · sem merge, deploy ou ativação de fluxos</footer>
+    </div>
+  );
+}

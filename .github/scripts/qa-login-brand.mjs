@@ -54,7 +54,10 @@ for (const [name, engine, viewport] of browsers) {
     assert.match(brand, /oryneo-wordmark-master\.png$/);
     const mark = await page.locator('.login-mark').getAttribute('src');
     assert.match(mark, /oryneo-y\.svg$/);
-    assert.equal(await page.locator('.login-mark').evaluate(img => img.naturalWidth > 0), true);
+    assert.equal(await page.locator('.login-mark').evaluate(async img => {
+      await img.decode();
+      return img.naturalWidth > 0;
+    }), true, 'brand mark must decode successfully');
     if (viewport.width > 760) {
       const storyColor = await page.locator('.login-story').evaluate(el => getComputedStyle(el).backgroundColor);
       const rgb = storyColor.match(/\d+/g).map(Number);

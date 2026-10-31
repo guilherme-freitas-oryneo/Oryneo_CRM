@@ -1,0 +1,152 @@
+{
+  "source": "Meta WhatsApp Business Tools",
+  "status": "snapshot_only",
+  "account_id": "28794700556857948",
+  "templates": [
+    {
+      "template_name": "oryneo_start_contratar_base_v3",
+      "provider_template_id": "2479385749220937",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebemos sua solicitação para contratar o Start na modalidade {{2}}. No cadastro, você indicou esta prioridade: {{3}}.\n\nPara alinharmos a implantação, como vocês organizam hoje os contatos e os retornos comerciais?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_start_contratar_lp_trafego_v3",
+      "provider_template_id": "1077076201815979",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebemos sua solicitação para o Start na modalidade {{2}}, com landing page e gestão de tráfego. Sua prioridade indicada foi: {{3}}.\n\nHoje existe uma rotina para acompanhar um contato desde a captação até a negociação?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_start_contratar_lp_v3",
+      "provider_template_id": "29085210911095105",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebemos sua escolha pelo Start na modalidade {{2}}, com landing page. Vi também sua prioridade no cadastro: {{3}}.\n\nQuando alguém preencher a nova página, quem ficará responsável pelo primeiro atendimento?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_start_contratar_trafego_v3",
+      "provider_template_id": "1021232987651568",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nVi sua solicitação para o Start na modalidade {{2}}, incluindo gestão de tráfego pago. Você destacou esta prioridade: {{3}}.\n\nVocês já anunciam atualmente ou essa será a primeira estrutura de aquisição da empresa?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_start_conversar_base_v3",
+      "provider_template_id": "1794433938368479",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nVi seu interesse pelo Start na modalidade {{2}} e a prioridade registrada: {{3}}.\n\nHoje os atendimentos e as negociações ficam centralizados em algum sistema?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    }
+  ]
+}

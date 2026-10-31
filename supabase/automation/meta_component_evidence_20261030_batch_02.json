@@ -1,0 +1,136 @@
+{
+  "source": "Meta WhatsApp Business Tools",
+  "status": "snapshot_only",
+  "account_id": "28794700556857948",
+  "templates": [
+    {
+      "template_name": "oryneo_fup_24h_responsavel_v3",
+      "provider_template_id": "1101257579355194",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Pensando no cenário que você trouxe à ORYNEO, quero entender o que acontece quando um atendimento muda de responsável.\n\nO histórico e a próxima ação ficam visíveis para quem assume a negociação?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_fup_6h_aquisicao_v3",
+      "provider_template_id": "1144645694788756",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Sobre a estrutura comercial que você está avaliando com a ORYNEO, há um ponto essencial.\n\nQuando um contato chega pelo site ou pelos anúncios, vocês conseguem identificar a origem e acompanhar o que aconteceu depois?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_fup_6h_gestao_v3",
+      "provider_template_id": "1606747500527599",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Retomando sua avaliação com a ORYNEO.\n\nHoje, para saber quais oportunidades precisam de atenção, a liderança consulta um painel ou depende de atualizações individuais da equipe?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_fup_6h_risco_v3",
+      "provider_template_id": "1877744639914557",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Quero aprofundar um ponto da sua solicitação à ORYNEO.\n\nQuando uma negociação fica sem retorno, existe alguma rotina que sinaliza isso para o responsável ou para o gestor?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_growth_contratar_base_v3",
+      "provider_template_id": "1855743918754531",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebemos sua solicitação para contratar o Growth na modalidade {{2}}. No cadastro, sua prioridade foi: {{3}}.\n\nComo vocês distribuem atualmente as oportunidades entre os responsáveis comerciais?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    }
+  ]
+}

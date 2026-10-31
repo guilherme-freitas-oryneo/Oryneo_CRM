@@ -1,0 +1,337 @@
+{
+  "schema": "oryneo-acceptance-evidence-v1",
+  "source": "ORYNEO_CODEX_AUTOMACOES_SDR_PIPELINE_2026-10-28/qa/matriz_aceite.csv",
+  "count": 47,
+  "scope": "isolated-qa-no-live-provider",
+  "records": [
+    {
+      "id": "B01",
+      "path": ".github/scripts/qa-automation-knowledge-sources.mjs",
+      "needle": "Playbook or billing catalog drift detected",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "B02",
+      "path": "supabase/functions/tests/automation_sdr_meta_stage4_test.ts",
+      "needle": "B02/E12/C02: approved registry",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "B03",
+      "path": "docs/automation/PHASE4_SDR_INTELLIGENCE_ACCEPTANCE_20261031.md",
+      "needle": "PR #76 → #75 → #74 → #72",
+      "level": "read_only_audit",
+      "liveValidated": false
+    },
+    {
+      "id": "S01",
+      "path": "src/whatsapp/persistEvent.test.ts",
+      "needle": "grava o evento e a mensagem antes de marcar",
+      "level": "component",
+      "liveValidated": false
+    },
+    {
+      "id": "S02",
+      "path": "supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts",
+      "needle": "S02/S03/S12: legal or payment",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "S03",
+      "path": "supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts",
+      "needle": "S02/S03/S12: legal or payment",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "S04",
+      "path": "supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts",
+      "needle": "SDR S04: HTTP 200 incomplete",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "S05",
+      "path": "supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts",
+      "needle": "SDR S05: HTTP 200 no usable",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "S06",
+      "path": "supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts",
+      "needle": "SDR S06: provider 429",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "S07",
+      "path": "src/whatsapp/persistEvent.test.ts",
+      "needle": "não processa novamente entrega já concluída",
+      "level": "component",
+      "liveValidated": false
+    },
+    {
+      "id": "S08",
+      "path": "src/whatsapp/aiJobProcessor.test.ts",
+      "needle": "supersedes a job when a newer inbound",
+      "level": "component",
+      "liveValidated": false
+    },
+    {
+      "id": "S09",
+      "path": "supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts",
+      "needle": "takeover, review, closed, opt-out",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "S10",
+      "path": "supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts",
+      "needle": "takeover, review, closed, opt-out",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "S11",
+      "path": "supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts",
+      "needle": "takeover, review, closed, opt-out",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "S12",
+      "path": "supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts",
+      "needle": "S02/S03/S12: legal or payment",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "S13",
+      "path": "supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts",
+      "needle": "S13: cancellation requests",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "P01",
+      "path": "supabase/automation/commercial_sources.qa.sql",
+      "needle": "historic intake must not be replayed",
+      "level": "db_integration",
+      "liveValidated": false
+    },
+    {
+      "id": "P02",
+      "path": "supabase/automation/commercial_sources.qa.sql",
+      "needle": "Attach the late Stripe checkout",
+      "level": "db_integration",
+      "liveValidated": false
+    },
+    {
+      "id": "P03",
+      "path": "supabase/functions/tests/checkout_settlement_policy_test.ts",
+      "needle": "Pix checkout completed unpaid must not provision",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "P04",
+      "path": "supabase/functions/tests/financial_qa_webhook_policy_test.ts",
+      "needle": "rejects forged, expired or future Stripe signatures",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "P05",
+      "path": "supabase/automation/commercial_sources.qa.sql",
+      "needle": "Checkout replay",
+      "level": "db_integration",
+      "liveValidated": false
+    },
+    {
+      "id": "P06",
+      "path": "supabase/functions/tests/checkout_settlement_policy_test.ts",
+      "needle": "expired and failed Checkout events never fulfill",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "P07",
+      "path": "supabase/automation/pipeline_label_assert.qa.sql",
+      "needle": "Stage rename missing or duplicated audit",
+      "level": "db_integration",
+      "liveValidated": false
+    },
+    {
+      "id": "P08",
+      "path": "supabase/automation/onboarding_paid_bridge.qa.sql",
+      "needle": "Duplicate legacy+new implementation",
+      "level": "db_integration",
+      "liveValidated": false
+    },
+    {
+      "id": "P09",
+      "path": "supabase/automation/shadow_due_policy.qa.sql",
+      "needle": "Late canonical reply was not cancelled",
+      "level": "db_integration",
+      "liveValidated": false
+    },
+    {
+      "id": "P10",
+      "path": "supabase/automation/commercial_crm_stage_adapter.qa.sql",
+      "needle": "Stage change did not preserve audited CRM history",
+      "level": "db_integration",
+      "liveValidated": false
+    },
+    {
+      "id": "E01",
+      "path": "qa/automation-editor/editor.pw.ts",
+      "needle": "E01: arrastar nó conectado",
+      "level": "browser",
+      "liveValidated": false
+    },
+    {
+      "id": "E02",
+      "path": "src/automation/AutomationsWorkspace.test.tsx",
+      "needle": "insere condição conectada pelo menu de botão direito",
+      "level": "ui_component",
+      "liveValidated": false
+    },
+    {
+      "id": "E03",
+      "path": "src/automation/AutomationsWorkspace.test.tsx",
+      "needle": "cria um bloco no menu de contexto do canvas",
+      "level": "ui_component",
+      "liveValidated": false
+    },
+    {
+      "id": "E04",
+      "path": "src/automation/graphEditing.test.ts",
+      "needle": "splits edge A→B into A→N→B",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "E05",
+      "path": "src/automation/graphEditing.test.ts",
+      "needle": "forbids invalid target ports",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "E06",
+      "path": "qa/automation-editor/editor.pw.ts",
+      "needle": "E06: três condições",
+      "level": "browser",
+      "liveValidated": false
+    },
+    {
+      "id": "E07",
+      "path": "supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts",
+      "needle": "E07: stable dictionary digest",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "E08",
+      "path": "src/automation/editorCommands.test.ts",
+      "needle": "moves multiple nodes in ONE undo/redo",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "E09",
+      "path": "qa/automation-editor/editor.pw.ts",
+      "needle": "Stage5 E09: 390px touch controls",
+      "level": "browser",
+      "liveValidated": false
+    },
+    {
+      "id": "E10",
+      "path": "src/automation/flowDefinition.test.ts",
+      "needle": "rejects an orphan connection",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "E11",
+      "path": "supabase/functions/tests/automation_sdr_meta_stage4_test.ts",
+      "needle": "E11: UI simulate assume approved",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "E12",
+      "path": "supabase/functions/tests/automation_sdr_meta_stage4_test.ts",
+      "needle": "B02/E12/C02: approved registry",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "C01",
+      "path": "supabase/functions/tests/automation_action_policy_test.ts",
+      "needle": "24-hour free reply window expiration fails closed",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "C02",
+      "path": "supabase/functions/tests/automation_sdr_meta_stage4_test.ts",
+      "needle": "B02/E12/C02: approved registry",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "C03",
+      "path": "supabase/automation/sdr_semantic_release.qa.sql",
+      "needle": "Unprivileged actor published SDR release",
+      "level": "db_integration",
+      "liveValidated": false
+    },
+    {
+      "id": "C04",
+      "path": "supabase/automation/outbox_delivery_protocol.qa.sql",
+      "needle": "Second worker did not claim the other action",
+      "level": "db_integration",
+      "liveValidated": false
+    },
+    {
+      "id": "C05",
+      "path": "supabase/automation/outbox_delivery_protocol.qa.sql",
+      "needle": "Potentially delivered action was automatically retried",
+      "level": "db_integration",
+      "liveValidated": false
+    },
+    {
+      "id": "C06",
+      "path": "src/automation/flowDefinition.test.ts",
+      "needle": "rejects a cyclic graph",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "K01",
+      "path": "supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts",
+      "needle": "K01: landing page/traffic",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "K02",
+      "path": "supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts",
+      "needle": "K02: draft, wrong source hash",
+      "level": "unit",
+      "liveValidated": false
+    },
+    {
+      "id": "K03",
+      "path": "supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts",
+      "needle": "K03: prompt injection",
+      "level": "unit",
+      "liveValidated": false
+    }
+  ]
+}

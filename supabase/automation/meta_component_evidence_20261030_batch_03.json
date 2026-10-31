@@ -1,0 +1,152 @@
+{
+  "source": "Meta WhatsApp Business Tools",
+  "status": "snapshot_only",
+  "account_id": "28794700556857948",
+  "templates": [
+    {
+      "template_name": "oryneo_growth_contratar_lp_trafego_v3",
+      "provider_template_id": "28773117129017510",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebemos sua escolha pelo Growth na modalidade {{2}}, com landing page e tráfego pago. Você destacou esta prioridade: {{3}}.\n\nComo vocês acompanham atualmente um lead desde a origem até a negociação?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_growth_contratar_lp_v3",
+      "provider_template_id": "2379048209585581",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nVi sua escolha pelo Growth na modalidade {{2}}, incluindo landing page. Você destacou esta prioridade: {{3}}.\n\nComo funciona hoje o caminho entre a entrada de um lead e o acompanhamento pelo responsável comercial?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_growth_contratar_trafego_v3",
+      "provider_template_id": "2448628339278481",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebi sua solicitação para o Growth na modalidade {{2}}, com gestão de tráfego pago. Sua prioridade indicada foi: {{3}}.\n\nHoje vocês conseguem relacionar os contatos gerados pelos anúncios às negociações acompanhadas?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_growth_conversar_base_v3",
+      "provider_template_id": "1656525325875320",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nVi seu interesse pelo Growth na modalidade {{2}} e a prioridade indicada: {{3}}.\n\nHoje o gestor consegue identificar quais oportunidades estão paradas e quem precisa agir em cada uma?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_growth_conversar_lp_trafego_v3",
+      "provider_template_id": "2031084574225427",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nVi que você selecionou o Growth na modalidade {{2}}, com landing page e tráfego pago. Sua prioridade indicada foi: {{3}}.\n\nA empresa já tem uma rotina para distribuir, acompanhar e retomar os contatos gerados?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    }
+  ]
+}

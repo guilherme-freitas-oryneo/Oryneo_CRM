@@ -1,0 +1,348 @@
+name: QA Automações — PostgreSQL descartável
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/automation/**'
+      - 'supabase/migrations/*oryneo_*.sql'
+      - 'supabase/migrations/*crm_automation_*.sql'
+      - 'src/automation/**'
+      - 'qa/automation-editor*'
+      - 'qa/automation-editor/**'
+      - 'qa/acceptance/**'
+      - 'supabase/functions/automation-api/**'
+      - 'supabase/functions/_shared/sdr/**'
+      - 'supabase/functions/_shared/whatsapp/aiJobProcessor.ts'
+      - 'supabase/functions/whatsapp-ai-worker/**'
+      - 'src/playbook/**'
+      - 'supabase/functions/automation-shadow-worker/**'
+      - 'supabase/functions/automation-commercial-crm-worker/**'
+      - 'supabase/functions/automation-meta-template-worker/**'
+      - 'supabase/functions/tests/automation_*'
+      - '.github/workflows/qa-oryneo-automations.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schema-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Criar apenas papéis e auth.uid simulados (DB descartável)
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE ROLE service_role NOLOGIN BYPASSRLS;
+          CREATE SCHEMA auth;
+          CREATE FUNCTION auth.uid()
+          RETURNS uuid LANGUAGE sql STABLE
+          AS $$ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          GRANT USAGE ON SCHEMA auth TO authenticated;
+          GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+          SQL
+      - name: Aplicar somente o esquema proposto em PostgreSQL temporário
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/schema.preview.sql
+      - name: Testar RLS, isolamento, deduplicação e imutabilidade
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/schema.qa.sql
+      - name: Aplicar funções de rascunho exclusivamente no Postgres temporário
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_api.preview.sql
+      - name: Verificar transações, permissões, revisão otimista e trilha de auditoria
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/draft_api.qa.sql
+      - name: Preparar publicação versionada, sem ativar o runtime (banco descartável)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/publication.preview.sql
+      - name: Verificar publicação imutável, CAS, papéis e estado desativado
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/publication.qa.sql
+      - name: Preparar inbox com leases apenas no banco descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_queue.preview.sql
+      - name: Testar deduplicação, fencing, recuperação e efeitos bloqueados
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_queue.qa.sql
+      - name: Preparar falhas recuperáveis com fencing no banco descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_failure.preview.sql
+      - name: Testar backoff, quarentena, permissões e ausência de envio
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_failure.qa.sql
+      - name: Criar registros comerciais isolados para validação de renomeação
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_fixture.qa.sql
+      - name: Testar migração de nomes mantendo IDs
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_migration.preview.sql
+      - name: Verificar idempotência da migração na segunda passagem
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_migration.preview.sql
+      - name: Confirmar negócios, IDs e auditoria preservados
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_assert.qa.sql
+      - name: Instalar cursor idempotente para eventos reais do CRM (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_crm_adapter.preview.sql
+      - name: Testar bootstrap, ordem, replay e parada de emergência
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_crm_adapter.qa.sql
+      - name: Instalar adaptador espelho para mensagens inbound canônicas
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_whatsapp_adapter.preview.sql
+      - name: Validar cursor, privacidade, deduplicação e nenhum envio
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_whatsapp_adapter.qa.sql
+      - name: Criar esperas persistentes sem dispatcher real (banco descartável)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_timers.preview.sql
+      - name: Testar cancelamento por resposta canônica, dedupe, tentativas e parada
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_timers.qa.sql
+      - name: Habilitar apenas registro atômico de espera em execução espelho
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_trace_atomic.preview.sql
+      - name: Testar confirmação transacional de espera, cancelamento e rollback
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_trace_atomic.qa.sql
+      - name: Preparar reconciliação de espera por takeover e opt-out canônico
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_policy_reconcile.preview.sql
+      - name: Bloquear follow-ups em contexto humano, consentimento ausente e parada
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_policy_reconcile.qa.sql
+      - name: Proteger fila de ações no próprio banco antes do cutover
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_runtime_gate.preview.sql
+      - name: Testar fila bloqueada em disabled/shadow e conciliação após parada
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_runtime_gate.qa.sql
+      - name: Testar ponte para o onboarding existente, sem envios (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/onboarding_paid_bridge.qa.sql
+      - name: Homologar fontes comerciais canônicas em PostgreSQL descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_sources.qa.sql
+      - name: Homologar jornada completa de referências canônicas sem efeitos financeiros ou mensagens
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/stage5_cross_stream_journey.qa.sql
+      - name: Homologar ownership único de provedores com rollback e parada de emergência
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_channel_ownership.qa.sql
+      - name: Sincronizar 33 componentes Meta oficiais com auditoria (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/meta_components_sync.qa.sql
+      - name: Reaplicar DDL consolidado de automação sem perder os dados anteriores
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_adoption_reapply.qa.sql
+      - name: Pinar fontes oficiais do playbook como rascunho sem substituir treinamento
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/knowledge_draft_pin.qa.sql
+      - name: Homologar release do playbook e dicionário com CAS e rollback inativo
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/sdr_semantic_release.qa.sql
+      - name: Preparar lease com fencing e protocolo de confirmação do provedor (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_delivery_protocol.preview.sql
+      - name: Provar ausência de envio duplicado, reconciliação de timeout e parada global
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_delivery_protocol.qa.sql
+      - name: Verificar adaptador transacional de etapas CRM sob ownership exclusivo
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_crm_stage_adapter.qa.sql
+      - name: Testar criação de próxima ação CRM com CAS e preservação do humano
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_crm_task_adapter.qa.sql
+      - name: Validar oito jornadas de exemplo em banco descartável, desativadas
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/starter_drafts_seed.qa.sql
+      - name: Validar índices de chaves estrangeiras da engine (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/foreign_key_indexes.qa.sql
+      - name: Criar continuação auditável de timer apenas no PostgreSQL descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_resume.preview.sql
+      - name: Testar continuação, idempotência, ramo do grafo e quarentena
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_resume.qa.sql
+      - name: Proteger continuação de timers vencidos contra takeover e resposta tardia
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_due_policy.preview.sql
+      - name: Validar atomicidade, cancelamento, opt-out e isolamento do timer vencido
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_due_policy.qa.sql
+      - name: Instalar rollback imutável com runtime desligado somente no PostgreSQL de testes
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/rollback_disabled.preview.sql
+      - name: Provar versionamento, revisão otimista, papel e zero ações no rollback
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/rollback_disabled.qa.sql
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Executar evento real em PostgreSQL descartável pelo compilador Deno
+        run: deno run --min-dep-age=0 --allow-run=psql supabase/automation/engine_db_bridge.qa.ts
+      - name: Verificar migração idempotente, runtime desligado e outbox intacto
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $qa$
+          BEGIN
+            IF NOT EXISTS(SELECT 1 FROM public.automation_runtime_settings
+              WHERE mode='disabled' AND emergency_stop)
+              OR NOT EXISTS(SELECT 1 FROM pg_trigger
+                WHERE tgname='automation_outbox_runtime_gate' AND NOT tgisinternal)
+              OR NOT EXISTS(SELECT 1 FROM pg_trigger
+                WHERE tgname='automation_shadow_trace_wait_insert' AND NOT tgisinternal)
+              OR EXISTS(SELECT 1 FROM public.automation_action_outbox
+                WHERE state IN ('queued','leased'))
+            THEN RAISE EXCEPTION 'Consolidated idempotent schema replay is unsafe'; END IF;
+          END $qa$;
+          SQL
+
+      - name: Homologar planejamento live CRM com fencing, idempotência e nenhuma mensagem
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_crm_execution.qa.sql
+      - name: Homologar claim de template Meta com consentimento e parada, sem envios
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_whatsapp_delivery.qa.sql
+      - name: Homologar continuação transacional de ações CRM até estado terminal
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_crm_continue.qa.sql
+      - name: Executar compilador Deno real através de transações CRM em PostgreSQL isolado
+        run: deno run --min-dep-age=0 --allow-run=psql supabase/automation/engine_live_crm_bridge.qa.ts
+      - name: Homologar armar e desarmar fluxo publicado CRM enquanto o runtime está desligado
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_crm_arm_disabled.qa.sql
+      - name: Homologar métricas agregadas, RLS e custos somente comprovados
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/runtime_observability.qa.sql
+      - name: Reexecutar migrações hospedadas preservando o estado sintético preexistente
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          -- A previous isolated QA intentionally commits a synthetic channel cutover;
+          -- migration replay must preserve that state instead of resetting it.
+          CREATE TEMP TABLE qa_owner_before AS
+            SELECT channel,owner,legacy_dispatch_paused_at,release_approved_at,release_id
+            FROM public.automation_channel_ownership;
+          CREATE TEMP TABLE qa_outbox_before AS
+            SELECT id,state FROM public.automation_action_outbox;
+          \i supabase/migrations/20261031214032_oryneo_commercial_shadow_ownership_foundation_disabled.sql
+          \i supabase/migrations/20261031214115_oryneo_disabled_recovery_semantic_and_crm_adapters.sql
+          \i supabase/migrations/20261031214650_oryneo_sdr_release_fk_indexes.sql
+          \i supabase/migrations/20261031230725_oryneo_macro6_crm_canonical_planner_dormant.sql
+          \i supabase/migrations/20261031230742_oryneo_macro6_crm_cursor_dormant.sql
+          \i supabase/migrations/20261031230746_oryneo_macro6_crm_continuations_dormant.sql
+          \i supabase/migrations/20261031230750_oryneo_macro6_crm_prearm_disabled.sql
+          \i supabase/migrations/20261031230754_oryneo_macro6_observability_dormant.sql
+          \i supabase/migrations/20261031230759_oryneo_macro6_meta_template_fencing_dormant.sql
+          \i supabase/migrations/20261031230803_oryneo_macro6_meta_receipt_dormant.sql
+          DO $qa$
+          BEGIN
+            IF (SELECT count(*) FROM public.automation_channel_ownership)<>(SELECT count(*) FROM qa_owner_before)
+               OR (SELECT count(*) FROM public.automation_channel_ownership o
+                    JOIN public.automation_workspaces w ON w.id=o.workspace_id
+                    WHERE w.slug='oryneo-crm' AND o.owner='legacy')<>5
+               OR EXISTS (
+                 (SELECT channel,owner,legacy_dispatch_paused_at,release_approved_at,release_id
+                    FROM public.automation_channel_ownership
+                  EXCEPT SELECT * FROM qa_owner_before)
+                 UNION ALL
+                 (SELECT * FROM qa_owner_before
+                  EXCEPT SELECT channel,owner,legacy_dispatch_paused_at,release_approved_at,release_id
+                    FROM public.automation_channel_ownership)
+               )
+            THEN RAISE EXCEPTION 'HOSTED_REPLAY_CHANGED_CHANNEL_OWNERSHIP'; END IF;
+            IF EXISTS (
+              (SELECT id,state FROM public.automation_action_outbox
+               EXCEPT SELECT id,state FROM qa_outbox_before)
+              UNION ALL
+              (SELECT id,state FROM qa_outbox_before
+               EXCEPT SELECT id,state FROM public.automation_action_outbox)
+            ) THEN RAISE EXCEPTION 'HOSTED_REPLAY_CHANGED_OUTBOX'; END IF;
+            IF NOT EXISTS(SELECT 1 FROM public.automation_sdr_active_release WHERE enabled IS FALSE)
+            THEN RAISE EXCEPTION 'HOSTED_REPLAY_SDR_UNSAFE'; END IF;
+            IF EXISTS(SELECT 1 FROM public.automation_action_outbox WHERE state IN ('queued','leased'))
+            THEN RAISE EXCEPTION 'HOSTED_REPLAY_LIVE_QUEUE_UNSAFE'; END IF;
+          END $qa$;
+          SQL
+
+  failure-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck do worker e sanitização dos erros
+        run: |
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-api/index.ts
+          deno check --min-dep-age=0 supabase/functions/automation-api/executionKernel.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-commercial-crm-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-live-crm-plan-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-meta-template-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/whatsapp-ai-worker/index.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_meta_stage4_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_commercial_action_policy_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_commercial_adapter_planner_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_execution_kernel_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_compiled_shadow_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_failure_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_graph_guard_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_template_bindings_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_meta_template_request_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_meta_transport_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_meta_canonical_context_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_engine_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_action_policy_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_worker_guards_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_context_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_simulation_boundary_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_stage5_sdr_recovery_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_stage5_local_perf_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/financial_qa_webhook_policy_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/checkout_settlement_policy_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/stripe_orphan_checkout_policy_test.ts
+
+  crm-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependências travadas pelo lockfile
+        run: npm ci
+      - name: Detectar divergência de playbook e catálogo já homologados
+        run: node .github/scripts/qa-automation-knowledge-sources.mjs
+      - name: Verificar TypeScript, Vite e output do GitHub Pages
+        run: npm run build -- --base=/Oryneo_CRM/
+      - name: Testar regressão integral do CRM, pipeline, WhatsApp e UI
+        run: npm run test -- --run
+
+  editor-browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependências travadas e navegador de QA isolado
+        run: |
+          npm ci
+          # Install browser QA tooling in an isolated prefix, not the application's
+          # pinned dependency graph; avoid npm Arborist modifying CRM node_modules.
+          mkdir -p /tmp/oryneo-playwright
+          npm install --prefix /tmp/oryneo-playwright --no-save --package-lock=false @playwright/test@1.58.2
+          ln -s /tmp/oryneo-playwright/node_modules/@playwright node_modules/@playwright
+          ln -s /tmp/oryneo-playwright/node_modules/playwright node_modules/playwright
+          /tmp/oryneo-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Executar interações e capturas desktop, tablet e mobile sem autenticação de produção
+        run: /tmp/oryneo-playwright/node_modules/.bin/playwright test --config=qa/automation-editor/playwright.config.ts --workers=1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oryneo-phase2-visual-editor-qa
+          path: |
+            qa/automation-editor/artifacts/
+            qa/automation-editor/report/
+            test-results/
+          retention-days: 10
+
+  acceptance-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar rastreabilidade estrita 47/47 e limites de homologação isolada
+        run: node qa/acceptance/verify-stage5.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oryneo-stage5-47-case-evidence
+          path: qa/acceptance/report/stage5-evidence.json
+          retention-days: 20

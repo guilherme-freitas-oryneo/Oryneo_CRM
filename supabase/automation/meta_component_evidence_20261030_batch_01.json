@@ -1,0 +1,141 @@
+{
+  "source": "Meta WhatsApp Business Tools",
+  "status": "snapshot_only",
+  "account_id": "28794700556857948",
+  "templates": [
+    {
+      "template_name": "oryneo_conversar_sem_plano_v3",
+      "provider_template_id": "1092708390305626",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebemos sua solicitação e vimos a prioridade que você registrou: {{2}}.\n\nComo essa parte da operação funciona hoje e qual é o principal desafio que a empresa precisa resolver?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "Organizar retornos pelo WhatsApp"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2"
+      ],
+      "components_verified": true,
+      "validation_errors": []
+    },
+    {
+      "template_name": "oryneo_fup_1h_aquisicao_v3",
+      "provider_template_id": "996083893513934",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Um ponto importante no projeto que você iniciou com a ORYNEO é o caminho do lead depois da captação.\n\nHoje existe um processo definido para transformar esses contatos em atendimentos comerciais acompanhados?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1"
+      ],
+      "components_verified": true,
+      "validation_errors": []
+    },
+    {
+      "template_name": "oryneo_fup_1h_contratacao_v3",
+      "provider_template_id": "1102356549066913",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Estou retomando sua solicitação de contratação do plano {{2}} na ORYNEO.\n\nQuem será o responsável interno por acompanhar a implantação e a configuração da operação?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "Growth"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2"
+      ],
+      "components_verified": true,
+      "validation_errors": []
+    },
+    {
+      "template_name": "oryneo_fup_1h_organizacao_v3",
+      "provider_template_id": "1143530654902545",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Retomando sua solicitação na ORYNEO.\n\nQuero entender um detalhe antes de avançarmos: hoje vocês utilizam um CRM para acompanhar os leads ou cada responsável mantém seu próprio controle?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1"
+      ],
+      "components_verified": true,
+      "validation_errors": []
+    },
+    {
+      "template_name": "oryneo_fup_24h_proxima_acao_v3",
+      "provider_template_id": "1694150282290451",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Na solicitação que você iniciou com a ORYNEO, vimos um tema importante: não basta gerar contatos; é preciso acompanhar o que acontece depois.\n\nHoje vocês conseguem identificar quais oportunidades ficaram sem próxima ação definida?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1"
+      ],
+      "components_verified": true,
+      "validation_errors": []
+    }
+  ]
+}

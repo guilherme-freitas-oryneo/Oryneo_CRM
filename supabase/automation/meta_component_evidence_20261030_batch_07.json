@@ -1,0 +1,94 @@
+{
+  "source": "Meta WhatsApp Business Tools",
+  "status": "snapshot_only",
+  "account_id": "28794700556857948",
+  "templates": [
+    {
+      "template_name": "oryneo_start_conversar_lp_trafego_v3",
+      "provider_template_id": "2327116211026120",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nVi sua escolha pelo Start na modalidade {{2}}, com landing page e tráfego pago. Você indicou esta prioridade: {{3}}.\n\nHoje, como vocês conectam os contatos captados ao atendimento e aos retornos comerciais?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_start_conversar_lp_v3",
+      "provider_template_id": "1088441687344153",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nVi que você selecionou o Start na modalidade {{2}}, com landing page. Sua prioridade registrada foi: {{3}}.\n\nQuando alguém demonstra interesse pelos seus serviços, como esse contato chega até quem faz o atendimento?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_start_conversar_trafego_v3",
+      "provider_template_id": "2113382986204086",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebi seu interesse pelo Start na modalidade {{2}}, com gestão de tráfego. Vi também sua prioridade: {{3}}.\n\nVocês já têm um processo para acompanhar as oportunidades geradas pelos anúncios?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    }
+  ]
+}

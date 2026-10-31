@@ -3,6 +3,7 @@ import { requestAiReply, type AiMessage, type AiProvider } from '../_shared/what
 import { processAiJob, type AiJobContext, type AiJobRecord } from '../_shared/whatsapp/aiJobProcessor.ts';
 import { MetaSendError, processAiOutboxItem, type AiOutboxContext, type AiOutboxItem } from '../_shared/whatsapp/aiOutboxProcessor.ts';
 import { buildOutboundMessage } from '../_shared/whatsapp/outboundMessage.ts';
+import {resolveSdrRuntimeTraining} from '../_shared/sdr/runtimeRelease.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -10,6 +11,8 @@ const phoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') ?? '';
 const accessToken = Deno.env.get('WHATSAPP_SYSTEM_USER_TOKEN') ?? '';
 const db = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 const graphVersion = 'v26.0';
+// Deployment-safe opt-in: undefined/false preserves the already-live legacy SDR.
+const semanticOptIn = Deno.env.get('ORYNEO_SDR_INTELLIGENCE_ENABLED') === 'true';
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: { 'Content-Type': 'application/json' },
@@ -39,6 +42,40 @@ function trainingDetails(value: unknown): string {
     .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && !!entry[1].trim())
     .map(([key, text]) => `${key.replaceAll('_', ' ').toUpperCase()}\n${text.trim()}`)
     .join('\n\n');
+}
+
+async function approvedSdrTraining(input:{
+ latestUserMessage:string;mode:string;consent:boolean;optedOut:boolean;
+}):Promise<{authoritativeTraining:string;policyHumanReview:boolean}>{
+ // Guard is evaluated only for an explicitly enabled future release.
+ // No release, stale pointer or unavailable DB cannot silently fall back to
+ // the previous unversioned training prompt while this opt-in is enabled.
+ const workspace=await db.from('automation_workspaces')
+  .select('id').eq('slug','oryneo-crm').maybeSingle();
+ if(workspace.error||!workspace.data)throw Error('SDR_RELEASE_SOURCE_UNAVAILABLE');
+ const w=workspace.data.id;
+ const active=await db.from('automation_sdr_active_release')
+  .select('enabled,knowledge_release_id,dictionary_release_id')
+  .eq('workspace_id',w).maybeSingle();
+ if(active.error)throw Error('SDR_RELEASE_POINTER_UNAVAILABLE');
+ if(!active.data?.enabled||!active.data.knowledge_release_id||!active.data.dictionary_release_id)
+   return {authoritativeTraining:'',policyHumanReview:true};
+ const [knowledge,dictionary]=await Promise.all([
+  db.from('automation_knowledge_release')
+   .select('id,release_version,status,approved_by,content_sha256,source_refs')
+   .eq('workspace_id',w).eq('id',active.data.knowledge_release_id).maybeSingle(),
+  db.from('automation_intent_dictionary')
+   .select('id,release_version,language,status,approved_by,content_sha256,examples,synonyms')
+   .eq('workspace_id',w).eq('id',active.data.dictionary_release_id).maybeSingle(),
+ ]);
+ if(knowledge.error||dictionary.error)throw Error('SDR_RELEASE_READ_UNAVAILABLE');
+ const result=await resolveSdrRuntimeTraining({
+  sources:{active:active.data,knowledge:knowledge.data,dictionary:dictionary.data},
+  latestUserMessage:input.latestUserMessage,conversationMode:input.mode,
+  optedOut:input.optedOut,consent:input.consent,
+  canonicalPaymentVerified:false,
+ });
+ return {authoritativeTraining:result.training,policyHumanReview:result.humanReview};
 }
 
 async function loadContext(job: AiJobRecord): Promise<AiJobContext> {
@@ -79,6 +116,13 @@ async function loadContext(job: AiJobRecord): Promise<AiJobContext> {
     .join('\n\n')
     .slice(0, 30000);
   const structuredTraining = trainingDetails(settings.training_config);
+  const latestUserMessage=messages.filter(m=>m.role==='user').at(-1)?.content||'';
+  const semantic=semanticOptIn
+    ?await approvedSdrTraining({
+      latestUserMessage,mode:conversation.mode,consent:conversation.consent_granted,
+      optedOut:conversation.opted_out,
+    })
+    :null;
 
   return {
     channelEnabled: channel.enabled,
@@ -95,6 +139,8 @@ async function loadContext(job: AiJobRecord): Promise<AiJobContext> {
     trainingPrompt: [settings.training_prompt, structuredTraining].filter(Boolean).join('\n\n'),
     attachmentText,
     messages,
+    ...(semantic?{authoritativeTraining:semantic.authoritativeTraining,
+      policyHumanReview:semantic.policyHumanReview}:{}),
   };
 }
 

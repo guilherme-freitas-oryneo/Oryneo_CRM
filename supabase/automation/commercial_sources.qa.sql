@@ -1,0 +1,234 @@
+-- Stage 3 acceptance, disposable PostgreSQL 17 only.
+\set ON_ERROR_STOP on
+ALTER TABLE public.crm_billing_orders
+ ADD COLUMN created_at timestamptz NOT NULL DEFAULT now(),
+ ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now(),
+ ADD COLUMN stripe_checkout_session_id text;
+ALTER TABLE public.crm_delivery_projects
+ ADD COLUMN created_at timestamptz NOT NULL DEFAULT now();
+CREATE TABLE public.crm_intake_requests(
+ request_id uuid PRIMARY KEY,deal_id uuid,created_at timestamptz NOT NULL);
+CREATE TABLE public.crm_stripe_events(
+ event_id text PRIMARY KEY,event_type text NOT NULL,livemode boolean NOT NULL,
+ payload jsonb NOT NULL,processed_at timestamptz NOT NULL);
+CREATE TABLE public.crm_proposals(
+ id uuid PRIMARY KEY,deal_id uuid NOT NULL,status text NOT NULL,
+ snapshot_sha256 text,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ updated_at timestamptz NOT NULL DEFAULT clock_timestamp());
+CREATE TABLE public.crm_wa_automation_events(
+ id uuid PRIMARY KEY,conversation_id uuid NOT NULL,
+ from_mode text NOT NULL,to_mode text NOT NULL,
+ occurred_at timestamptz NOT NULL DEFAULT clock_timestamp());
+GRANT SELECT ON public.crm_intake_requests,public.crm_stripe_events,
+ public.crm_billing_orders,public.crm_delivery_projects,public.crm_automation_jobs,
+ public.crm_proposals,public.crm_wa_automation_events TO service_role;
+GRANT INSERT,UPDATE ON public.crm_intake_requests,public.crm_stripe_events,
+ public.crm_billing_orders,public.crm_delivery_projects,public.crm_events,
+ public.crm_proposals,public.crm_wa_automation_events TO service_role;
+\i supabase/automation/commercial_sources.preview.sql
+
+-- The historic intake must not be replayed on cursor initialization.
+INSERT INTO public.crm_intake_requests(request_id,deal_id,created_at) VALUES(
+ 'c0000000-0000-4000-8000-000000000001',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',now()-interval '1 day');
+-- Historic order without a Stripe session: its checkout must be observed
+-- when the canonical session is attached AFTER the cursor initialization.
+INSERT INTO public.crm_billing_orders(
+ id,deal_id,status,billing_environment,created_at,updated_at)
+ VALUES('c1000000-0000-4000-8000-000000000007',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','awaiting_payment','live',
+ now()-interval '1 day',now()-interval '1 day');
+SET ROLE service_role;
+DO $qa$
+DECLARE
+ w uuid:='11111111-1111-4111-8111-111111111111';
+ actor uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+ anchor timestamptz;
+ repeated timestamptz;
+ result jsonb;
+ denied boolean;
+ before_jobs int;
+ after_jobs int;
+ stream text;
+ n int;
+BEGIN
+ UPDATE public.automation_runtime_settings SET mode='disabled',emergency_stop=true
+  WHERE workspace_id=w;
+ UPDATE public.automation_workspaces SET active=false WHERE id=w;
+ SELECT count(*) INTO before_jobs FROM public.crm_automation_jobs;
+ FOREACH stream IN ARRAY ARRAY['intake','checkout','billing','mail','delivery','proposal','meeting','handoff'] LOOP
+   anchor:=public.automation_commercial_init_cursor(w,actor,stream);
+   repeated:=public.automation_commercial_init_cursor(w,actor,stream);
+   IF anchor IS NULL OR anchor<>repeated
+   THEN RAISE EXCEPTION 'Cursor rewound: %',stream; END IF;
+ END LOOP;
+ denied:=false;
+ BEGIN
+  PERFORM public.automation_commercial_init_cursor(w,
+   'ffffffff-ffff-4fff-8fff-ffffffffffff','billing');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'Unauthorized cursor init'; END IF;
+ denied:=false;
+ BEGIN
+  PERFORM public.automation_commercial_shadow_ingest(w,'billing',3);
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'Disabled runtime polled commercial data'; END IF;
+
+ -- Attach the late Stripe checkout after cursor startup. The order itself
+ -- is older than the watermark, and must NOT cause an event to disappear.
+ UPDATE public.crm_billing_orders
+ SET stripe_checkout_session_id='cs_stage3_late_attached',
+     updated_at=clock_timestamp()+interval '20 seconds'
+ WHERE id='c1000000-0000-4000-8000-000000000007';
+ -- Synthetic real-business-reference fixtures: event envelopes remain UUID-only.
+ INSERT INTO public.crm_intake_requests(request_id,deal_id,created_at)
+ VALUES('c0000000-0000-4000-8000-000000000002',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',clock_timestamp()+interval '2 seconds');
+ INSERT INTO public.crm_billing_orders
+ (id,deal_id,status,paid_at,billing_environment,created_at,updated_at,stripe_checkout_session_id)
+ VALUES
+ ('c1000000-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+  'awaiting_payment',NULL,'live',clock_timestamp()+interval '3 seconds',
+  clock_timestamp()+interval '3 seconds','cs_stage3_checkout'),
+ ('c1000000-0000-4000-8000-000000000002','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+  'paid',clock_timestamp(),'live',clock_timestamp()+interval '3 seconds',
+  clock_timestamp()+interval '4 seconds','cs_stage3_paid'),
+ ('c1000000-0000-4000-8000-000000000003','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+  'payment_failed',NULL,'live',clock_timestamp()+interval '3 seconds',
+  clock_timestamp()+interval '5 seconds','cs_stage3_fail'),
+ ('c1000000-0000-4000-8000-000000000004','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+  'expired',NULL,'live',clock_timestamp()+interval '3 seconds',
+  clock_timestamp()+interval '6 seconds','cs_stage3_expired'),
+ ('c1000000-0000-4000-8000-000000000005','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+  'paid',clock_timestamp(),'live',clock_timestamp()+interval '3 seconds',
+  clock_timestamp()+interval '7 seconds','cs_unverified_no_ledger'),
+ ('c1000000-0000-4000-8000-000000000006','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+  'paid',clock_timestamp(),'test',clock_timestamp()+interval '3 seconds',
+  clock_timestamp()+interval '8 seconds','cs_stage3_test');
+ INSERT INTO public.crm_stripe_events(event_id,event_type,livemode,payload,processed_at) VALUES
+ ('evt_stage3_paid','checkout.session.completed',true,
+    '{"session_id":"cs_stage3_paid","payment_status":"paid"}',clock_timestamp()),
+ ('evt_stage3_failed','checkout.session.async_payment_failed',true,
+    '{"session_id":"cs_stage3_fail","payment_status":"unpaid"}',clock_timestamp()),
+ ('evt_stage3_expired','checkout.session.expired',true,
+    '{"session_id":"cs_stage3_expired","payment_status":"unpaid"}',clock_timestamp()),
+ ('evt_stage3_test','checkout.session.completed',false,
+    '{"session_id":"cs_stage3_test","payment_status":"paid"}',clock_timestamp());
+ INSERT INTO public.crm_events(id,deal_id,event_type,created_at)
+  VALUES('c2000000-0000-4000-8000-000000000001',
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','email_sent',
+    clock_timestamp()+interval '9 seconds');
+ -- Project may predate the payment; source event must be watermarked at
+ -- verified paid_at, not the historical project creation timestamp.
+ INSERT INTO public.crm_delivery_projects(order_id,created_at)
+ VALUES('c1000000-0000-4000-8000-000000000002',
+   clock_timestamp()-interval '1 day');
+ INSERT INTO public.crm_proposals(id,deal_id,status,snapshot_sha256,updated_at)
+ VALUES
+ ('c3000000-0000-4000-8000-000000000001',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','sent',repeat('a',64),
+  clock_timestamp()+interval '11 seconds'),
+ ('c3000000-0000-4000-8000-000000000002',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','draft',repeat('b',64),
+  clock_timestamp()+interval '12 seconds'),
+ ('c3000000-0000-4000-8000-000000000003',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','sent',NULL,
+  clock_timestamp()+interval '13 seconds');
+ INSERT INTO public.crm_events(id,deal_id,event_type,created_at)
+ VALUES('c2000000-0000-4000-8000-000000000002',
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','meeting_scheduled',
+   clock_timestamp()+interval '14 seconds');
+ INSERT INTO public.crm_wa_automation_events(id,conversation_id,from_mode,to_mode,occurred_at) VALUES
+ ('c4000000-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+   'sdr_active','human_locked',clock_timestamp()+interval '15 seconds'),
+ ('c4000000-0000-4000-8000-000000000002','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+   'human_locked','review',clock_timestamp()+interval '16 seconds');
+ UPDATE public.automation_workspaces SET active=true WHERE id=w;
+ UPDATE public.automation_runtime_settings SET mode='shadow',emergency_stop=false
+ WHERE workspace_id=w;
+ FOREACH stream IN ARRAY ARRAY['intake','checkout','billing','mail','delivery','proposal','meeting','handoff'] LOOP
+  result:=public.automation_commercial_shadow_ingest(w,stream,1);
+  IF result->>'inserted'<>'1' THEN
+   RAISE EXCEPTION 'First bounded shadow scan failed: %, %',stream,result; END IF;
+  IF stream='billing' THEN
+   result:=public.automation_commercial_shadow_ingest(w,stream,1);
+   IF result->>'inserted'<>'1' THEN
+    RAISE EXCEPTION 'Billing second item missing: %',result; END IF;
+   result:=public.automation_commercial_shadow_ingest(w,stream,1);
+   IF result->>'inserted'<>'1' THEN
+    RAISE EXCEPTION 'Billing third item missing: %',result; END IF;
+  END IF;
+  result:=public.automation_commercial_shadow_ingest(w,stream,100);
+  IF (result->>'inserted')::int<>(CASE WHEN stream='checkout' THEN 5 ELSE 0 END)
+  THEN RAISE EXCEPTION 'Unexpected bounded stream remainder: %, %',stream,result; END IF;
+ END LOOP;
+ -- Checkout must observe 6 live orders, but only a single first batch row
+ -- was consumed above. Additional reads must not insert forbidden sandbox orders.
+ result:=public.automation_commercial_shadow_ingest(w,'checkout',100);
+ IF (result->>'inserted')::int<>0 THEN RAISE EXCEPTION 'Checkout replay'; END IF;
+
+ SELECT count(*) INTO n FROM public.automation_event_inbox
+ WHERE event_id IN(
+  'intake:c0000000-0000-4000-8000-000000000002',
+  'checkout:c1000000-0000-4000-8000-000000000001',
+  'paid:c1000000-0000-4000-8000-000000000002',
+  'failed:c1000000-0000-4000-8000-000000000003',
+  'expired:c1000000-0000-4000-8000-000000000004',
+  'email-sent:c2000000-0000-4000-8000-000000000001',
+  'onboarding:c1000000-0000-4000-8000-000000000002',
+  'proposal:c3000000-0000-4000-8000-000000000001',
+  'meeting:c2000000-0000-4000-8000-000000000002',
+  'handoff:c4000000-0000-4000-8000-000000000001',
+  'checkout:c1000000-0000-4000-8000-000000000007');
+ IF n<>11 THEN RAISE EXCEPTION 'Expected eleven canonical source envelopes: %',n; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.automation_event_inbox
+   WHERE source='whatsapp' AND event_type='conversation.human_takeover'
+     AND event_id='handoff:c4000000-0000-4000-8000-000000000001'
+     AND context_refs='{"conversation_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01"}'::jsonb)
+ THEN RAISE EXCEPTION 'Canonical human takeover was not mirrored'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.automation_event_inbox
+   WHERE event_id='email-sent:c2000000-0000-4000-8000-000000000001'
+     AND source='mail' AND event_type='mail.sent')
+ THEN RAISE EXCEPTION 'Mail receipt must NOT re-trigger opportunity.updated / lead automation'; END IF;
+ IF EXISTS(SELECT 1 FROM public.automation_event_inbox
+   WHERE source='mail' AND event_type='opportunity.updated')
+ THEN RAISE EXCEPTION 'Outbound email feedback loop unsafe'; END IF;
+ IF EXISTS(SELECT 1 FROM public.automation_event_inbox e
+  WHERE e.event_id IN(
+   'paid:c1000000-0000-4000-8000-000000000005',
+   'paid:c1000000-0000-4000-8000-000000000006',
+   'intake:c0000000-0000-4000-8000-000000000001',
+   'proposal:c3000000-0000-4000-8000-000000000002',
+   'proposal:c3000000-0000-4000-8000-000000000003',
+   'handoff:c4000000-0000-4000-8000-000000000002'))
+ THEN RAISE EXCEPTION 'Unverified/sandbox/historic business fact ingested'; END IF;
+ IF EXISTS(SELECT 1 FROM public.automation_event_inbox
+    WHERE context_refs::text ~ '(customer|email|phone|body|message)')
+ THEN RAISE EXCEPTION 'PII leaked into canonical event references'; END IF;
+ SELECT count(*) INTO after_jobs FROM public.crm_automation_jobs;
+ IF before_jobs<>after_jobs
+ THEN RAISE EXCEPTION 'Shadow feed duplicated an existing legacy job'; END IF;
+ IF EXISTS(SELECT 1 FROM public.automation_action_outbox
+  WHERE state IN ('queued','leased','sent'))
+ THEN RAISE EXCEPTION 'Shadow commercial relay emitted side effects'; END IF;
+ UPDATE public.automation_runtime_settings SET mode='disabled',emergency_stop=true WHERE workspace_id=w;
+ denied:=false;
+ BEGIN
+   PERFORM public.automation_commercial_shadow_ingest(w,'intake',1);
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'Emergency-stop ignored by commercial event relay'; END IF;
+ UPDATE public.automation_workspaces SET active=false WHERE id=w;
+END $qa$;
+RESET ROLE;
+DO $security$
+BEGIN
+ IF has_function_privilege('anon','public.automation_commercial_shadow_ingest(uuid,text,integer)','EXECUTE')
+ OR has_function_privilege('authenticated','public.automation_commercial_shadow_ingest(uuid,text,integer)','EXECUTE')
+ OR has_table_privilege('anon','public.automation_commercial_source_feed','SELECT')
+ OR has_table_privilege('authenticated','public.automation_commercial_source_feed','SELECT')
+ THEN RAISE EXCEPTION 'Commercial event feed is exposed to browser roles'; END IF;
+END $security$;
+SELECT 'phase3-commercial-sources-shadow-only-qa-passed' AS qa_result;
