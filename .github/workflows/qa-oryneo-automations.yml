@@ -89,6 +89,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_trace_atomic.preview.sql
       - name: Testar confirmação transacional de espera, cancelamento e rollback
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_trace_atomic.qa.sql
+      - name: Preparar reconciliação de espera por takeover e opt-out canônico
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_policy_reconcile.preview.sql
+      - name: Bloquear follow-ups em contexto humano, consentimento ausente e parada
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_policy_reconcile.qa.sql
       - name: Testar ponte para o onboarding existente, sem envios (isolado)
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/onboarding_paid_bridge.qa.sql
       - name: Sincronizar 33 componentes Meta oficiais com auditoria (isolado)
