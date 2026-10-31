@@ -102,16 +102,20 @@ BEGIN
     AND h.actor='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
     AND h.after_revision=old_rev+1)
  THEN RAISE EXCEPTION 'Activity actor missing from canonical history'; END IF;
- -- A second new action MUST NOT overwrite an unfinished human next_action.
- UPDATE public.automation_action_outbox SET state='queued',claim_token=NULL,
-  lease_until=NULL,provider_result_id=NULL
- WHERE id=a;
+ -- A DISTINCT new action MUST NOT overwrite the open human next_action.
+ INSERT INTO public.automation_action_outbox(
+  id,workspace_id,execution_id,node_id,action_key,action_type,state,due_at)
+ VALUES('da000000-0000-4000-8000-000000000007',w,
+  'da000000-0000-4000-8000-000000000004',
+  'da000000-0000-4000-8000-000000000006',
+  repeat('e',64),'crm_task','queued',clock_timestamp()-interval '1 second');
  SELECT claim_token INTO token FROM public.automation_delivery_claim(w,1)
-  WHERE action_id=a;
+  WHERE action_id='da000000-0000-4000-8000-000000000007';
  IF token IS NULL THEN RAISE EXCEPTION 'Second test lease missing'; END IF;
  denied:=false;
  BEGIN
-  PERFORM public.automation_crm_task_action(w,a,token,old_rev+1);
+  PERFORM public.automation_crm_task_action(w,
+    'da000000-0000-4000-8000-000000000007',token,old_rev+1);
  EXCEPTION WHEN insufficient_privilege THEN denied:=true;
  END;
  IF NOT denied THEN RAISE EXCEPTION 'Existing unfinished task was overwritten'; END IF;
