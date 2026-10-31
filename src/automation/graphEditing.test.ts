@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit } from './graphEditing';
+import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit, autoLayoutFlow } from './graphEditing';
 import type { FlowDefinition, FlowNode } from './flowDefinition';
 
 const graph: FlowDefinition = {
@@ -82,5 +82,38 @@ describe('non-emitting graph edit transactions', () => {
     if (!result.ok) throw Error('remove failed');
     expect(result.graph.nodes.map(n => n.id)).toEqual(['a', 'b']);
     expect(result.graph.edges).toEqual([]);
+  });
+});
+
+describe('deterministic graph auto-layout',()=>{
+  it('positions nodes according to dependencies without altering any edge or action configuration',()=>{
+    const g={...graph,nodes:[...graph.nodes,newNode],edges:[
+      {id:'a1',source:'a',source_port:'out',target:'n1',target_port:'in'},
+      {id:'a2',source:'n1',source_port:'out',target:'b',target_port:'in'},
+    ]};
+    const changed=autoLayoutFlow(g);
+    expect(changed.ok).toBe(true);
+    if(!changed.ok)return;
+    const x=Object.fromEntries(changed.graph.nodes.map(n=>[n.id,n.position.x]));
+    expect(x.a).toBeLessThan(x.n1);
+    expect(x.n1).toBeLessThan(x.b);
+    expect(changed.graph.edges).toEqual(g.edges);
+    expect(changed.graph.nodes.map(n=>n.config)).toEqual(g.nodes.map(n=>n.config));
+    expect(changed.graph.nodes.map(n=>n.ports)).toEqual(g.nodes.map(n=>n.ports));
+    expect(g.nodes[0].position.x).toBe(0);
+    const again=autoLayoutFlow(changed.graph);
+    expect(again.ok).toBe(true);
+    if(again.ok)expect(again.graph).toEqual(changed.graph);
+    const history=recordEdit(createHistory(g),changed);
+    expect(undoEdit(history).graph).toEqual(g);
+    expect(redoEdit(undoEdit(history)).graph).toEqual(changed.graph);
+  });
+  it('refuses cyclic and orphaned graphs without changing the original',()=>{
+    const cycle={...graph,edges:[...graph.edges,{
+      id:'a2',source:'b',source_port:'out',target:'a',target_port:'in'}]};
+    expect(autoLayoutFlow(cycle)).toEqual({ok:false,code:'LAYOUT_CYCLE'});
+    const orphan={...graph,edges:[{...graph.edges[0],target:'missing'}]};
+    expect(autoLayoutFlow(orphan)).toEqual({ok:false,code:'LAYOUT_ORPHAN'});
+    expect(graph.edges).toHaveLength(1);
   });
 });
