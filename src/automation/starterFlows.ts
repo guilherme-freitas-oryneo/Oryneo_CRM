@@ -1,4 +1,4 @@
-import type { FlowDefinition, FlowKind, FlowNode, FlowEdge } from './flowDefinition';
+import type { FlowDefinition, FlowKind, FlowNode, FlowEdge } from './flowDefinition.ts';
 
 /**
  * Eight UX starting points from the approved ZIP. These are editable DRAFTS,
