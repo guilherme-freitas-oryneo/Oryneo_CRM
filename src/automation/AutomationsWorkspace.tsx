@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBra
 import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, autoLayoutFlow, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
-import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, loadRemoteNodeCatalog, loadRemoteAutomationRuntime, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
 import { ConditionRuleEditor } from './ConditionRuleEditor';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
@@ -266,6 +266,20 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
         (reason instanceof Error ? reason.message : 'falha de conexão'));
     } finally { setSyncBusy(false); }
   };
+  const simulateWithServer = async () => {
+    if(!current||!workspace)return;
+    const eventType=String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||'');
+    setSyncBusy(true);
+    try {
+      const result=await simulateRemoteAutomationDraft(workspace.id,current,eventType,{});
+      setNotice('Simulação do servidor — nenhum envio, nenhuma gravação · '+
+        result.state+' · '+result.trace.length+' nós · '+
+        (result.issues.map(issue=>issue.code).join(', ')||'sem erros de execução'));
+    }catch(error){
+      setNotice('Simulação do servidor indisponível: '+
+        (error instanceof Error?error.message:'falha desconhecida'));
+    }finally{setSyncBusy(false);}
+  };
   const exportDraft = () => {
     if (!current) return;
     const blob = new Blob([JSON.stringify(current, null, 2)], { type: 'application/json' });
@@ -416,6 +430,8 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             <button title="Refazer" onClick={()=>setHistory(h=>h?redoEdit(h):h)} disabled={!history?.redo.length}><Redo2 size={16}/></button>
             <button title="Validar grafo" onClick={()=>setNotice(validation?.ok?'Grafo estruturalmente válido. Ainda requer homologação no servidor.':(validation?.issues||[]).map(x=>x.code).join(' · '))}><ShieldCheck size={16}/>Validar</button>
             <button title="Pré-validar no servidor (sem publicar)" disabled={syncBusy || !workspace} onClick={()=>void validateWithServer()}><ShieldCheck size={16}/>Servidor</button>
+            <button title="Simular no servidor sem enviar" disabled={!workspace||syncBusy}
+              onClick={()=>void simulateWithServer()}><CirclePlay size={16}/>Prévia servidor</button>
             <button title="Simular sem efeitos externos" onClick={()=>{
               setPreview(simulateFlow(current,{eventType:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||''),context:{}}));
             }}><CirclePlay size={16}/>Simular</button>
