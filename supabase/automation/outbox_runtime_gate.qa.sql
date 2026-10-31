@@ -61,6 +61,10 @@ BEGIN
  IF EXISTS(SELECT 1 FROM public.automation_action_outbox
    WHERE state IN ('queued','leased'))
  THEN RAISE EXCEPTION 'Test leaked schedulable actions'; END IF;
+ -- This synthetic sent row belongs ONLY to this fixture. Do not contaminate
+ -- subsequent isolated Meta QA, which requires every action to remain blocked.
+ DELETE FROM public.automation_action_outbox WHERE id=action;
+ IF FOUND IS FALSE THEN RAISE EXCEPTION 'QA action cleanup failed'; END IF;
 END; $qa$;
 RESET ROLE;
 DO $permissions$
