@@ -1,0 +1,22 @@
+{
+  "schema": "oryneo-knowledge-source-manifest-v1",
+  "release_version": 1,
+  "content_version": "1.0.0",
+  "status": "draft",
+  "content_sha256": "74c48113909964a8fab5e221a2d05b3ee2d999ecb5d907ddbb1baafec3c9c61c",
+  "canonical_sources": [
+    {
+      "path": "src/playbook/content.ts",
+      "blob_sha1": "85dc97cc5ca0c208982940bd6573b7cd50afd133"
+    },
+    {
+      "path": "supabase/functions/_shared/billing/catalog.ts",
+      "blob_sha1": "c157c4425c420d82fa9a3865d65972f4d22b60e0"
+    }
+  ],
+  "derivation": "sha256(utf8(JSON.stringify({format:'oryneo-knowledge-sources-v1',version:'1.0.0',playbook:<exact file text>,catalog:<exact file text>})))",
+  "sdr_training_status": "not_enabled",
+  "legal_terms_status": "unverified_blocked",
+  "dispatch_authorized": false,
+  "source_url": "https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/pull/72"
+}
