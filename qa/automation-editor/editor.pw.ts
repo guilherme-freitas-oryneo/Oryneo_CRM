@@ -83,3 +83,44 @@ test('salvar e reabrir novo rascunho mantém nós e conexões sem acionar proved
  await expect(page.getByRole('button',{name:'Editar nó Classificação de intenção'})).toBeVisible();
  await expect(page.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
 });
+
+test('E01: arrastar nó conectado preserva aresta visual e posição após salvar/reabrir',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto('/qa/automation-editor/index.html');
+ await page.getByRole('button',{name:'Fluxos do pipeline'}).click();
+ await page.getByRole('button',{name:/Novo fluxo/}).first().click();
+ const trigger=page.getByRole('button',{name:'Editar nó Gatilho inicial'});
+ const box=await trigger.boundingBox();
+ if(!box)throw Error('Node was not laid out');
+ await page.mouse.move(box.x+55,box.y+38);
+ await page.mouse.down();
+ await page.mouse.move(box.x+160,box.y+62,{steps:10});
+ await page.mouse.up();
+ const moved=page.locator('.ory-auto-node').filter({has:trigger});
+ await expect(moved).not.toHaveCSS('left','100px');
+ await expect(page.locator('.ory-auto-edge-add')).toHaveCount(1);
+ await page.getByRole('button',{name:'Salvar rascunho'}).click();
+ await page.getByRole('button',{name:'Voltar à lista'}).click();
+ await page.getByRole('button',{name:/Novo fluxo do pipeline/}).first().click();
+ await expect(page.locator('.ory-auto-node').filter({has:page.getByRole('button',{name:'Editar nó Gatilho inicial'})})).not.toHaveCSS('left','100px');
+ await expect(page.locator('.ory-auto-edge-add')).toHaveCount(1);
+});
+test('E06: três condições, mesmas IDs/portas/valores após reload do navegador',async({page})=>{
+ await page.goto('/qa/automation-editor/index.html');
+ await page.getByRole('button',{name:'Fluxos do pipeline'}).click();
+ await page.getByRole('button',{name:/Novo fluxo/}).first().click();
+ await page.getByRole('button',{name:'Adicionar bloco Condição'}).click();
+ await page.getByRole('button',{name:'Adicionar bloco Condição'}).click();
+ await page.getByRole('button',{name:'Adicionar bloco Condição'}).click();
+ await expect(page.getByRole('button',{name:'Editar nó Condição'})).toHaveCount(3);
+ await page.getByRole('button',{name:'Salvar rascunho'}).click();
+ const prior=await page.evaluate(()=>localStorage.getItem('oryneo:automations:draft:qa-visual-editor-no-backend'));
+ expect(prior).toContain('"type":"condition"');
+ await page.reload();
+ await page.getByRole('button',{name:'Fluxos do pipeline'}).click();
+ await page.getByRole('button',{name:/Novo fluxo do pipeline/}).first().click();
+ await expect(page.getByRole('button',{name:'Editar nó Condição'})).toHaveCount(3);
+ const after=await page.evaluate(()=>localStorage.getItem('oryneo:automations:draft:qa-visual-editor-no-backend'));
+ expect(after).toBe(prior);
+ await expect(page.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
+});
