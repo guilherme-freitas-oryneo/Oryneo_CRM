@@ -72,6 +72,19 @@ BEGIN
  IF (SELECT count(*) FROM public.automation_wait_timers WHERE execution_id=execution)<>2
  THEN RAISE EXCEPTION 'Timer registration was not idempotent'; END IF;
 
+ -- Boundary valid in graphGuard: a 43200-minute timer must not fail due to
+ -- small difference between transaction start and clock_timestamp().
+ PERFORM public.automation_wait_shadow_register(w,execution,
+  '7c000000-0000-4000-8000-000000000004',clock_timestamp()+interval '30 days',
+  false,NULL);
+ denied:=false;
+ BEGIN
+   PERFORM public.automation_wait_shadow_register(w,execution,
+     '7c000000-0000-4000-8000-000000000005',
+     clock_timestamp()+interval '31 days',false,NULL);
+ EXCEPTION WHEN invalid_parameter_value THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'Out-of-policy 31-day wait was accepted'; END IF;
  UPDATE public.automation_runtime_settings SET mode='disabled',emergency_stop=true
    WHERE workspace_id=w;
  UPDATE public.automation_workspaces SET active=false WHERE id=w;
