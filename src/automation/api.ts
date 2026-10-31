@@ -134,6 +134,9 @@ export type AutomationRuntimeStatus={
   pendingEvents:number;
   executions:number;
   actionRows:number;
+  waitingTimers:number;
+  dueTimers:number;
+  cancelledTimers:number;
   dispatchAuthorized:false;
 };
 /** Observability only; never enables a flow or dispatches an action. */
