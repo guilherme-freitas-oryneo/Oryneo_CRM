@@ -45,19 +45,30 @@ DECLARE w uuid:='11111111-1111-4111-8111-111111111111';
  version uuid:='c6000000-0000-4000-8000-000000000003';
  node text:='c6000000-0000-4000-8000-000000000005';
  inbox uuid; token uuid; activation text; actionkey text;
- decision jsonb; plan jsonb; result jsonb;
+ decision jsonb; plan jsonb; result jsonb; bootstrap timestamptz;
  refused boolean:=false;
 BEGIN
  BEGIN
   PERFORM public.automation_live_crm_ingest(w,ev);
  EXCEPTION WHEN insufficient_privilege THEN refused:=true; END;
  IF NOT refused THEN RAISE EXCEPTION 'DISABLED_RUNTIME_INGESTED_LIVE'; END IF;
+ bootstrap:=public.automation_live_crm_init_cursor(w,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+ IF bootstrap IS NULL OR bootstrap IS DISTINCT FROM
+    public.automation_live_crm_init_cursor(w,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+ THEN RAISE EXCEPTION 'LIVE_CRM_CURSOR_BOOTSTRAP_NOT_IDEMPOTENT'; END IF;
  UPDATE public.automation_workspaces SET active=true WHERE id=w;
  UPDATE public.automation_runtime_settings SET mode='live',emergency_stop=false WHERE workspace_id=w;
  UPDATE public.automation_channel_ownership SET
    owner='new_engine',legacy_dispatch_paused_at=clock_timestamp()-interval '2 minutes',
    release_approved_at=clock_timestamp(),release_id='qa-macro6-crm-only'
  WHERE workspace_id=w AND channel='crm';
+ INSERT INTO public.crm_events(id,deal_id,event_type,created_at)
+ VALUES('c6000000-0000-4000-8000-000000000006',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','stage_changed',clock_timestamp());
+ result:=public.automation_live_crm_poll(w,20);
+ IF result->>'scanned'<>'1' OR result->>'dispatchAuthorized'<>'false'
+ OR (public.automation_live_crm_poll(w,20)->>'scanned')<>'0'
+ THEN RAISE EXCEPTION 'CANONICAL_CRM_CURSOR_REPLAY_OR_LOSS: %',result; END IF;
  -- The disposable schema already contains pending shadow fixtures. They are
  -- unrelated to this canonical CRM claim and must not consume its batch slot.
  UPDATE public.automation_event_inbox SET state='ignored'
