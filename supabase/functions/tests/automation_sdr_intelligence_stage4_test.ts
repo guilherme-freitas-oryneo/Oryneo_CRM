@@ -65,7 +65,7 @@ Deno.test('K02: draft, wrong source hash and unapproved dictionary never become 
  ]){
   const result=buildSdrKnowledgeContext({latestUserMessage:'qual o valor',
    release:{knowledge:update.knowledge!,dictionary:{
-    id:'22222222-2222-4222-8222-222222222222',release_version:1,status:'published',
+    id:'22222222-2222-4222-8222-222222222222',release_version:1,language:'pt_BR',status:'published',
     approved_by:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',content_sha256:'b'.repeat(64),
     examples:candidate.entries,synonyms:[],
    },entries:dictionary},conversationMode:'sdr_active',
