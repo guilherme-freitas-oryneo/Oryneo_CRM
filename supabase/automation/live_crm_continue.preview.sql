@@ -130,6 +130,54 @@ BEGIN
  RETURN jsonb_build_object('ok',true,'continued',true,
   'complete',p_decision->>'state'='completed','dispatchAuthorized',false);
 END $fn$;
+-- Bounded retry ledger for canonical sent actions that could not resume.
+-- Never resend the already confirmed CRM operation.
+CREATE TABLE IF NOT EXISTS public.automation_live_crm_continuation_failures(
+ action_id uuid PRIMARY KEY REFERENCES public.automation_action_outbox(id),
+ workspace_id uuid NOT NULL REFERENCES public.automation_workspaces(id),
+ attempts integer NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 5),
+ state text NOT NULL DEFAULT 'retry' CHECK(state IN('retry','quarantined')),
+ next_retry_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ last_code text NOT NULL,
+ updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+ALTER TABLE public.automation_live_crm_continuation_failures ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.automation_live_crm_continuation_failures FROM PUBLIC,anon,authenticated;
+GRANT SELECT,INSERT,UPDATE ON public.automation_live_crm_continuation_failures TO service_role;
+
+CREATE OR REPLACE FUNCTION public.automation_live_crm_continuation_fail(
+ p_workspace_id uuid,p_action_id uuid,p_code text
+) RETURNS text
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
+AS $fn$
+DECLARE a public.automation_action_outbox%ROWTYPE;v_attempts integer;v_state text;
+BEGIN
+ IF p_workspace_id IS NULL OR p_action_id IS NULL OR
+ p_code NOT IN('LIVE_CONTEXT_UNAVAILABLE','LIVE_VERSION_DRIFT',
+ 'LIVE_GRAPH_REJECTED','LIVE_COMMIT_UNAVAILABLE')
+ THEN RAISE EXCEPTION 'LIVE_CONTINUATION_FAIL_INPUT' USING ERRCODE='22023'; END IF;
+ SELECT * INTO a FROM public.automation_action_outbox
+ WHERE id=p_action_id AND workspace_id=p_workspace_id FOR UPDATE;
+ IF NOT FOUND OR a.state<>'sent' OR a.action_type NOT IN('crm_task','crm_stage_change')
+ OR a.provider_result_id IS DISTINCT FROM 'crm:'||a.action_key
+ OR EXISTS(SELECT 1 FROM public.automation_live_crm_continuations
+  WHERE execution_id=a.execution_id AND previous_action_id=a.id)
+ THEN RAISE EXCEPTION 'LIVE_CONTINUATION_FAIL_STALE' USING ERRCODE='42501'; END IF;
+ INSERT INTO public.automation_live_crm_continuation_failures
+ (action_id,workspace_id,attempts,state,last_code,next_retry_at)
+ VALUES(a.id,p_workspace_id,1,'retry',p_code,clock_timestamp()+interval '30 seconds')
+ ON CONFLICT(action_id) DO UPDATE
+ SET attempts=least(5,public.automation_live_crm_continuation_failures.attempts+1),
+ state=CASE WHEN public.automation_live_crm_continuation_failures.attempts>=4
+  THEN 'quarantined' ELSE 'retry' END,
+ last_code=excluded.last_code,
+ next_retry_at=clock_timestamp()+interval '30 seconds'
+  *least(25,public.automation_live_crm_continuation_failures.attempts+1),
+ updated_at=clock_timestamp()
+ RETURNING attempts,state INTO v_attempts,v_state;
+ RETURN v_state;
+END $fn$;
+
 -- Read-only recovery discovery. A crash after the canonical CRM mutation
 -- leaves its receipt in state=sent and this function will re-offer it.
 -- Execution remains protected by the unique continuation receipt.
@@ -152,6 +200,7 @@ BEGIN
  RETURN QUERY
  SELECT a.id,a.execution_id,a.node_id
  FROM public.automation_action_outbox a
+ LEFT JOIN public.automation_live_crm_continuation_failures retry ON retry.action_id=a.id
  JOIN public.automation_executions e ON e.id=a.execution_id
    AND e.workspace_id=a.workspace_id AND e.state='running'
  JOIN public.automation_flow_versions v ON v.id=e.flow_version_id
@@ -162,6 +211,7 @@ BEGIN
  WHERE a.workspace_id=p_workspace_id AND a.state='sent'
    AND a.action_type IN('crm_task','crm_stage_change')
    AND a.provider_result_id='crm:'||a.action_key
+   AND (retry.action_id IS NULL OR (retry.state='retry' AND retry.next_retry_at<=clock_timestamp()))
    AND NOT EXISTS(SELECT 1 FROM public.automation_live_crm_continuations c
      WHERE c.execution_id=e.id AND c.previous_action_id=a.id)
  ORDER BY a.created_at,a.id LIMIT p_limit;
@@ -173,5 +223,9 @@ GRANT EXECUTE ON FUNCTION public.automation_live_crm_continue(uuid,uuid,uuid,jso
 REVOKE ALL ON FUNCTION public.automation_live_crm_pending_continuations(uuid,integer)
  FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.automation_live_crm_pending_continuations(uuid,integer)
+ TO service_role;
+REVOKE ALL ON FUNCTION public.automation_live_crm_continuation_fail(uuid,uuid,text)
+ FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.automation_live_crm_continuation_fail(uuid,uuid,text)
  TO service_role;
 COMMIT;
