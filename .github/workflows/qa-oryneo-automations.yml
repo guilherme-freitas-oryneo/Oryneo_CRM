@@ -203,6 +203,13 @@ jobs:
           \i supabase/migrations/20261031214032_oryneo_commercial_shadow_ownership_foundation_disabled.sql
           \i supabase/migrations/20261031214115_oryneo_disabled_recovery_semantic_and_crm_adapters.sql
           \i supabase/migrations/20261031214650_oryneo_sdr_release_fk_indexes.sql
+          \i supabase/migrations/20261031230725_oryneo_macro6_crm_canonical_planner_dormant.sql
+          \i supabase/migrations/20261031230742_oryneo_macro6_crm_cursor_dormant.sql
+          \i supabase/migrations/20261031230746_oryneo_macro6_crm_continuations_dormant.sql
+          \i supabase/migrations/20261031230750_oryneo_macro6_crm_prearm_disabled.sql
+          \i supabase/migrations/20261031230754_oryneo_macro6_observability_dormant.sql
+          \i supabase/migrations/20261031230759_oryneo_macro6_meta_template_fencing_dormant.sql
+          \i supabase/migrations/20261031230803_oryneo_macro6_meta_receipt_dormant.sql
           DO $qa$
           BEGIN
             IF (SELECT count(*) FROM public.automation_channel_ownership)<>(SELECT count(*) FROM qa_owner_before)
