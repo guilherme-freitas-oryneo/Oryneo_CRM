@@ -45,7 +45,7 @@ BEGIN
  v_required:=ARRAY['legal','playbook','rollback','security','authenticated_e2e'];
  IF p_channel IS NOT NULL THEN
   v_required:=v_required||ARRAY['provider_verified','consent_policy','single_owner'];
-  IF p_channel='email' THEN v_required:=v_required||'mailbox_verified'; END IF;
+  IF p_channel='email' THEN v_required:=array_append(v_required,'mailbox_verified'); END IF;
   IF p_channel='billing' THEN
    v_required:=v_required||ARRAY['financial_webhook','terms_accepted']; END IF;
  END IF;
