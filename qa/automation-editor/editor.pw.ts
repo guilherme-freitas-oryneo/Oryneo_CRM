@@ -208,6 +208,7 @@ test('Stage5 E09: 390px touch controls, focusable keyboard navigation and reduce
  expect(dimensions.reducedMotion).toBeTruthy();
  expect(dimensions.width).toBeLessThanOrEqual(dimensions.screen+5);
  await page.screenshot({path:'qa/automation-editor/artifacts/stage5-touch-keyboard-390.png',fullPage:true});
+ await context.close();
 });
 test('Stage5 E11/E12: unpublished editor preview triggers zero outbound provider HTTP calls',async({page})=>{
  const outbound:string[]=[];
