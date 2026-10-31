@@ -38,6 +38,8 @@ for (const c of cases) {
       if(input.action==='templates')return response({ok:true,templates:[]});
       if(input.action==='catalog')return response({ok:true,catalog:{stages:[],templates:[],knowledge:[],dictionaries:[]},readOnly:true});
       if(input.action==='executions')return response({ok:true,executions:[]});
+      if(input.action==='commercial-readiness')return response({ok:true,readOnly:true,dispatchAuthorized:false,channels:['whatsapp','email','crm','onboarding','billing'].map(channel=>({channel,owner:'legacy',legacyPaused:false,releaseAttested:false,eligibleForControlledQueue:false})),runtime:{mode:'disabled',emergencyStop:true,workspaceActive:false}});
+      if(input.action==='sdr-semantic-list')return response({ok:true,readOnly:true,dispatchAuthorized:false,knowledge:[],dictionaries:[],selected:null,role:'admin'});
       if(input.action==='simulate')return response({ok:true,dryRun:true,simulationOnly:true,dispatchAuthorized:false,persisted:false,result:{shadowOnly:true,dispatchAuthorized:false,state:'completed',trace:[{nodeId:'77777777-7777-4777-8777-777777777777',type:'trigger',status:'evaluated'}],plannedActions:[],issues:[]}});
       if(input.action==='runtime')return response({ok:true,readOnly:true,runtime:{workspaceActive:false,mode:'disabled',emergencyStop:true,updatedAt:new Date().toISOString(),flows:0,publishedVersions:0,pendingEvents:0,executions:0,actionRows:0,waitingTimers:0,dueTimers:0,cancelledTimers:0,queuedActions:0,leasedActions:0,uncertainActions:0,sentActions:0,dispatchAuthorized:false}});
       if(input.action==='create')return response({ok:true,result:{id:input.graph.id,revision:1,versionId:'99999999-9999-4999-8999-999999999999'}},201);
