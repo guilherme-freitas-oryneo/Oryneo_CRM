@@ -70,7 +70,7 @@ WITH (security_invoker=true) AS
    jsonb_build_object('opportunity_id',p.deal_id::text)
  FROM public.crm_proposals p
  WHERE p.status='sent' AND p.deal_id IS NOT NULL
-   AND length(p.snapshot_sha256)=64 AND p.snapshot_sha256 ~ '^[a-fA-F0-9]+
+   AND length(p.snapshot_sha256)=64 AND p.snapshot_sha256 !~ '[^0-9a-fA-F]'
  UNION ALL
  SELECT 'meeting',e.created_at,e.id::text,'crm',
    'meeting:'||e.id::text,'meeting.scheduled',
