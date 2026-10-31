@@ -8,7 +8,7 @@ CREATE TABLE public.crm_wa_messages(
  reaction_to_provider_message_id text,
  occurred_at timestamptz NOT NULL
 );
-GRANT SELECT ON public.crm_wa_messages TO service_role;
+GRANT SELECT,INSERT ON public.crm_wa_messages TO service_role; -- QA fixture only; adapter reads canonical messages.
 INSERT INTO public.crm_wa_messages(id,conversation_id,direction,body,occurred_at) VALUES
 ('2b000000-0000-4000-8000-000000000001',
  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','inbound',
