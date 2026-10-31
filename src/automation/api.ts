@@ -106,3 +106,19 @@ export async function freezeRemoteAutomationVersion(
   }>({action:'publish-disabled',workspaceId,flowId,expectedRevision});
   return result.result;
 }
+
+
+export type CatalogChoice={id:string;name:string};
+export type NodeReferenceCatalog={
+  stages:CatalogChoice[];
+  templates:CatalogChoice[];
+  knowledge:CatalogChoice[];
+  dictionaries:CatalogChoice[];
+};
+/** Server-scoped lists. Client selections are still revalidated at publication. */
+export async function loadRemoteNodeCatalog(workspaceId:string):Promise<NodeReferenceCatalog>{
+  const result=await invoke<{ok:true;catalog:NodeReferenceCatalog;readOnly:true}>({
+    action:'catalog',workspaceId,
+  });
+  return result.catalog;
+}
