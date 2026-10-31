@@ -53,6 +53,10 @@ Deno.serve(async request=>{
     p_workspace_id:workspaceId,p_batch_limit:50,
   });
   if(ingested.error)return json({error:'Unable to ingest canonical CRM events'},503);
+  const ingestedWa=await db.rpc('automation_shadow_ingest_whatsapp',{
+    p_workspace_id:workspaceId,p_batch_limit:50,
+  });
+  if(ingestedWa.error)return json({error:'Unable to ingest canonical WhatsApp events'},503);
 
   const recovered=await db.rpc('automation_shadow_recover',{p_workspace_id:workspaceId});
   if(recovered.error)return json({error:'Unable to reconcile shadow leases'},503);
@@ -120,5 +124,6 @@ Deno.serve(async request=>{
     ok:true,shadowOnly:true,dispatchAuthorized:false,
     processed,unresolved,recovered:recovered.data||0,
     crmScanned:Number(ingested.data?.scanned||0),crmInserted:Number(ingested.data?.inserted||0),
+    waScanned:Number(ingestedWa.data?.scanned||0),waInserted:Number(ingestedWa.data?.inserted||0),
   });
 });
