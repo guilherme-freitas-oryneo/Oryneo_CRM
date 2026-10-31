@@ -1,11 +1,12 @@
-import {classifySdrIntent,validateIntentDictionary} from '../_shared/sdr/intentPolicy.ts';
+import {classifySdrIntent,validateIntentDictionary,type IntentDictionary} from '../_shared/sdr/intentPolicy.ts';
 import {buildSdrKnowledgeContext,PINNED_SOURCE_HASH,PINNED_PLAYBOOK_BLOB,PINNED_CATALOG_BLOB} from '../_shared/sdr/knowledgePolicy.ts';
 import {readDictionaryPayload,dictionaryDigest,resolveSdrRuntimeTraining} from '../_shared/sdr/runtimeRelease.ts';
 import candidate from '../../automation/sdr_intent_candidate.v1.json' with {type:'json'};
 const check=(v:unknown,msg:string)=>{if(!v)throw Error(msg)};
-const dictionary={releaseVersion:candidate.releaseVersion,language:candidate.language,
- entries:candidate.entries} as Parameters<typeof validateIntentDictionary>[0] &
- {releaseVersion:number;language:'pt_BR';entries:typeof candidate.entries};
+const dictionary:IntentDictionary={
+ releaseVersion:candidate.releaseVersion,language:'pt_BR',
+ entries:candidate.entries.map(e=>({...e,risk:e.risk as 'normal'|'human_review'})),
+};
 const k={
  id:'11111111-1111-4111-8111-111111111111',release_version:1,status:'published',
  approved_by:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',content_sha256:PINNED_SOURCE_HASH,
