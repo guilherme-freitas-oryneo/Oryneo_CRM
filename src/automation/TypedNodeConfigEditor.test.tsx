@@ -71,6 +71,8 @@ describe('Automações: inspetor tipado sem efeitos',()=>{
       catalog={catalog} onChange={onChange}/>);
     const control=screen.getByRole('combobox',{name:'Evento canônico'});
     expect(screen.getByRole('option',{name:'billing.paid_verified'})).toBeInTheDocument();
+    expect(screen.getByRole('option',{name:'mail.sent'})).toBeInTheDocument();
+    expect(screen.getByRole('option',{name:'onboarding.started'})).toBeInTheDocument();
     expect(screen.queryByRole('option',{name:'stripe.charge_anything'})).not.toBeInTheDocument();
     fireEvent.change(control,{target:{value:'conversation.inbound'}});
     expect(onChange).toHaveBeenCalledWith({event_type:'conversation.inbound'});
