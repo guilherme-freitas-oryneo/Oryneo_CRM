@@ -121,7 +121,14 @@ Deno.serve(async request => {
       .select('id,template_name,language,category,provider_status,provider_template_id,provider_account_id,parameter_schema,synced_at')
       .eq('workspace_id', workspaceId).order('template_name').limit(200);
     return error ? reply({ error: 'Não foi possível carregar o catálogo Meta.' }, 503)
-      : reply({ ok: true, templates: data || [], componentsVerified: false });
+      : reply({ ok: true, templates: data || [],
+          componentsVerified: (data || []).length > 0 && (data || []).every(t =>
+            t.provider_status === 'APPROVED' && t.language === 'pt_BR'
+            && t.parameter_schema?.components_verified === true
+            && t.parameter_schema?.send_guard === 'backend_required'),
+          // This is catalog metadata, NEVER permission to send.
+          dispatchAuthorized: false,
+        });
   }
 
   // Authorized read-only choices for typed node inspectors. Never send the
