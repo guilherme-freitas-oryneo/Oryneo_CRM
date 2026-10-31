@@ -38,7 +38,7 @@ for (const c of cases) {
       if(input.action==='templates')return response({ok:true,templates:[]});
       if(input.action==='catalog')return response({ok:true,catalog:{stages:[],templates:[],knowledge:[],dictionaries:[]},readOnly:true});
       if(input.action==='executions')return response({ok:true,executions:[]});
-      if(input.action==='runtime')return response({ok:true,readOnly:true,runtime:{workspaceActive:false,mode:'disabled',emergencyStop:true,updatedAt:new Date().toISOString(),flows:0,publishedVersions:0,pendingEvents:0,executions:0,actionRows:0,waitingTimers:0,dueTimers:0,cancelledTimers:0,dispatchAuthorized:false}});
+      if(input.action==='runtime')return response({ok:true,readOnly:true,runtime:{workspaceActive:false,mode:'disabled',emergencyStop:true,updatedAt:new Date().toISOString(),flows:0,publishedVersions:0,pendingEvents:0,executions:0,actionRows:0,waitingTimers:0,dueTimers:0,cancelledTimers:0,queuedActions:0,leasedActions:0,uncertainActions:0,sentActions:0,dispatchAuthorized:false}});
       if(input.action==='create')return response({ok:true,result:{id:input.graph.id,revision:1,versionId:'99999999-9999-4999-8999-999999999999'}},201);
       throw Error('Unexpected automation API action: '+input.action);
     }
