@@ -256,6 +256,7 @@ jobs:
           deno test --min-dep-age=0 supabase/functions/tests/automation_graph_guard_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_template_bindings_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_meta_template_request_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_meta_transport_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_meta_canonical_context_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_engine_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_action_policy_test.ts
