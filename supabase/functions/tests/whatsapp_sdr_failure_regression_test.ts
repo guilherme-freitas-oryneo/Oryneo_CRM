@@ -80,7 +80,7 @@ Deno.test('SDR: no silent loss when generation fails after valid inbound lease',
    cancel:async()=> 'cancelled',
  };
  const d=await processAiJob(job,dependencies);
- check(d.state==='retry_wait'&&d.reason==='AI_PROVIDER_RATE_LIMITED','job disappeared instead of retry');
+ check(d.state==='retry_wait'&&'reason' in d&&d.reason==='AI_PROVIDER_RATE_LIMITED','job disappeared instead of retry');
  check(generateCalls===1&&failure==='AI_PROVIDER_RATE_LIMITED'&&!sent,'incorrect side effect');
 });
 Deno.test('SDR: takeover, review, closed, opt-out and newer inbound prevent any generation',async()=>{
