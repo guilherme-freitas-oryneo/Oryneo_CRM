@@ -130,3 +130,49 @@ export function redoEdit(history: DraftHistory): DraftHistory {
     redo: history.redo.slice(1),
   };
 }
+
+
+/** Deterministic DAG auto-layout. It changes ONLY positions, never ports or edges. */
+export function autoLayoutFlow(graph:FlowDefinition):EditResult{
+  if(hasCycle(graph))return unchanged('LAYOUT_CYCLE');
+  const nodes=new Map(graph.nodes.map(n=>[n.id,n]));
+  if(nodes.size!==graph.nodes.length)return unchanged('LAYOUT_DUPLICATE_ID');
+  const indegree=new Map(graph.nodes.map(n=>[n.id,0]));
+  const adjacent=new Map<string,string[]>();
+  for(const edge of graph.edges){
+    if(!nodes.has(edge.source)||!nodes.has(edge.target))return unchanged('LAYOUT_ORPHAN');
+    indegree.set(edge.target,(indegree.get(edge.target)||0)+1);
+    adjacent.set(edge.source,[...(adjacent.get(edge.source)||[]),edge.target]);
+  }
+  const rank=new Map(graph.nodes.map(n=>[n.id,0]));
+  const ordered=graph.nodes.map(n=>n.id);
+  const ready=ordered.filter(id=>indegree.get(id)===0);
+  let consumed=0;
+  while(ready.length){
+    const id=ready.shift()!;
+    consumed++;
+    for(const dest of adjacent.get(id)||[]){
+      rank.set(dest,Math.max(rank.get(dest)||0,(rank.get(id)||0)+1));
+      indegree.set(dest,(indegree.get(dest)||0)-1);
+      if(indegree.get(dest)===0)ready.push(dest);
+    }
+  }
+  if(consumed!==graph.nodes.length)return unchanged('LAYOUT_CYCLE');
+  const grouped=new Map<number,string[]>();
+  for(const id of ordered){
+    const r=rank.get(id)||0;
+    grouped.set(r,[...(grouped.get(r)||[]),id]);
+  }
+  const position=new Map<string,{x:number;y:number}>();
+  for(const [layer,ids] of grouped){
+    ids.sort((a,b)=>{
+      const ay=nodes.get(a)!.position.y,by=nodes.get(b)!.position.y;
+      return ay-by||ordered.indexOf(a)-ordered.indexOf(b);
+    });
+    for(const [row,id] of ids.entries())
+      position.set(id,{x:110+layer*310,y:110+row*155});
+  }
+  return {ok:true,graph:{
+    ...graph,nodes:graph.nodes.map(n=>({...n,position:position.get(n.id)!})),
+  }};
+}
