@@ -37,7 +37,7 @@ export async function verifyDictionaryDigest(
  return hash===release!.content_sha256;
 }
 export function readDictionaryPayload(r:SdrDictionaryRecord|null):IntentDictionary|null{
- if(!r||!Array.isArray(r.examples))return null;
+ if(!r||r.language!=='pt_BR'||!Array.isArray(r.examples))return null;
  const d={releaseVersion:r.release_version,language:'pt_BR' as const,entries:r.examples};
  return validateIntentDictionary(d)?d:null;
 }
