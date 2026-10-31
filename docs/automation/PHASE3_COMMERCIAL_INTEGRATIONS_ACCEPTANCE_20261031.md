@@ -64,7 +64,20 @@ Não executar `*.preview.sql` em produção automaticamente. Migração definiti
 
 Não alegar que e-mail ou Meta já foram disparados pelo novo motor. Não alegar que reunião foi criada se o CRM não escreveu `meeting_scheduled`: o adaptador está preparado para observar fatos canônicos, nunca fabricá-los. O checkout com obrigações assistidas também não gera novos eventos `paid_verified` sem um mapeamento de liquidação própria confirmado por sua trilha financeira.
 
-## 4. Rollback e preservação
+## 4. Resultado final — CI da versão de código aceita
+
+**[GitHub Actions #41236095939](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41236095939)** — **4/4 jobs concluídos com sucesso** (versão de código `924a635fb41599e2bc49492ff6f7956ed7dd10da`).
+
+- **CRM/Frontend:** TypeScript + build Vite aprovados; **528 testes Vitest em 79 arquivos** sem falha.
+- **Navegador real:** **15/15 testes Playwright Chromium** em 390, 768, 1024 e 1440 pixels, com evidência visual arquivada.
+- **PostgreSQL 17 descartável:** `phase3-commercial-sources-shadow-only-qa-passed`; `stage3-single-owner-no-send-qa-passed`; `stage3-crm-atomic-cas-rollback-no-duplicates-qa-passed`; `stage3-crm-next-action-safe-idempotent-qa-passed`.
+- **Integração Deno ↔ PostgreSQL:** `oryneo-engine-db-bridge-passed`: 1 fluxo, 2 rastros persistidos, **0 efeitos externos**; typecheck e testes isolados de políticas aprovados.
+- **Autorização:** grants necessários identificados por consulta somente leitura do projeto hospedado e codificados em `commercial_data_grants.preview.sql`, com negativas explícitas de update a `kind` e `deleted`. **Não aplicados ao banco de produção.**
+- **Fatos fora de ordem:** source feed cobre associação tardia de sessão Stripe, pagamento após criação do projeto de onboarding, deduplicação de webhook, recebimento de resposta com handoff e recibos `mail.sent` sem recursão de `opportunity.updated`.
+
+**Resultado técnico:** a macroetapa 3 fica homologada como implementação isolada, com canais existentes mantidos como donos exclusivos dos disparos. A troca real do executor, migrações e tráfego com provedores ficam submetidos à homologação das etapas 5–6 e à autorização de release. Não afirmar que WA/e-mail já são transportados pela engine nova.
+
+## 5. Rollback e preservação
 
 - PR #76 em draft, baseado em #75, sem merge e sem alterações na `main`.
 - O estado `mode=disabled`, `emergency_stop=true`, workspace inativo e fluxos novos desligados deve permanecer até release.
