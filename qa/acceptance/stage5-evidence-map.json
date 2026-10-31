@@ -161,7 +161,7 @@
     {
       "id": "P07",
       "path": "supabase/automation/pipeline_label_assert.qa.sql",
-      "needle": "Qualificada",
+      "needle": "Stage rename missing or duplicated audit",
       "level": "db_integration",
       "liveValidated": false
     },
