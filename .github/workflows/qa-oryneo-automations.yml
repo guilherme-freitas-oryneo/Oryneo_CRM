@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'supabase/automation/**'
+      - 'supabase/functions/automation-api/**'
+      - 'supabase/functions/automation-shadow-worker/**'
+      - 'supabase/functions/tests/automation_*'
       - '.github/workflows/qa-oryneo-automations.yml'
   workflow_dispatch:
 
@@ -65,6 +68,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_queue.preview.sql
       - name: Testar deduplicação, fencing, recuperação e efeitos bloqueados
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_queue.qa.sql
+      - name: Preparar falhas recuperáveis com fencing no banco descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_failure.preview.sql
+      - name: Testar backoff, quarentena, permissões e ausência de envio
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_failure.qa.sql
       - name: Criar registros comerciais isolados para validação de renomeação
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_fixture.qa.sql
       - name: Testar migração de nomes mantendo IDs
@@ -113,6 +120,23 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/starter_drafts_seed.qa.sql
       - name: Validar índices de chaves estrangeiras da engine (isolado)
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/foreign_key_indexes.qa.sql
+      - name: Criar continuação auditável de timer apenas no PostgreSQL descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_resume.preview.sql
+      - name: Testar continuação, idempotência, ramo do grafo e quarentena
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_resume.qa.sql
+      - name: Proteger continuação de timers vencidos contra takeover e resposta tardia
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_due_policy.preview.sql
+      - name: Validar atomicidade, cancelamento, opt-out e isolamento do timer vencido
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_due_policy.qa.sql
+      - name: Instalar rollback imutável com runtime desligado somente no PostgreSQL de testes
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/rollback_disabled.preview.sql
+      - name: Provar versionamento, revisão otimista, papel e zero ações no rollback
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/rollback_disabled.qa.sql
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Executar evento real em PostgreSQL descartável pelo compilador Deno
+        run: deno run --allow-run=psql supabase/automation/engine_db_bridge.qa.ts
       - name: Verificar migração idempotente, runtime desligado e outbox intacto
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -129,3 +153,45 @@ jobs:
             THEN RAISE EXCEPTION 'Consolidated idempotent schema replay is unsafe'; END IF;
           END $qa$;
           SQL
+
+  failure-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck do worker e sanitização dos erros
+        run: |
+          deno check --node-modules-dir=auto supabase/functions/automation-api/index.ts
+          deno check supabase/functions/automation-api/executionKernel.ts
+          deno check --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
+          deno test supabase/functions/tests/automation_execution_kernel_test.ts
+          deno test supabase/functions/tests/automation_compiled_shadow_test.ts
+          deno test supabase/functions/tests/automation_shadow_failure_test.ts
+          deno test supabase/functions/tests/automation_graph_guard_test.ts
+          deno test supabase/functions/tests/automation_shadow_engine_test.ts
+          deno test supabase/functions/tests/automation_action_policy_test.ts
+          deno test supabase/functions/tests/automation_worker_guards_test.ts
+          deno test supabase/functions/tests/automation_shadow_context_test.ts
+          deno test supabase/functions/tests/automation_simulation_boundary_test.ts
+          deno test supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts
+
+  crm-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependências travadas pelo lockfile
+        run: npm ci
+      - name: Detectar divergência de playbook e catálogo já homologados
+        run: node .github/scripts/qa-automation-knowledge-sources.mjs
+      - name: Verificar TypeScript, Vite e output do GitHub Pages
+        run: npm run build -- --base=/Oryneo_CRM/
+      - name: Testar regressão integral do CRM, pipeline, WhatsApp e UI
+        run: npm run test -- --run

@@ -5,6 +5,7 @@
  * membership and workspace role checks. Never trust client-supplied actor IDs.
  */
 import { inspectServerGraph } from './graphGuard.ts';
+import { compileExecutionGraph } from './executionKernel.ts';
 import { loadTrustedReferences } from './trustedReferences.ts';
 import { planServerShadow } from './shadowEngine.ts';
 import { parseSimulationFixture } from './simulationBoundary.ts';
@@ -167,7 +168,8 @@ Deno.serve(async request => {
   if (action === 'runtime') {
     const [settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
       runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts,
-      queuedActions,leasedActions,uncertainActions,sentActions] = await Promise.all([
+      queuedActions,leasedActions,uncertainActions,sentActions,
+      failedEvents,failedExecutions,deadLetterActions] = await Promise.all([
       db.from('automation_runtime_settings').select('mode,emergency_stop,updated_at')
         .eq('workspace_id', workspaceId).maybeSingle(),
       db.from('automation_workspaces').select('active')
@@ -196,10 +198,17 @@ Deno.serve(async request => {
         .eq('workspace_id',workspaceId).eq('state','uncertain'),
       db.from('automation_action_outbox').select('id',{head:true,count:'exact'})
         .eq('workspace_id',workspaceId).eq('state','sent'),
+      db.from('automation_event_inbox').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','failed'),
+      db.from('automation_executions').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).in('state',['failed','dead_letter']),
+      db.from('automation_action_outbox').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).in('state',['failed','dead_letter']),
     ]);
     if ([settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
       runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts,
-      queuedActions,leasedActions,uncertainActions,sentActions].some(r => r.error) ||
+      queuedActions,leasedActions,uncertainActions,sentActions,
+      failedEvents,failedExecutions,deadLetterActions].some(r => r.error) ||
       !settings.data || !workspaceState.data)
       return reply({error:'Estado do motor indisponível.'},503);
     return reply({ok:true,readOnly:true,runtime:{
@@ -219,6 +228,9 @@ Deno.serve(async request => {
       leasedActions:leasedActions.count||0,
       uncertainActions:uncertainActions.count||0,
       sentActions:sentActions.count||0,
+      failedEvents:failedEvents.count||0,
+      failedExecutions:failedExecutions.count||0,
+      deadLetterActions:deadLetterActions.count||0,
       dispatchAuthorized:false,
     }});
   }
@@ -231,6 +243,37 @@ Deno.serve(async request => {
       : reply({ ok: true, executions: data || [] });
   }
 
+
+  // Workspace-scoped, strictly non-PII execution diagnostics for the
+  // visual trace inspector. No raw message, prompt, provider payload, token,
+  // arbitrary sanitized_trace JSON or customer identifier is returned.
+  if (action === 'execution-detail') {
+    if (!validUuid(body.executionId))
+      return reply({error:'Execução inválida.'},400);
+    const [header,nodes,actions,waits]=await Promise.all([
+      db.from('automation_executions')
+        .select('id,flow_version_id,state,started_at,finished_at')
+        .eq('workspace_id',workspaceId).eq('id',body.executionId).maybeSingle(),
+      db.from('automation_node_executions')
+        .select('id,node_id,state,attempt,result_code,created_at')
+        .eq('workspace_id',workspaceId).eq('execution_id',body.executionId)
+        .order('created_at',{ascending:true}).limit(500),
+      db.from('automation_action_outbox')
+        .select('node_id,action_type,state,attempts,result_code,created_at')
+        .eq('workspace_id',workspaceId).eq('execution_id',body.executionId)
+        .order('created_at',{ascending:true}).limit(100),
+      db.from('automation_wait_timers')
+        .select('id,node_id,state,reason_code,due_at,created_at,updated_at')
+        .eq('workspace_id',workspaceId).eq('execution_id',body.executionId)
+        .order('created_at',{ascending:true}).limit(100),
+    ]);
+    if([header,nodes,actions,waits].some(r=>r.error))
+      return reply({error:'Diagnóstico indisponível.'},503);
+    if(!header.data)return reply({error:'Execução não encontrada.'},404);
+    return reply({ok:true,readOnly:true,sanitized:true,dispatchAuthorized:false,
+      execution:header.data,nodes:nodes.data||[],
+      actions:actions.data||[],timers:waits.data||[]});
+  }
 
   // Authenticated preflight reads canonical references on the server.
   // Results cannot be reused as an authorization token.
@@ -301,9 +344,15 @@ Deno.serve(async request => {
     if(!graphFrom(graph)||graph.id!==flow.id||graph.kind!==flow.kind)
       return reply({error:'Rascunho inconsistente.'},422);
     let validation;
+    let compiledHash='';
     try {
       const refs=await loadTrustedReferences(db,workspaceId);
       validation=inspectServerGraph(graph,refs);
+      if(validation.ok){
+        const compiled=await compileExecutionGraph({...graph,status:'published'},refs);
+        if(!compiled.ok)validation={...validation,ok:false,issues:compiled.issues};
+        else compiledHash=compiled.compiled.graphHash;
+      }
     } catch {
       return reply({error:'Referências não puderam ser verificadas.'},503);
     }
@@ -315,12 +364,33 @@ Deno.serve(async request => {
       p_expected_revision:body.expectedRevision,p_graph:graph,
       p_validation:{
         ok:true,issues:[],dispatchAuthorized:false,
-        preflight:'server',nodeCount:validation.nodeCount,
-        edgeCount:validation.edgeCount,
+        preflight:'server',compiledPlanHash:compiledHash,
+        nodeCount:validation.nodeCount,edgeCount:validation.edgeCount,
       },
     });
     if(releaseError){const mapped=errorCode(releaseError.code);return reply(mapped.body,mapped.status);}
     return reply({ok:true,result:released,publishedDisabled:true,dispatchAuthorized:false});
+  }
+
+  // A rollback selects an EXISTING immutable published version. It never
+  // changes a frozen graph or starts execution; the RPC also enforces the
+  // emergency-stop state and optimistic revision under a database row lock.
+  if (action === 'rollback-disabled') {
+    if (!['admin','publisher'].includes(member.role))
+      return reply({error:'Papel de publicador obrigatório.'},403);
+    if (!validUuid(body.flowId)||!validUuid(body.targetVersionId)
+      ||!Number.isSafeInteger(body.expectedRevision)||Number(body.expectedRevision)<1)
+      return reply({error:'Versão, fluxo ou revisão inválidos.'},400);
+    const {data:rolled,error:rollbackError}=await db.rpc('automation_rollback_disabled',{
+      p_workspace_id:workspaceId,p_actor_id:actor,p_flow_id:body.flowId,
+      p_target_version_id:body.targetVersionId,
+      p_expected_revision:body.expectedRevision,
+    });
+    if(rollbackError){
+      const mapped=errorCode(rollbackError.code);
+      return reply(mapped.body,mapped.status);
+    }
+    return reply({ok:true,result:rolled,rolledBackDisabled:true,dispatchAuthorized:false});
   }
 
   if (!canEdit) return reply({ error: 'Somente editores podem modificar rascunhos.' }, 403);
