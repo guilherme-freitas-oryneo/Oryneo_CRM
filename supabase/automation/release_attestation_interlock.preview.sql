@@ -175,4 +175,10 @@ REVOKE ALL ON FUNCTION public.automation_release_revocation_stop()
  FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.automation_release_missing_gates(uuid,text)
  TO service_role;
+GRANT EXECUTE ON FUNCTION public.automation_enforce_release_interlock()
+ TO service_role;
+GRANT EXECUTE ON FUNCTION public.automation_release_action_lease_guard()
+ TO service_role;
+GRANT EXECUTE ON FUNCTION public.automation_release_revocation_stop()
+ TO service_role;
 COMMIT;
