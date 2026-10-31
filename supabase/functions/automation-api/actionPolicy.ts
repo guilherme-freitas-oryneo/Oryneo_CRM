@@ -23,6 +23,13 @@ export type CanonicalActionContext={
   billing?:{
     status:string;verifiedWebhook:boolean;
   };
+  stage?:{
+    targetId:string;targetVerified:boolean;outcome:'open'|'won'|'lost';
+  };
+  email?:{
+    verifiedRecipient:boolean;templateApproved:boolean;
+    consentGranted:boolean;optedOut:boolean;sourceVerified:boolean;
+  };
 };
 export type PolicyReview={
   canPrepareAction:boolean;
@@ -30,6 +37,7 @@ export type PolicyReview={
   issues:string[];
   checksAt:string;
 };
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MS_MIN=60_000;
 export function reviewServerAction(
   context:CanonicalActionContext,now=new Date(),
@@ -70,11 +78,26 @@ export function reviewServerAction(
       seen>now.getTime()||now.getTime()-seen>2*MS_MIN)
       add('TEMPLATE_STATUS_STALE');
   }
-  if(context.channel==='crm_stage_change'&&context.billing){
-    // When a stage change is funded by billing, a browser-supplied status is
-    // NEVER enough. A verified canonical webhook is required.
-    if(context.billing.status!=='paid'||!context.billing.verifiedWebhook)
-      add('PAYMENT_NOT_CANONICALLY_VERIFIED');
+  if(context.channel==='crm_stage_change'){
+    const stage=context.stage;
+    // The stage ID and outcome must be resolved from the canonical stage table.
+    // A missing billing object is UNKNOWN, never permission to mark a deal won.
+    if(!stage||!stage.targetVerified||!UUID.test(stage.targetId))
+      add('STAGE_NOT_CANONICALLY_VERIFIED');
+    else if(stage.outcome==='won'){
+      if(!context.billing||context.billing.status!=='paid'||!context.billing.verifiedWebhook)
+        add('PAYMENT_NOT_CANONICALLY_VERIFIED');
+    } else if(stage.outcome==='lost'){
+      // An automatic lost stage requires human-reviewed policy, not a silent graph change.
+      add('HUMAN_APPROVAL_FOR_LOSS_REQUIRED');
+    }
+  }
+  if(context.channel==='email'){
+    const e=context.email;
+    if(!e||!e.verifiedRecipient||!e.sourceVerified)
+      add('EMAIL_RECIPIENT_UNVERIFIED');
+    if(!e?.templateApproved)add('EMAIL_TEMPLATE_NOT_APPROVED');
+    if(!e?.consentGranted||e.optedOut)add('EMAIL_CONSENT_OR_OPTOUT');
   }
   return {
     canPrepareAction:issues.length===0,dispatchAuthorized:false,issues,
