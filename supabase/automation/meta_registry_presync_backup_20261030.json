@@ -1,0 +1,534 @@
+{
+  "origin": "ORYNEO production, pre-component-sync",
+  "readOnlyBackup": true,
+  "templates": [
+    {
+      "id": "67ff606c-b940-4360-b173-8e57985276fd",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1092708390305626",
+      "template_name": "oryneo_conversar_sem_plano_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "eb7670f1-9903-4c31-b2bf-3fcbcf0c037f",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "996083893513934",
+      "template_name": "oryneo_fup_1h_aquisicao_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "074cc054-678b-47f5-94f0-bb93252eb666",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1102356549066913",
+      "template_name": "oryneo_fup_1h_contratacao_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "457baaf6-93b0-40b7-b5ee-2efbb2b0aae5",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1143530654902545",
+      "template_name": "oryneo_fup_1h_organizacao_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "29de82b5-5d9a-4f08-b2ea-d811162ee0cf",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1694150282290451",
+      "template_name": "oryneo_fup_24h_proxima_acao_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "70fe0f92-a64b-4fc4-b2d1-8e8b9239807e",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1101257579355194",
+      "template_name": "oryneo_fup_24h_responsavel_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "b5428143-9111-4fca-ac98-e10aa6e5ba54",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1144645694788756",
+      "template_name": "oryneo_fup_6h_aquisicao_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "cebc9bf6-d382-462e-ab00-fe5aa9d7e3cc",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1606747500527599",
+      "template_name": "oryneo_fup_6h_gestao_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "c58a8edd-4e25-4e98-83a4-380bf8dd0041",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1877744639914557",
+      "template_name": "oryneo_fup_6h_risco_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "6364b1d7-cf14-48ed-9c4e-715f0f632dc1",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1855743918754531",
+      "template_name": "oryneo_growth_contratar_base_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "1cd23c03-c9bc-41b1-a3e4-7232962aed49",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "28773117129017510",
+      "template_name": "oryneo_growth_contratar_lp_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "782a8e79-c68a-4126-a374-6ce3a2763367",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "2379048209585581",
+      "template_name": "oryneo_growth_contratar_lp_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "a4338bf7-dea4-4d29-ad3d-6036c70331b6",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "2448628339278481",
+      "template_name": "oryneo_growth_contratar_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "c4ebe4a7-d1c1-4e5d-bb9f-581b27c673f3",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1656525325875320",
+      "template_name": "oryneo_growth_conversar_base_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "d4dd7932-f2ee-47bc-b1bf-4986cdbb2627",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "2031084574225427",
+      "template_name": "oryneo_growth_conversar_lp_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "0a0d96e9-afff-420f-8093-6fed97e59e05",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1316812380498503",
+      "template_name": "oryneo_growth_conversar_lp_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "60f50024-f01a-4649-a86b-cd4fd7dc0caa",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1743939827732699",
+      "template_name": "oryneo_growth_conversar_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "100e9762-2616-4bca-a74f-5f55296cd62d",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1160106549755095",
+      "template_name": "oryneo_scale_contratar_base_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "b9f20c90-50fc-4142-ac60-567a120c0f21",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "3649480355213551",
+      "template_name": "oryneo_scale_contratar_lp_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "c0a70956-be50-4cd9-87ca-c314edc75135",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "3685095011652838",
+      "template_name": "oryneo_scale_contratar_lp_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "bbff3c12-a3c4-4690-86fa-f7b376e3eb85",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1102166915937935",
+      "template_name": "oryneo_scale_contratar_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "c32d34d3-c87e-4c61-a2e9-8fbc6967ea83",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "2080998772523685",
+      "template_name": "oryneo_scale_conversar_base_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "c990140c-8396-454f-a56a-6252cb891947",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1134703849206014",
+      "template_name": "oryneo_scale_conversar_lp_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "107b437a-8c64-4235-826c-c25c36039442",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "3221167914940881",
+      "template_name": "oryneo_scale_conversar_lp_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "fa599d24-2be1-49b4-bcfb-47c8d45c2926",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1766085557835609",
+      "template_name": "oryneo_scale_conversar_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "30489e52-241b-42ee-9714-972d4b88ca6f",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "2479385749220937",
+      "template_name": "oryneo_start_contratar_base_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "34bc3815-02f5-4737-bef9-104b1822aa92",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1077076201815979",
+      "template_name": "oryneo_start_contratar_lp_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "09c9577f-7b43-409f-ae91-1671254ba569",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "29085210911095105",
+      "template_name": "oryneo_start_contratar_lp_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "c67b41c6-f569-4e84-bd65-7b22e1cc70d3",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1021232987651568",
+      "template_name": "oryneo_start_contratar_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "d3cec5ac-07d8-4eca-84e7-b5dda50e1b1c",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1794433938368479",
+      "template_name": "oryneo_start_conversar_base_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "d287de7d-4531-4ba4-a5c9-f742fb5bc3c8",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "2327116211026120",
+      "template_name": "oryneo_start_conversar_lp_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "de351efe-c5a1-48b2-90f9-1ce0dd1c52bd",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "1088441687344153",
+      "template_name": "oryneo_start_conversar_lp_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    },
+    {
+      "id": "0e75a63d-a33c-4945-a714-439516f48858",
+      "workspace_id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+      "provider_account_id": "28794700556857948",
+      "provider_template_id": "2113382986204086",
+      "template_name": "oryneo_start_conversar_trafego_v3",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "provider_status": "APPROVED",
+      "parameter_schema": {
+        "source": "Meta template registry",
+        "send_guard": "backend_required",
+        "components_verified": false
+      },
+      "synced_at": "2026-10-30 19:30:44.944858+00"
+    }
+  ]
+}
