@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBra
 import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, autoLayoutFlow, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
-import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, loadRemoteAutomationExecutionDetail, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime,loadRemoteCommercialReadiness, type CommercialReadiness, type ServerShadowPreview, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution, type AutomationExecutionDetail } from './api';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, loadRemoteAutomationExecutionDetail, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime,loadRemoteCommercialReadiness,loadRemoteReleaseGates,type ReleaseGateStatus, type CommercialReadiness, type ServerShadowPreview, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution, type AutomationExecutionDetail } from './api';
 import { ConditionRuleEditor } from './ConditionRuleEditor';
 import { duplicateDraftNode,fitGraphView,importDraftJson,moveSelectedNodes,removeEdgeById,removeSelectedNodes,routeBranchLabel,viewportToGraph } from './editorCommands';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
@@ -122,6 +122,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [nodeCatalog, setNodeCatalog] = useState<NodeReferenceCatalog | null>(null);
   const [runtimeStatus,setRuntimeStatus] = useState<AutomationRuntimeStatus | null>(null);
   const [commercialReadiness,setCommercialReadiness]=useState<CommercialReadiness|null>(null);
+  const [releaseGates,setReleaseGates]=useState<ReleaseGateStatus|null>(null);
   const [remoteExecutions, setRemoteExecutions] = useState<AutomationExecution[]>([]);
   const [remoteRevision, setRemoteRevision] = useState<Record<string, number>>({});
   const [lastRemoteJson, setLastRemoteJson] = useState<Record<string,string>>({});
@@ -137,10 +138,10 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       setWorkspace(first);
       const saved = await listRemoteAutomationFlows(first.id);
       if (!cancelled) { setRemoteFlows(saved); setRemoteRevision(Object.fromEntries(saved.map(flow => [flow.id, flow.revision]))); }
-      const [registry, executions, catalog, runtime, readiness] = await Promise.allSettled([
+      const [registry, executions, catalog, runtime, readiness, gates] = await Promise.allSettled([
         listRemoteAutomationTemplates(first.id), listRemoteAutomationExecutions(first.id),
         loadRemoteNodeCatalog(first.id), loadRemoteAutomationRuntime(first.id),
-        loadRemoteCommercialReadiness(first.id),
+        loadRemoteCommercialReadiness(first.id),loadRemoteReleaseGates(first.id),
       ]);
       if (cancelled) return;
       if (registry.status === 'fulfilled') setMetaTemplates(registry.value);
@@ -148,6 +149,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       if (catalog.status === 'fulfilled') setNodeCatalog(catalog.value);
       if (runtime.status === 'fulfilled') setRuntimeStatus(runtime.value);
       if (readiness.status === 'fulfilled')setCommercialReadiness(readiness.value);
+      if (gates.status === 'fulfilled')setReleaseGates(gates.value);
     }).catch(() => { if (!cancelled) setSyncError('Serviço de rascunhos indisponível. Use a cópia local.'); });
     return () => { cancelled = true; };
   }, [userId]);
@@ -753,7 +755,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       </div>}
       {tab!=='pipeline'&&tab!=='sdr'&&<div className="ory-auto-overview">
         <div className="ory-auto-section-heading"><div><span className="ory-auto-overline">CONTROLE E GOVERNANÇA</span><h2>{subviews[tab].title}</h2><p>{subviews[tab].description}</p></div></div>
-        {tab==='overview' ? <div className="ory-auto-stat-grid">
+        {tab==='overview' ? <><div className="ory-auto-stat-grid">
           <div><span>Rascunhos locais</span><strong>{drafts.length}</strong><small>Backups neste dispositivo</small></div>
           <div><span>Fluxos no workspace</span><strong>{runtimeStatus?.flows ?? remoteFlows.length}</strong><small>{runtimeStatus ? `${runtimeStatus.publishedVersions} versões congeladas · ${runtimeStatus.mode}` : 'Motor sem telemetria confirmada'}</small></div>
           <div><span>Templates Meta sincronizados</span><strong>{metaTemplates.length||'—'}</strong><small>Envios exigem status e consentimento válidos no momento do disparo</small></div>
@@ -763,7 +765,34 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
           <div><span>Esperas vencidas</span><strong>{runtimeStatus?.dueTimers ?? '—'}</strong><small>Somente observação, sem envio automático</small></div>
           <div><span>Envios com resultado incerto</span><strong>{runtimeStatus?.uncertainActions ?? '—'}</strong><small>Exigem reconciliação com o provedor; não reenviar automaticamente</small></div>
           <div><span>Envios confirmados pela nova engine</span><strong>{runtimeStatus?.sentActions ?? '—'}</strong><small>Na fila: {runtimeStatus?.queuedActions ?? '—'} · Reservados: {runtimeStatus?.leasedActions ?? '—'}</small></div>
-        </div> : tab==='intelligence' ? <SdrIntelligencePanel workspaceId={workspace?.id||null} role={workspace?.role||null}/> : tab==='templates' ? <div className="ory-auto-catalog">
+        </div>
+          <section className="ory-auto-commercial-readiness"
+            aria-label="Liberação auditada das automações">
+            <h3>Liberação operacional — critérios comprovados</h3>
+            <p>Somente leitura. O status abaixo não altera o motor, não transfere
+              os canais e não envia mensagens ou cobranças.</p>
+            {releaseGates ? <>
+              <p role="status">{releaseGates.releaseReady
+                ? 'Critérios documentais registrados; ativação continua sujeita a canário e autorização.'
+                : 'Ativação bloqueada — critérios documentais ainda pendentes.'}</p>
+              <p>Critérios gerais pendentes: {releaseGates.global.length
+                ? releaseGates.global.join(' · ') : 'nenhum'}</p>
+              <div className="ory-auto-catalog-scroll">
+                <table><thead><tr><th>Canal</th><th>Critérios pendentes</th></tr></thead><tbody>
+                  {(['crm','email','whatsapp','onboarding','billing'] as const).map(channel=>
+                    <tr key={channel}>
+                      <td>{({crm:'CRM e pipeline',email:'E-mail',whatsapp:'WhatsApp',
+                        onboarding:'Implantação',billing:'Faturamento'} as const)[channel]}</td>
+                      <td>{releaseGates.channels[channel]?.length
+                        ?releaseGates.channels[channel].join(' · ')
+                        :'Sem pendência documental registrada'}</td>
+                    </tr>)}
+                </tbody></table>
+              </div>
+            </>:<p role="status">Validação documental ainda indisponível. A ausência
+              de dados não autoriza liberação de qualquer canal.</p>}
+          </section>
+        </> : tab==='intelligence' ? <SdrIntelligencePanel workspaceId={workspace?.id||null} role={workspace?.role||null}/> : tab==='templates' ? <div className="ory-auto-catalog">
           <div className="ory-auto-catalog-heading"><div><strong>Catálogo oficial de templates</strong><p>Sincronização read-only da Meta. Status pode mudar; envio exige revalidação no servidor.</p></div><span>{metaTemplates.length} cadastrados</span></div>
           {metaTemplates.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Nome do template</th><th>Categoria</th><th>Idioma</th><th>Status</th></tr></thead><tbody>
             {metaTemplates.map(item=><tr key={item.id}><td>{item.template_name}<small>ID {item.provider_template_id||'não disponível'}</small></td>
