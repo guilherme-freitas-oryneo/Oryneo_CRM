@@ -42,7 +42,7 @@ Deno.test('C02: official approved template needs matching ID, language, verified
   {registry:{...t,variableNumbers:['1','1']}},
   {registry:{...t,status:'PAUSED'}},
  ]){
-  const invalid=reviewMetaTemplate({...args,...changes});
+  const invalid=reviewMetaTemplate({...args,...changes} as Parameters<typeof reviewMetaTemplate>[0]);
   assert(!invalid.eligibleForControlledQueue,'Provider identity/variables failure was allowed');
  }
 });
