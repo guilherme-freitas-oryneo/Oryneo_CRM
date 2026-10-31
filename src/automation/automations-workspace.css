@@ -155,3 +155,16 @@
 
 /* Canvas context menu can show all node types without clipping the viewport. */
 .ory-auto-context{max-height:min(65vh,340px);overflow-y:auto;overscroll-behavior:contain}
+
+
+/* Compact typed controls preserve the existing inspector and JSON fallback. */
+.ory-auto-typed-config{display:flex;flex-direction:column;gap:8px;min-width:0;padding:11px 9px;margin:8px 0 14px;border:1px solid #e4ecf2;background:#fafcfe;border-radius:8px}
+.ory-auto-typed-config label{display:flex;flex-direction:column;min-width:0;gap:6px;margin:2px 0;font-size:10px;color:#425b72}
+.ory-auto-typed-config select,.ory-auto-typed-config input{width:100%;min-width:0;border:1px solid #dce5ed;border-radius:6px;padding:8px;background:white;color:#253d56;font-size:11px}
+.ory-auto-typed-config select:disabled{color:#9aaab8;background:#f5f7f9}
+.ory-auto-typed-config small,.ory-auto-typed-info{font-size:10px;color:#8191a1;line-height:1.6}
+.ory-auto-typed-config .ory-auto-toggle{flex-direction:row;align-items:center;gap:8px;cursor:pointer}
+.ory-auto-typed-config .ory-auto-toggle input{width:15px;height:15px;accent-color:#396c9e;flex:none}
+.ory-auto-typed-info{border:1px solid #e3eaf0;border-radius:7px;padding:12px;background:#f8fafc}
+.ory-auto-inspector-advanced{margin:20px 0 2px;padding-top:13px;border-top:1px solid #e4ebf1;font-size:10px;color:#8393a5}
+@media(max-width:840px){.ory-auto-typed-config{padding:12px}}
