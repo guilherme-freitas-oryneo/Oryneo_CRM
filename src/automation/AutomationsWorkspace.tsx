@@ -618,22 +618,46 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               <svg aria-hidden="true" className="ory-auto-connections" viewBox={`0 0 ${canvasSize.width} ${canvasSize.height}`} style={{width:canvasSize.width,height:canvasSize.height}} preserveAspectRatio="none">
                 {current.edges.map(edge=>{
                   const src=current.nodes.find(n=>n.id===edge.source),dst=current.nodes.find(n=>n.id===edge.target);if(!src||!dst)return null;
-                  const x1=src.position.x+220,y1=src.position.y+43,x2=dst.position.x,y2=dst.position.y+43;
-                  return <path key={edge.id} d={'M'+x1+' '+y1+' C'+(x1+90)+' '+y1+' '+(x2-90)+' '+y2+' '+x2+' '+y2} className={(activeEdge===edge.id?'selected ':'')+(tracedEdgeIds.has(edge.id)?'trace-path':'')}/>;
+                  const x1=src.position.x+220,y1=src.position.y+115,x2=dst.position.x,y2=dst.position.y+43;
+                  const d='M'+x1+' '+y1+' C'+(x1+90)+' '+y1+' '+(x2-90)+' '+y2+' '+x2+' '+y2;
+                  const label=edge.label|| (src.type==='condition'||edge.source_port!=='out'?routeBranchLabel(edge.source_port):'');
+                  return <g key={edge.id}>
+                    <path d={d} className={(activeEdge===edge.id?'selected ':'')+(tracedEdgeIds.has(edge.id)?'trace-path':'')}/>
+                    <path d={d} className="ory-auto-edge-hit" style={{pointerEvents:'stroke'}}
+                      onClick={()=>{setActiveEdge(edge.id);setSelectedId(null);setSelectedIds([]);}}
+                      onContextMenu={event=>{event.preventDefault();setActiveEdge(edge.id);setMenu({x:event.clientX,y:event.clientY,edgeId:edge.id,nodeId:null});}}/>
+                    {label&&<text className="ory-auto-edge-label" x={(x1+x2)/2} y={(y1+y2)/2-12} textAnchor="middle">{label}</text>}
+                  </g>;
                 })}
               </svg>
               {current.edges.map(edge=>{
                 const src=current.nodes.find(n=>n.id===edge.source),dst=current.nodes.find(n=>n.id===edge.target);if(!src||!dst)return null;
-                const x=(src.position.x+220+dst.position.x)/2,y=(src.position.y+dst.position.y)/2+43;
+                const x=(src.position.x+220+dst.position.x)/2,y=(src.position.y+115+dst.position.y+43)/2;
                 return <button key={edge.id} className={'ory-auto-edge-add'+(activeEdge===edge.id?' active':'')+(tracedEdgeIds.has(edge.id)?' traced':'')} style={{left:x,top:y}} aria-label="Selecionar conexão para inserir nó" title="Inserir bloco nesta conexão" onClick={()=>{setActiveEdge(edge.id);setSelectedId(null)}} onContextMenu={e=>{e.preventDefault();setActiveEdge(edge.id);setMenu({x:e.clientX,y:e.clientY,edgeId:edge.id,nodeId:null})}}><Plus size={13}/></button>;
               })}
-              {current.nodes.map(node=><div className={'ory-auto-node family-'+NODE_REGISTRY[node.type].family+(selectedId===node.id?' selected':'')+(node.disabled?' disabled':'')+(tracedNodeIds.has(node.id)?' traced':'')} key={node.id} style={{left:node.position.x,top:node.position.y}}>
-                <button className="ory-auto-node-body" onClick={()=>showNode(node)} onPointerDown={e=>onNodePointerDown(e,node)} onPointerUp={onNodePointerUp} onContextMenu={e=>{e.preventDefault();showNode(node);setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:node.id})}} aria-label={'Editar nó '+node.label}>
+              {current.nodes.map(node=><div className={'ory-auto-node family-'+NODE_REGISTRY[node.type].family+((selectedId===node.id||selectedIds.includes(node.id))?' selected':'')+(node.disabled?' disabled':'')+(tracedNodeIds.has(node.id)?' traced':'')} key={node.id} style={{left:node.position.x,top:node.position.y}}>
+                <button className="ory-auto-node-body" aria-pressed={selectedIds.includes(node.id)} onClick={e=>showNode(node,e.shiftKey)}
+                  onPointerDown={e=>onNodePointerDown(e,node)} onPointerUp={onNodePointerUp}
+                  onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-oryneo-port'))e.preventDefault();}}
+                  onDrop={e=>{
+                    const data=e.dataTransfer.getData('application/x-oryneo-port');
+                    if(!data||!current)return;
+                    e.preventDefault();e.stopPropagation();
+                    const [nodeId,port]=data.split('|');
+                    commit(connectPorts(current,{id:crypto.randomUUID(),source:nodeId,source_port:port,target:node.id,target_port:'in'}));
+                    setSourcePort(null);
+                  }}
+                  onContextMenu={e=>{e.preventDefault();showNode(node);setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:node.id})}} aria-label={'Editar nó '+node.label}>
                   <span className="ory-auto-node-type">{NAMES[NODE_REGISTRY[node.type].family]}</span><strong>{node.label}</strong><small>{NODE_REGISTRY[node.type].title}</small>
                 </button>
+                <button type="button" className="ory-auto-node-more" aria-label={'Menu do nó '+node.label}
+                  onClick={e=>{showNode(node);const rect=e.currentTarget.getBoundingClientRect();setMenu({x:rect.right,y:rect.top,edgeId:null,nodeId:node.id});}}>···</button>
                 {node.type!=='trigger'&&<span className="ory-auto-node-input" title="Entrada"/>}
                 <div className="ory-auto-node-outputs">{node.ports.filter(port=>port!=='in').map(port=>
-                  <button key={port} className={sourcePort?.nodeId===node.id&&sourcePort.port===port?'active':''} onClick={()=>setSourcePort({nodeId:node.id,port})} title={'Conectar saída '+port} aria-label={'Conectar saída '+port}>{port}</button>)}</div>
+                  <button key={port} draggable className={sourcePort?.nodeId===node.id&&sourcePort.port===port?'active':''}
+                    onDragStart={e=>{e.dataTransfer.effectAllowed='link';e.dataTransfer.setData('application/x-oryneo-port',node.id+'|'+port);}}
+                    onClick={()=>setSourcePort({nodeId:node.id,port})}
+                    title={'Conectar saída '+routeBranchLabel(port)} aria-label={'Conectar saída '+port+' do nó '+node.label}>{routeBranchLabel(port)}</button>)}</div>
               </div>)}
             </div>
             <div className="ory-auto-canvas-controls"><button onClick={()=>setZoom(v=>Math.max(0.4,+(v-0.1).toFixed(2)))} aria-label="Diminuir zoom"><ZoomOut size={16}/></button><span>{Math.round(zoom*100)}%</span><button onClick={()=>setZoom(v=>Math.min(1.5,+(v+0.1).toFixed(2)))} aria-label="Aumentar zoom"><ZoomIn size={16}/></button><button onClick={()=>setZoom(1)} title="Zoom real">100%</button><button onClick={fit} title="Enquadrar fluxo"><LocateFixed size={15}/></button></div>
@@ -650,6 +674,12 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                   onClick={()=>addAtCanvas(type)}>Adicionar: {descriptor.title}</button>)}
               {menu.edgeId&&<button onClick={()=>{setActiveEdge(menu.edgeId);setMenu(null)}}>Inserir nó nesta conexão</button>}
               {menu.edgeId&&<button onClick={()=>{setReconnecting(menu.edgeId);setMenu(null);setNotice('Clique no nó de destino para reconectar.')}}>Reconectar destino</button>}
+              {menu.edgeId&&<button onClick={()=>{if(current)commit(removeEdgeById(current,menu.edgeId!));setActiveEdge(null);setMenu(null);}}>Remover conexão</button>}
+              {menu.nodeId&&<button onClick={()=>duplicateSelected()}>Duplicar nó</button>}
+              {menu.nodeId&&current.nodes.find(n=>n.id===menu.nodeId)?.type!=='trigger'&&
+                <button onClick={toggleDisabled}>{current.nodes.find(n=>n.id===menu.nodeId)?.disabled?'Reativar bloco':'Desativar bloco'}</button>}
+              {menu.nodeId&&current.nodes.find(n=>n.id===menu.nodeId)?.type!=='trigger'&&
+                <button onClick={removeSelection}>Remover nó selecionado</button>}
               <button onClick={()=>{setMenu(null);setSourcePort(null);setReconnecting(null)}}>Fechar menu</button>
             </div>}
           </div>
