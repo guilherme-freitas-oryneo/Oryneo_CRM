@@ -175,7 +175,7 @@
     {
       "id": "P09",
       "path": "supabase/automation/shadow_due_policy.qa.sql",
-      "needle": "opt-out",
+      "needle": "Late canonical reply was not cancelled",
       "level": "db_integration",
       "liveValidated": false
     },
