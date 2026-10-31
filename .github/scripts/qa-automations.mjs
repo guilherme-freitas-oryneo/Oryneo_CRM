@@ -75,6 +75,11 @@ for (const c of cases) {
     await page.getByText(/Simulação do servidor — nenhum envio/i).waitFor();
     await page.getByTitle('Simular sem efeitos externos').click();
     await page.getByText(/Simulação — não enviado/i).waitFor();
+    const traced=await page.locator('.ory-auto-node.traced').count();
+    const traceEdges=await page.locator('.ory-auto-canvas-scroll svg path.trace-path').count();
+    if(traced!==2||traceEdges!==1)
+      throw Error('Dry-run path did not match the two connected canvas nodes and one edge');
+
     if(!await page.getByTitle('Publicação disponível após engine homologada').isDisabled())throw Error('Unsafe activation enabled');
     await page.screenshot({path:'qa-results/oryneo-automations-'+c.name+'.png',fullPage:false});
     await page.getByRole('button',{name:'Salvar rascunho'}).click();
