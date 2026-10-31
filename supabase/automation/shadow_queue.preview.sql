@@ -64,6 +64,7 @@ BEGIN
   WITH claimable AS (
     SELECT e.id FROM public.automation_event_inbox e
     WHERE e.workspace_id=p_workspace_id AND e.state='pending'
+      AND e.event_type IS NOT NULL AND e.schema_version='1.0.0'
       AND (e.lease_until IS NULL OR e.lease_until<now())
       AND e.attempts<5
     ORDER BY e.received_at,e.id
