@@ -97,6 +97,65 @@ BEGIN
  RETURN NEW;
 END $fn$;
 
+-- A valid approval at activation time is not perpetual authorization:
+-- every newly leased action must still have current evidence.
+CREATE OR REPLACE FUNCTION public.automation_release_action_lease_guard()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
+AS $fn$
+DECLARE channel text;missing text[];
+BEGIN
+ IF NEW.state='leased' AND OLD.state IS DISTINCT FROM 'leased' THEN
+  channel:=CASE
+   WHEN NEW.action_type IN('crm_stage_change','crm_task','crm_update','notify') THEN 'crm'
+   WHEN NEW.action_type IN('whatsapp_template','whatsapp_reply','human_handoff') THEN 'whatsapp'
+   WHEN NEW.action_type='email' THEN 'email'
+   WHEN NEW.action_type IN('onboarding') THEN 'onboarding'
+   WHEN NEW.action_type IN('billing') THEN 'billing'
+   ELSE NULL END;
+  IF channel IS NULL THEN
+   RAISE EXCEPTION 'RELEASE_UNSUPPORTED_ACTION' USING ERRCODE='42501'; END IF;
+  missing:=public.automation_release_missing_gates(NEW.workspace_id,channel);
+  IF cardinality(missing)>0 THEN
+   RAISE EXCEPTION 'RELEASE_ACTION_EVIDENCE_MISSING'
+    USING ERRCODE='42501',DETAIL=array_to_string(missing,','); END IF;
+ END IF;
+ RETURN NEW;
+END $fn$;
+DROP TRIGGER IF EXISTS automation_release_action_claim_interlock
+ ON public.automation_action_outbox;
+CREATE TRIGGER automation_release_action_claim_interlock
+ BEFORE UPDATE ON public.automation_action_outbox
+ FOR EACH ROW EXECUTE FUNCTION public.automation_release_action_lease_guard();
+
+-- Revocation is a real emergency stop, including already-claimed work.
+-- Final provider receipt reconciliation remains permitted after the stop.
+CREATE OR REPLACE FUNCTION public.automation_release_revocation_stop()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
+AS $fn$
+DECLARE changed boolean;
+BEGIN
+ changed:=TG_OP='DELETE';
+ IF TG_OP='UPDATE' THEN
+  changed:=OLD.revoked_at IS NULL AND NEW.revoked_at IS NOT NULL
+    OR NEW.expires_at<=clock_timestamp() AND OLD.expires_at>clock_timestamp();
+ END IF;
+ IF changed THEN
+  UPDATE public.automation_runtime_settings
+   SET mode='disabled',emergency_stop=true,updated_at=clock_timestamp()
+   WHERE workspace_id=OLD.workspace_id;
+  UPDATE public.automation_workspaces SET active=false WHERE id=OLD.workspace_id;
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+ RETURN NEW;
+END $fn$;
+DROP TRIGGER IF EXISTS automation_release_revocation_interlock
+ ON public.automation_release_attestations;
+CREATE TRIGGER automation_release_revocation_interlock
+ AFTER UPDATE OR DELETE ON public.automation_release_attestations
+ FOR EACH ROW EXECUTE FUNCTION public.automation_release_revocation_stop();
+
 DROP TRIGGER IF EXISTS automation_runtime_release_interlock ON public.automation_runtime_settings;
 CREATE TRIGGER automation_runtime_release_interlock
  BEFORE UPDATE ON public.automation_runtime_settings
@@ -109,6 +168,10 @@ CREATE TRIGGER automation_channel_release_interlock
 REVOKE ALL ON FUNCTION public.automation_release_missing_gates(uuid,text)
  FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.automation_enforce_release_interlock()
+ FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.automation_release_action_lease_guard()
+ FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.automation_release_revocation_stop()
  FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.automation_release_missing_gates(uuid,text)
  TO service_role;
