@@ -325,20 +325,99 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     commit(candidate);
     if (candidate.ok) { setSelectedId(node.id); setJsonConfig(JSON.stringify(node.config, null, 2)); setActiveEdge(null); }
   };
-  const addAtCanvas = (type: NodeKind) => {
-    if (!current || !menu || !history || current.nodes.length >= 500
-      || type === 'trigger' || !nodePalette(current.kind).some(item=>item.type===type)) return;
+  const placeNodeAt=(type:NodeKind,x:number,y:number)=>{
+    if(!current||!history||current.nodes.length>=500||type==='trigger'
+      ||!nodePalette(current.kind).some(item=>item.type===type))return;
     const descriptor=NODE_REGISTRY[type];
-    const node:FlowNode={
-      id:crypto.randomUUID(),type,label:descriptor.title,
-      position:{x:Math.max(15,Math.min(1260,menu.canvasX??200)),
-        y:Math.max(15,Math.min(820,menu.canvasY??150))},
+    const node:FlowNode={id:crypto.randomUUID(),type,label:descriptor.title,
+      position:{x:Math.max(12,Math.min(16000,Math.round(x))),
+        y:Math.max(12,Math.min(16000,Math.round(y)))},
       ports:[...(descriptor.input?['in']:[]),...descriptor.outputs],
-      config:defaultConfig(type,current.kind),
-    };
+      config:defaultConfig(type,current.kind)};
     commit({ok:true,graph:{...current,nodes:[...current.nodes,node]}});
-    setSelectedId(node.id);setJsonConfig(JSON.stringify(node.config,null,2));setMenu(null);
-    setNotice('Bloco criado. Conecte as portas antes de validar ou publicar.');
+    setSelectedId(node.id);setSelectedIds([node.id]);
+    setJsonConfig(JSON.stringify(node.config,null,2));setMenu(null);
+    setNotice('Bloco inserido. Conecte as portas e valide os ramos antes de congelar.');
+  };
+  const addAtCanvas=(type:NodeKind)=>{
+    if(!menu)return;
+    placeNodeAt(type,menu.canvasX??200,menu.canvasY??150);
+  };
+  const spawnFromPalette=(type:NodeKind)=>{
+    if(activeEdge&&type!=='end'&&type!=='stop'&&type!=='trigger'){
+      addToEdge(activeEdge,type);return;
+    }
+    const el=stage.current;
+    placeNodeAt(type,el?(el.scrollLeft+el.clientWidth*.52)/zoom:340,
+      el?(el.scrollTop+el.clientHeight*.4)/zoom:180);
+  };
+  const beginPaletteDrag=(e:ReactDragEvent<HTMLButtonElement>,type:NodeKind)=>{
+    e.dataTransfer.effectAllowed='copy';
+    e.dataTransfer.setData('application/x-oryneo-node',type);
+    e.dataTransfer.setData('text/plain',type);
+  };
+  const dropPaletteNode=(e:ReactDragEvent<HTMLDivElement>)=>{
+    const raw=e.dataTransfer.getData('application/x-oryneo-node');
+    if(!raw||!current||!nodePalette(current.kind).some(item=>item.type===raw))return;
+    e.preventDefault();
+    const rect=e.currentTarget.getBoundingClientRect();
+    const point=viewportToGraph({x:e.clientX,y:e.clientY},
+      {left:rect.left,top:rect.top},
+      {left:e.currentTarget.scrollLeft,top:e.currentTarget.scrollTop},zoom);
+    placeNodeAt(raw as NodeKind,point.x-110,point.y-42);
+  };
+  const uploadDraft=async(event:ReactChangeEvent<HTMLInputElement>)=>{
+    const file=event.target.files?.[0];
+    event.target.value='';
+    if(!file||!current)return;
+    if(file.size>250_000||!(/\\.json$/i).test(file.name)){
+      setNotice('Importação recusada: escolha JSON com até 250 KB.');return;
+    }
+    try{
+      const result=importDraftJson(await file.text(),current.kind);
+      if(!result.ok){setNotice('Importação recusada: '+result.code);return;}
+      open(result.graph);
+      setNotice('Fluxo importado como NOVO rascunho; nenhuma versão existente foi sobrescrita.');
+    }catch{setNotice('Não foi possível ler o arquivo. Nenhum fluxo foi modificado.');}
+  };
+  const selectNode=(node:FlowNode,shift:boolean)=>{
+    if(shift){
+      const next=selectedIds.includes(node.id)?selectedIds.filter(id=>id!==node.id):[...selectedIds,node.id];
+      setSelectedIds(next);setSelectedId(next.length===1?next[0]:null);
+      setActiveEdge(null);return;
+    }
+    setSelectedIds([node.id]);setSelectedId(node.id);setActiveEdge(null);
+    setJsonConfig(JSON.stringify(node.config,null,2));
+  };
+  const duplicateSelected=()=>{
+    if(!current||!selectedId)return;
+    const nextId=crypto.randomUUID();
+    const change=duplicateDraftNode(current,selectedId,nextId);
+    commit(change);
+    if(change.ok){setSelectedId(nextId);setSelectedIds([nextId]);}
+    setMenu(null);
+  };
+  const removeSelection=()=>{
+    if(!current)return;
+    const selected=selectedIds.length?selectedIds:(selectedId?[selectedId]:[]);
+    if(selected.length)commit(removeSelectedNodes(current,selected));
+    else if(activeEdge)commit(removeEdgeById(current,activeEdge));
+    setSelectedId(null);setSelectedIds([]);setActiveEdge(null);setMenu(null);
+  };
+  const toggleDisabled=()=>{
+    if(!current||!selectedId)return;
+    const node=current.nodes.find(n=>n.id===selectedId);
+    if(!node||node.type==='trigger')return;
+    commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>
+      n.id===node.id?{...n,disabled:!n.disabled}:n)}});
+    setMenu(null);
+  };
+  const inspectExecution=async(item:AutomationExecution)=>{
+    if(!workspace)return;
+    setDetailLoading(true);setExecutionDetail(null);
+    try{setExecutionDetail(await loadRemoteAutomationExecutionDetail(workspace.id,item.id));}
+    catch(e){setNotice('Detalhes indisponíveis: '+(e instanceof Error?e.message:'erro de consulta'));}
+    finally{setDetailLoading(false);}
   };
   const onNodePointerDown = (event: ReactPointerEvent<HTMLButtonElement>, node: FlowNode) => {
     if (event.button !== 0) return;
