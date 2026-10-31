@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS public.crm_history(
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),actor uuid,record_id uuid,
  before_data jsonb,before_deleted boolean,after_revision bigint,
  undone boolean NOT NULL DEFAULT false,created_at timestamptz NOT NULL DEFAULT now());
+-- Match the existing production UUID default; the disposable CRM fixture omitted it.
+ALTER TABLE public.crm_events ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE public.crm_events ADD COLUMN IF NOT EXISTS actor uuid,
  ADD COLUMN IF NOT EXISTS actor_label text,
  ADD COLUMN IF NOT EXISTS detail jsonb NOT NULL DEFAULT '{}'::jsonb;
