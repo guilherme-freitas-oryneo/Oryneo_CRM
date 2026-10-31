@@ -12,6 +12,7 @@ ALTER TABLE public.crm_events ADD COLUMN IF NOT EXISTS actor uuid,
 GRANT SELECT,UPDATE ON public.crm_records TO service_role;
 GRANT SELECT,INSERT ON public.crm_history TO service_role;
 GRANT SELECT,INSERT ON public.crm_events TO service_role;
+\i supabase/automation/commercial_crm_claim.preview.sql
 \i supabase/automation/commercial_crm_stage_adapter.preview.sql
 -- Simulation grant ONLY inside disposable PostgreSQL QA (not in migration).
 GRANT UPDATE ON public.automation_channel_ownership TO service_role;
@@ -82,7 +83,7 @@ BEGIN
  WHERE id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01';
  -- If the legacy executor remains the owner, even a valid DB lease cannot
  -- change a canonical deal. No HTTP request or real CRM is involved.
- SELECT claim_token INTO token FROM public.automation_delivery_claim(w,1)
+ SELECT claim_token INTO token FROM public.automation_commercial_claim_crm(w,1)
  WHERE action_id=a;
  IF token IS NULL THEN RAISE EXCEPTION 'CRM stage action not leased'; END IF;
  -- A channel can be returned to the legacy dispatcher AFTER a prior lease;
