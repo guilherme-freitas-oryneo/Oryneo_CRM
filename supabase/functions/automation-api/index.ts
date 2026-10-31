@@ -167,7 +167,8 @@ Deno.serve(async request => {
   if (action === 'runtime') {
     const [settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
       runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts,
-      queuedActions,leasedActions,uncertainActions,sentActions] = await Promise.all([
+      queuedActions,leasedActions,uncertainActions,sentActions,
+      failedEvents,failedExecutions,deadLetterActions] = await Promise.all([
       db.from('automation_runtime_settings').select('mode,emergency_stop,updated_at')
         .eq('workspace_id', workspaceId).maybeSingle(),
       db.from('automation_workspaces').select('active')
@@ -196,10 +197,17 @@ Deno.serve(async request => {
         .eq('workspace_id',workspaceId).eq('state','uncertain'),
       db.from('automation_action_outbox').select('id',{head:true,count:'exact'})
         .eq('workspace_id',workspaceId).eq('state','sent'),
+      db.from('automation_event_inbox').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','failed'),
+      db.from('automation_executions').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).in('state',['failed','dead_letter']),
+      db.from('automation_action_outbox').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).in('state',['failed','dead_letter']),
     ]);
     if ([settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
       runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts,
-      queuedActions,leasedActions,uncertainActions,sentActions].some(r => r.error) ||
+      queuedActions,leasedActions,uncertainActions,sentActions,
+      failedEvents,failedExecutions,deadLetterActions].some(r => r.error) ||
       !settings.data || !workspaceState.data)
       return reply({error:'Estado do motor indisponível.'},503);
     return reply({ok:true,readOnly:true,runtime:{
@@ -219,6 +227,9 @@ Deno.serve(async request => {
       leasedActions:leasedActions.count||0,
       uncertainActions:uncertainActions.count||0,
       sentActions:sentActions.count||0,
+      failedEvents:failedEvents.count||0,
+      failedExecutions:failedExecutions.count||0,
+      deadLetterActions:deadLetterActions.count||0,
       dispatchAuthorized:false,
     }});
   }
