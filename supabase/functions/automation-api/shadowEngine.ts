@@ -4,6 +4,7 @@
  * A future worker must prove exactly-once ownership before using adapters.
  */
 import { inspectServerGraph, type TrustedReferences } from './graphGuard.ts';
+import { compileExecutionGraph, evaluateGraphSegment } from './executionKernel.ts';
 
 type Rec = Record<string, unknown>;
 const obj=(v:unknown):v is Rec=>v!==null&&typeof v==='object'&&!Array.isArray(v);
@@ -148,4 +149,42 @@ export async function planServerShadow(
   issues.push({code:'TRACE_LIMIT','path':'graph'});
   return {shadowOnly:true,dispatchAuthorized:false,state:'blocked',
     activationKey,trace,plannedActions,issues};
+}
+
+/**
+ * Version-bound shadow planner for the durable worker. Uses the same compiled
+ * immutable graph kernel as isolated replay. Older planServerShadow remains as
+ * a regression reference until a controlled migration is approved.
+ */
+export async function planServerShadowCompiled(
+  graph:unknown,event:unknown,refs:TrustedReferences,
+  resume?:{nodeId:string;port:string},
+):Promise<ShadowResult>{
+  const failure=(code:string,path:string):ShadowResult=>({
+    shadowOnly:true,dispatchAuthorized:false,state:'blocked',activationKey:null,
+    trace:[],plannedActions:[],issues:[{code,path}],
+  });
+  if(!obj(event)||!uuid(event.workspaceId)||!uuid(event.flowVersionId)
+    ||!eventId(event.eventId)||!eventId(event.eventType)
+    ||!['crm','whatsapp','stripe','mail','landing'].includes(String(event.source))
+    ||!obj(event.context)||JSON.stringify(event.context).length>16384
+  )return failure('ENVELOPE_INVALID','event');
+  const built=await compileExecutionGraph(graph,refs);
+  if(!built.ok)return {shadowOnly:true,dispatchAuthorized:false,state:'blocked',
+    activationKey:null,trace:[],plannedActions:[],issues:built.issues};
+  const segment=await evaluateGraphSegment(built.compiled,{
+    workspaceId:event.workspaceId as string,
+    versionId:event.flowVersionId as string,
+    eventSource:event.source as string,
+    eventId:event.eventId as string,
+    eventType:event.eventType as string,
+    context:event.context as Record<string,unknown>,
+    ...(resume?{resume}:{})
+  });
+  return {
+    shadowOnly:true,dispatchAuthorized:false,state:segment.state,
+    activationKey:segment.activationKey,
+    trace:segment.trace,plannedActions:segment.plannedActions,
+    issues:segment.issues,
+  };
 }
