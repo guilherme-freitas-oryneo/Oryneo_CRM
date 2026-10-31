@@ -5,6 +5,7 @@
  * membership and workspace role checks. Never trust client-supplied actor IDs.
  */
 import { inspectServerGraph } from './graphGuard.ts';
+import { compileExecutionGraph } from './executionKernel.ts';
 import { loadTrustedReferences } from './trustedReferences.ts';
 import { planServerShadow } from './shadowEngine.ts';
 import { parseSimulationFixture } from './simulationBoundary.ts';
@@ -312,9 +313,15 @@ Deno.serve(async request => {
     if(!graphFrom(graph)||graph.id!==flow.id||graph.kind!==flow.kind)
       return reply({error:'Rascunho inconsistente.'},422);
     let validation;
+    let compiledHash='';
     try {
       const refs=await loadTrustedReferences(db,workspaceId);
       validation=inspectServerGraph(graph,refs);
+      if(validation.ok){
+        const compiled=await compileExecutionGraph({...graph,status:'published'},refs);
+        if(!compiled.ok)validation={...validation,ok:false,issues:compiled.issues};
+        else compiledHash=compiled.compiled.graphHash;
+      }
     } catch {
       return reply({error:'Referências não puderam ser verificadas.'},503);
     }
@@ -326,8 +333,8 @@ Deno.serve(async request => {
       p_expected_revision:body.expectedRevision,p_graph:graph,
       p_validation:{
         ok:true,issues:[],dispatchAuthorized:false,
-        preflight:'server',nodeCount:validation.nodeCount,
-        edgeCount:validation.edgeCount,
+        preflight:'server',compiledPlanHash:compiledHash,
+        nodeCount:validation.nodeCount,edgeCount:validation.edgeCount,
       },
     });
     if(releaseError){const mapped=errorCode(releaseError.code);return reply(mapped.body,mapped.status);}
