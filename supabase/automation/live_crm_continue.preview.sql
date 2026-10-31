@@ -63,8 +63,8 @@ BEGIN
  WHERE f.id=v.flow_id AND f.workspace_id=p_workspace_id
  AND f.enabled AND f.published_version_id=v.id)
  THEN RAISE EXCEPTION 'LIVE_CONTINUATION_VERSION_DRIFT' USING ERRCODE='42501'; END IF;
- IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(v.graph_json->'nodes') n
- WHERE n->>'id'=a.node_id AND n->>'type'=a.action_type)
+ IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(v.graph_json->'nodes') AS graph_node(value)
+ WHERE graph_node.value->>'id'=a.node_id AND graph_node.value->>'type'=a.action_type)
  THEN RAISE EXCEPTION 'LIVE_CONTINUATION_SOURCE_UNTRUSTED' USING ERRCODE='42501'; END IF;
  SELECT * INTO i FROM public.automation_event_inbox
  WHERE id=e.inbox_id AND workspace_id=p_workspace_id;
