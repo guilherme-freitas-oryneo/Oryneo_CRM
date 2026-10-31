@@ -113,5 +113,8 @@ try{
 }finally{
  await sql("UPDATE public.automation_runtime_settings SET mode='disabled',emergency_stop=true "+
   "WHERE workspace_id="+lit(w)+"::uuid;"+
-  "UPDATE public.automation_workspaces SET active=false WHERE id="+lit(w)+"::uuid;SELECT 'stopped';");
+  "UPDATE public.automation_workspaces SET active=false WHERE id="+lit(w)+"::uuid;"+
+  "UPDATE public.automation_channel_ownership SET owner='legacy',"+
+  "legacy_dispatch_paused_at=NULL,release_approved_at=NULL,release_id=NULL "+
+  "WHERE workspace_id="+lit(w)+"::uuid AND channel='crm';SELECT 'stopped';");
 }
