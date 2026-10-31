@@ -6,6 +6,9 @@ BEGIN
   OR has_function_privilege('authenticated','public.automation_wait_shadow_due_policy(uuid,uuid)','EXECUTE')
  THEN RAISE EXCEPTION 'Due policy exposed to browser roles'; END IF;
 END $roles$;
+-- The disposable CRM message fixture grants service_role SELECT only.
+-- Add write privileges to the isolated fixture, never to production.
+GRANT INSERT,DELETE ON public.crm_wa_messages TO service_role;
 SET ROLE service_role;
 DO $qa$
 DECLARE
