@@ -103,6 +103,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/meta_components_sync.qa.sql
       - name: Reaplicar DDL consolidado de automação sem perder os dados anteriores
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_adoption_reapply.qa.sql
+      - name: Pinar fontes oficiais do playbook como rascunho sem substituir treinamento
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/knowledge_draft_pin.qa.sql
       - name: Verificar migração idempotente, runtime desligado e outbox intacto
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
