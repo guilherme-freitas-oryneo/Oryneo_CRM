@@ -27,7 +27,7 @@ export function validateIntentDictionary(x:unknown):x is IntentDictionary{
    ||!Array.isArray(d.entries)||d.entries.length<10||d.entries.length>40)return false;
  const ids=new Set<string>();
  for(const e of d.entries){
-  if(!e||typeof e!=='object'||typeof e.id!=='string'
+  if(!e||typeof e!=='object'||Object.keys(e).some(key=>!['id','label','positive','negative','synonyms','risk'].includes(key))||typeof e.id!=='string'
     ||!/^[a-z][a-z0-9_]{1,40}$/.test(e.id)||ids.has(e.id)
     ||typeof e.label!=='string'||e.label.length>75||e.label.length<2
     ||!['normal','human_review'].includes(e.risk)
@@ -43,10 +43,9 @@ export function validateIntentDictionary(x:unknown):x is IntentDictionary{
 }
 function contextKind(s:string,term:string):IntentDecision['kind']{
  const parts=s.split(' ');
- const ix=parts.findIndex((_,i)=>contains(parts.slice(i).join(' '),term)&&
-   contains(parts.slice(i,Math.min(parts.length,i+term.split(' ').length)).join(' '),term));
- const pos=ix<0?s.indexOf(term):ix;
- const before=ix<0?s.slice(Math.max(0,pos-18),pos).trim().split(' '):parts.slice(Math.max(0,ix-4),ix);
+ const phrase=term.split(' ');
+ const ix=parts.findIndex((_,i)=>phrase.every((word,j)=>parts[i+j]===word));
+ const before=ix<0?[]:parts.slice(Math.max(0,ix-4),ix);
  if(before.some(x=>NEGATORS.has(x)))return 'negated';
  if(parts.slice(0,8).some(x=>thirdParty.has(x)))return 'third_party';
  if(parts.slice(0,5).some(x=>question.has(x))||s.startsWith('queria saber')||s.startsWith('gostaria de saber'))return 'question';
