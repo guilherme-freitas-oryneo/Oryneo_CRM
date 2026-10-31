@@ -100,7 +100,7 @@ try {
   "'nodeCount',(SELECT count(*) FROM public.automation_node_executions WHERE execution_id IN"+
   "(SELECT id FROM public.automation_executions WHERE inbox_id="+sqlLiteral(inbox)+"::uuid)),"+
   "'outboundCount',(SELECT count(*) FROM public.automation_action_outbox "+
-  "WHERE state IN ('queued','leased','sent')))::text"));
+  "WHERE workspace_id="+sqlLiteral(w)+"::uuid AND state IN ('queued','leased','sent')))::text"));
  assert(summary.inboxState==='processed','Inbox did not reach processed state');
  assert(summary.executionCount===plans.length,'Execution idempotency failed');
  assert(summary.nodeCount>=plans.length*2,'Persisted node trace incomplete');
