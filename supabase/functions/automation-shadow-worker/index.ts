@@ -47,6 +47,13 @@ Deno.serve(async request=>{
   const refs=await loadTrustedReferences(db,workspaceId).catch(()=>null);
   if(!refs)return json({error:'Canonical references not available'},503);
 
+  // The cursor must be initialized deliberately under the disabled runtime.
+  // Missing cursor or any DB error stops the worker; never infer an offset.
+  const ingested=await db.rpc('automation_shadow_ingest_crm',{
+    p_workspace_id:workspaceId,p_batch_limit:50,
+  });
+  if(ingested.error)return json({error:'Unable to ingest canonical CRM events'},503);
+
   const recovered=await db.rpc('automation_shadow_recover',{p_workspace_id:workspaceId});
   if(recovered.error)return json({error:'Unable to reconcile shadow leases'},503);
   const claimed=await db.rpc('automation_shadow_claim',{
@@ -112,5 +119,6 @@ Deno.serve(async request=>{
   return json({
     ok:true,shadowOnly:true,dispatchAuthorized:false,
     processed,unresolved,recovered:recovered.data||0,
+    crmScanned:Number(ingested.data?.scanned||0),crmInserted:Number(ingested.data?.inserted||0),
   });
 });
