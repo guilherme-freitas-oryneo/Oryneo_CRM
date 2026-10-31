@@ -6,6 +6,8 @@
  */
 import { inspectServerGraph } from './graphGuard.ts';
 import { loadTrustedReferences } from './trustedReferences.ts';
+import { planServerShadow } from './shadowEngine.ts';
+import { parseSimulationFixture } from './simulationBoundary.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 
 const url = Deno.env.get('SUPABASE_URL') ?? '';
@@ -232,6 +234,30 @@ Deno.serve(async request => {
 
   // Authenticated preflight reads canonical references on the server.
   // Results cannot be reused as an authorization token.
+  if (action === 'simulate') {
+    // Hypothetical inputs only: no live CRM reads, action outbox or provider calls.
+    if (!graphFrom(body.graph)) return reply({error:'Rascunho inválido para simulação.'},422);
+    try {
+      const refs=await loadTrustedReferences(db,workspaceId);
+      const fixture=parseSimulationFixture(body.sampleContext,body.eventType,refs.eventTypes);
+      if(!fixture.ok)return reply({error:'Parâmetros da simulação inválidos.',code:fixture.code},422);
+      const graph=body.graph as Graph;
+      const result=await planServerShadow({...graph,status:'published'}, {
+        workspaceId,flowVersionId:crypto.randomUUID(),
+        source:String(body.eventType).startsWith('conversation.')?'whatsapp':
+          String(body.eventType).startsWith('billing.')?'stripe':'crm',
+        eventId:'sim.'+crypto.randomUUID(),eventType:String(body.eventType),
+        context:fixture.fixture,
+      },refs);
+      return reply({ok:true,dryRun:true,simulationOnly:true,
+        dispatchAuthorized:false,persisted:false,
+        assumptions:['HYPOTHETICAL_CONTEXT','NO_LIVE_PAYMENT_PROOF','NO_MESSAGES_SENT'],
+        result});
+    } catch {
+      return reply({error:'Simulação isolada indisponível.'},503);
+    }
+  }
+
   if (action === 'validate') {
     try {
       const references=await loadTrustedReferences(db,workspaceId);
