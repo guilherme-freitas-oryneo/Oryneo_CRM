@@ -116,7 +116,7 @@ export async function evaluateGraphSegment(plan:CompiledGraph,input:SegmentInput
   trace,plannedActions,issues,resumeNodeId
  });
  const deny=(code:string,path:string)=>{issues.push({code,path});return result('blocked');};
- if(!uuid(input.workspaceId)||!uuid(input.versionId)||!safeId.test(input.eventId)
+ if(!uuid.test(input.workspaceId)||!uuid.test(input.versionId)||!safeId.test(input.eventId)
    ||!safeId.test(input.eventType)||!safeId.test(input.eventSource)
    ||input.eventType!==plan.eventType||!object(input.context)
    ||canonical(input.context).length>16384)return deny('ENVELOPE_INVALID','event');
