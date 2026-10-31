@@ -58,6 +58,21 @@ Deno.serve(async request=>{
   });
   if(ingestedWa.error)return json({error:'Unable to ingest canonical WhatsApp events'},503);
 
+  // Macroetapa 3: all commercial sources are canonical, cursor-bound and
+  // NON-EMITTING. This RPC exists only after its reviewed DB migration.
+  // Missing cursor/schema fails closed instead of silently dropping events.
+  const commercialStreams=['intake','checkout','billing','mail','delivery','proposal','meeting','handoff'] as const;
+  for(const stream of commercialStreams){
+    const mirrored=await db.rpc('automation_commercial_shadow_ingest',{
+      p_workspace_id:workspaceId,p_stream:stream,p_limit:20,
+    });
+    if(mirrored.error)return json({
+      error:'Commercial shadow adapter unavailable',source:stream,processed:0,
+    },503);
+    if(mirrored.data?.dispatchAuthorized!==false||mirrored.data?.shadowOnly!==true)
+      return json({error:'Commercial adapter returned non-shadow mode',processed:0},503);
+  }
+
   const recovered=await db.rpc('automation_shadow_recover',{p_workspace_id:workspaceId});
   if(recovered.error)return json({error:'Unable to reconcile shadow leases'},503);
   const claimed=await db.rpc('automation_shadow_claim',{

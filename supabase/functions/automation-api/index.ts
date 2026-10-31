@@ -119,6 +119,35 @@ Deno.serve(async request => {
       : reply({ ok: true, flow, version, role: member.role });
   }
 
+  // Stage 3: strict READ-ONLY ownership inventory for operator diagnostics.
+  // Never returns secrets, provider IDs, email addresses or release proof IDs.
+  if (action === 'commercial-readiness') {
+    const [owners,settings,ws]=await Promise.all([
+      db.from('automation_channel_ownership')
+        .select('channel,owner,legacy_dispatch_paused_at,release_approved_at')
+        .eq('workspace_id',workspaceId).limit(8),
+      db.from('automation_runtime_settings')
+        .select('mode,emergency_stop').eq('workspace_id',workspaceId).maybeSingle(),
+      db.from('automation_workspaces')
+        .select('active').eq('id',workspaceId).maybeSingle(),
+    ]);
+    if(owners.error||settings.error||ws.error||!settings.data||!ws.data)
+      return reply({error:'Status canônico das integrações indisponível.'},503);
+    const enabled=ws.data.active===true&&settings.data.mode==='live'&&
+      settings.data.emergency_stop===false;
+    return reply({ok:true,readOnly:true,dispatchAuthorized:false,
+      channels:(owners.data||[]).map(row=>({
+        channel:row.channel,owner:row.owner,
+        legacyPaused:row.legacy_dispatch_paused_at!==null,
+        releaseAttested:row.release_approved_at!==null,
+        eligibleForControlledQueue:enabled&&row.owner==='new_engine'&&
+          row.legacy_dispatch_paused_at!==null&&row.release_approved_at!==null,
+      })),
+      runtime:{mode:settings.data.mode,emergencyStop:settings.data.emergency_stop,
+        workspaceActive:ws.data.active},
+    });
+  }
+
   if (action === 'templates') {
     const { data, error } = await db.from('automation_template_registry')
       .select('id,template_name,language,category,provider_status,provider_template_id,provider_account_id,parameter_schema,synced_at')

@@ -1,0 +1,47 @@
+/* Stage 3 ownership inventory — scoped to the existing ORYNEO design system. */
+.ory-auto .ory-auto-commercial-readiness{
+  padding:20px 23px 22px;
+  margin:0;
+  background:#fbfcfe;
+  border-top:1px solid #e9eff4;
+  color:#344b62;
+}
+.ory-auto .ory-auto-commercial-readiness h3{
+  margin:0 0 7px;
+  color:#273d54;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.4;
+  letter-spacing:-.01em;
+}
+.ory-auto .ory-auto-commercial-readiness>p{
+  margin:0 0 15px;
+  color:#7b8d9e;
+  font-size:11px;
+  line-height:1.65;
+  max-width:660px;
+}
+.ory-auto .ory-auto-commercial-readiness .ory-auto-no-data{
+  padding:11px 0 4px;
+  margin:0;
+  font-size:11px;
+  color:#8798a8;
+}
+.ory-auto .ory-auto-commercial-readiness .ory-auto-catalog-scroll{
+  border:1px solid #e3eaf1;
+  border-radius:8px;
+}
+.ory-auto .ory-auto-commercial-readiness th,
+.ory-auto .ory-auto-commercial-readiness td{
+  padding:12px 16px;
+  font-size:11px;
+}
+@media (max-width:520px){
+  .ory-auto .ory-auto-commercial-readiness{padding:17px 18px 20px}
+  .ory-auto .ory-auto-commercial-readiness h3{font-size:13px}
+  .ory-auto .ory-auto-commercial-readiness>p{font-size:11px}
+  .ory-auto .ory-auto-commercial-readiness table{min-width:520px}
+}
+@media (prefers-reduced-motion:reduce){
+  .ory-auto .ory-auto-commercial-readiness *{animation:none!important;transition:none!important}
+}

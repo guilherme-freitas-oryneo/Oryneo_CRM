@@ -12,7 +12,7 @@ const EVENTS = [
   'opportunity.created','opportunity.updated','opportunity.stage_changed',
   'lead.intake_received','checkout.started','checkout.expired',
   'billing.paid_verified','billing.failed','conversation.inbound',
-  'conversation.human_takeover','meeting.scheduled','proposal.sent',
+  'conversation.human_takeover','meeting.scheduled','proposal.sent','onboarding.started','mail.sent',
 ] as const;
 
 export async function loadTrustedReferences(

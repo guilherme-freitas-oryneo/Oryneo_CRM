@@ -109,6 +109,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_runtime_gate.qa.sql
       - name: Testar ponte para o onboarding existente, sem envios (isolado)
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/onboarding_paid_bridge.qa.sql
+      - name: Homologar fontes comerciais canônicas em PostgreSQL descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_sources.qa.sql
+      - name: Homologar ownership único de provedores com rollback e parada de emergência
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_channel_ownership.qa.sql
       - name: Sincronizar 33 componentes Meta oficiais com auditoria (isolado)
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/meta_components_sync.qa.sql
       - name: Reaplicar DDL consolidado de automação sem perder os dados anteriores
@@ -119,6 +123,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_delivery_protocol.preview.sql
       - name: Provar ausência de envio duplicado, reconciliação de timeout e parada global
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_delivery_protocol.qa.sql
+      - name: Verificar adaptador transacional de etapas CRM sob ownership exclusivo
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_crm_stage_adapter.qa.sql
+      - name: Testar criação de próxima ação CRM com CAS e preservação do humano
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_crm_task_adapter.qa.sql
       - name: Validar oito jornadas de exemplo em banco descartável, desativadas
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/starter_drafts_seed.qa.sql
       - name: Validar índices de chaves estrangeiras da engine (isolado)
@@ -170,6 +178,8 @@ jobs:
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-api/index.ts
           deno check --min-dep-age=0 supabase/functions/automation-api/executionKernel.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_commercial_action_policy_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_commercial_adapter_planner_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_execution_kernel_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_compiled_shadow_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_failure_test.ts

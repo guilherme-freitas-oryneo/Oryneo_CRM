@@ -196,3 +196,19 @@ export async function loadRemoteAutomationExecutionDetail(
   throw new Error('Resposta de auditoria não verificada.');
  return {execution:result.execution,nodes:result.nodes||[],actions:result.actions||[],timers:result.timers||[]};
 }
+
+/** Read-only, authenticated ownership inventory; not a release control. */
+export type CommercialReadiness={
+ channels:{channel:'whatsapp'|'email'|'crm'|'onboarding'|'billing';
+  owner:'legacy'|'new_engine';legacyPaused:boolean;releaseAttested:boolean;
+  eligibleForControlledQueue:boolean}[];
+ runtime:{mode:'disabled'|'shadow'|'live';emergencyStop:boolean;workspaceActive:boolean};
+};
+export async function loadRemoteCommercialReadiness(workspaceId:string):Promise<CommercialReadiness>{
+ const result=await invoke<CommercialReadiness&{
+  ok:true;readOnly:true;dispatchAuthorized:false;
+ }>({action:'commercial-readiness',workspaceId});
+ if(result.readOnly!==true||result.dispatchAuthorized!==false)
+  throw new Error('Integração sem garantias de leitura.'); 
+ return {channels:result.channels||[],runtime:result.runtime};
+}

@@ -16,6 +16,7 @@ export const EVENT_CHOICES:readonly string[]=[
   'lead.intake_received','checkout.started','checkout.expired',
   'billing.paid_verified','billing.failed','conversation.inbound',
   'conversation.human_takeover','meeting.scheduled','proposal.sent',
+  'onboarding.started','mail.sent',
 ] as const;
 const txt=(x:unknown):string=>typeof x==='string'?x:'';
 const num=(x:unknown,fallback:number):number=>typeof x==='number'&&Number.isFinite(x)?x:fallback;
@@ -101,7 +102,7 @@ export function TypedNodeConfigEditor({node,catalog,onChange}:Props){
     </div>;
     case 'crm_task':return <div className="ory-auto-typed-config">
       {input('title','Título da tarefa',160)}
-      {integer('due_offset_minutes','Prazo após o evento (minutos)',0,43200,60)}
+      {integer('due_offset_minutes','Prazo após o evento (minutos)',1,43200,60)}
     </div>;
     case 'crm_update':return <div className="ory-auto-typed-config">
       {choice('allowed_field','Campo autorizado',['next_action.title','due_date','notes'])}

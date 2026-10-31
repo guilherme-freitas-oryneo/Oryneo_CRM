@@ -65,12 +65,26 @@ describe('Automações: inspetor tipado sem efeitos',()=>{
     });
     expect(onChange).toHaveBeenCalledWith({target_stage_id:'stage-1'});
   });
+  it('protege tarefa CRM contra prazo zero e aceita primeiro minuto',()=>{
+    const onChange=vi.fn();
+    render(<TypedNodeConfigEditor node={node('crm_task',{
+      title:'Retomar diagnóstico',due_offset_minutes:60,
+    })} catalog={catalog} onChange={onChange}/>);
+    const minutes=screen.getByRole('spinbutton',{name:'Prazo após o evento (minutos)'});
+    expect(minutes).toHaveAttribute('min','1');
+    fireEvent.change(minutes,{target:{value:'0'}});
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(minutes,{target:{value:'1'}});
+    expect(onChange).toHaveBeenCalledWith({title:'Retomar diagnóstico',due_offset_minutes:1});
+  });
   it('permite escolher somente eventos canônicos cadastrados',()=>{
     const onChange=vi.fn();
     render(<TypedNodeConfigEditor node={node('trigger',{event_type:'opportunity.created'})}
       catalog={catalog} onChange={onChange}/>);
     const control=screen.getByRole('combobox',{name:'Evento canônico'});
     expect(screen.getByRole('option',{name:'billing.paid_verified'})).toBeInTheDocument();
+    expect(screen.getByRole('option',{name:'mail.sent'})).toBeInTheDocument();
+    expect(screen.getByRole('option',{name:'onboarding.started'})).toBeInTheDocument();
     expect(screen.queryByRole('option',{name:'stripe.charge_anything'})).not.toBeInTheDocument();
     fireEvent.change(control,{target:{value:'conversation.inbound'}});
     expect(onChange).toHaveBeenCalledWith({event_type:'conversation.inbound'});

@@ -23,7 +23,7 @@ export type ShadowCanonicalContext={
   event:{type:string};
   opportunity?:{stage_id?:string;source?:string;plan?:string;cycle?:string};
   conversation?:{mode?:string;opted_out?:boolean;consent_granted?:boolean};
-  billing?:{status?:string};
+  billing?:{status?:string;paid_verified?:true};
 };
 /**
  * Only references from a trusted server-side inbox may reach this function.
@@ -74,12 +74,50 @@ export async function loadShadowCanonicalContext(
   }
   if(isUuid(refs.order_id)){
     const order=dataOrThrow(await db.from('crm_billing_orders')
-      .select('id,deal_id,status').eq('id',refs.order_id).maybeSingle());
+      .select('id,deal_id,status,paid_at,billing_environment,stripe_checkout_session_id')
+      .eq('id',refs.order_id).maybeSingle());
     if(!order)throw new ShadowContextError('ORDER_NOT_FOUND');
     if(dealId&&order.deal_id!==dealId)throw new ShadowContextError('ORDER_DEAL_MISMATCH');
     if(nonempty(order.status))context.billing={status:order.status};
-    // A paid status alone is NOT proof of a verified Stripe webhook.
-    // billing.paid_verified stays absent until its provenance adapter ships.
+    // Payment is verified only against the *stored, signed Stripe event journal*,
+    // the live billing environment and the canonical order. A stage label,
+    // user-provided text, or order.status='paid' alone is insufficient.
+    const mustVerifyPayment=eventType==='billing.paid_verified'||eventType==='onboarding.started';
+    const mustVerifyFailed=eventType==='billing.failed';
+    const mustVerifyExpired=eventType==='checkout.expired';
+    const session=order.stripe_checkout_session_id;
+    if(mustVerifyPayment||mustVerifyFailed||mustVerifyExpired){
+      if(order.billing_environment!=='live'||!nonempty(session))
+        throw new ShadowContextError('STRIPE_PROVENANCE_UNAVAILABLE');
+      const validStatus=mustVerifyPayment
+        ? order.status==='paid'&&nonempty(order.paid_at)
+        : mustVerifyFailed ? order.status==='payment_failed' : order.status==='expired';
+      if(!validStatus)throw new ShadowContextError('CANONICAL_ORDER_STATUS_MISMATCH');
+      const types=mustVerifyPayment
+        ?['checkout.session.completed','checkout.session.async_payment_succeeded']
+        :mustVerifyFailed ?['checkout.session.async_payment_failed']
+        :['checkout.session.expired'];
+      const proof=dataOrThrow(await db.from('crm_stripe_events')
+        .select('event_id').eq('livemode',true).in('event_type',types)
+        .contains('payload',{
+          session_id:session,
+          ...(mustVerifyPayment?{payment_status:'paid'}:{}),
+        }).limit(1).maybeSingle());
+      if(!proof||!nonempty(proof.event_id))
+        throw new ShadowContextError('SIGNED_STRIPE_EVENT_NOT_FOUND');
+      if(mustVerifyPayment){
+        context.billing={status:'paid',paid_verified:true};
+        if(eventType==='onboarding.started'){
+          const project=dataOrThrow(await db.from('crm_delivery_projects')
+            .select('order_id').eq('order_id',refs.order_id).maybeSingle());
+          if(!project||project.order_id!==refs.order_id)
+            throw new ShadowContextError('ONBOARDING_PROJECT_NOT_FOUND');
+        }
+      }
+    }
+    if(eventType==='checkout.started'&&
+      (order.billing_environment!=='live'||!nonempty(order.stripe_checkout_session_id)))
+      throw new ShadowContextError('CHECKOUT_SESSION_NOT_CONFIRMED');
   }
   return context;
 }

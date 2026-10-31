@@ -124,3 +124,20 @@ test('E06: três condições, mesmas IDs/portas/valores após reload do navegado
  expect(after).toBe(prior);
  await expect(page.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
 });
+
+for(const width of [390,1440]){
+  test('Stage3: integrações comerciais somente leitura em '+width+'px',async({page})=>{
+    await page.setViewportSize({width,height:844});
+    await page.goto('/qa/automation-editor/index.html');
+    await page.getByRole('button',{name:/Templates e canais/}).click();
+    await expect(page.getByRole('region',{
+      name:'Proprietários das integrações comerciais'
+    })).toBeVisible();
+    await expect(page.getByText(/Nenhum disparo está autorizado por esta tela/)).toBeVisible();
+    await expect(page.getByRole('button',{name:/Habilitar canal|Enviar mensagem|Iniciar cobrança/})).toHaveCount(0);
+    await page.screenshot({
+      path:'qa/automation-editor/artifacts/commercial-readiness-'+width+'.png',
+      fullPage:true,
+    });
+  });
+}

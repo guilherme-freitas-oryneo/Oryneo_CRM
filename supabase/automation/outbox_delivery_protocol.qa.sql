@@ -5,6 +5,9 @@ INSERT INTO public.automation_workspaces(id,slug,active)
  VALUES('b1000000-0000-4000-8000-000000000001','qa-delivery-protocol',true);
 INSERT INTO public.automation_runtime_settings(workspace_id,mode,emergency_stop)
  VALUES('b1000000-0000-4000-8000-000000000001','live',false);
+-- An existing provider remains legacy-owned until an audited cutover.
+INSERT INTO public.automation_channel_ownership(workspace_id,channel)
+ VALUES('b1000000-0000-4000-8000-000000000001','whatsapp');
 INSERT INTO public.automation_flows(id,workspace_id,slug,name,kind,enabled)
  VALUES('b1000000-0000-4000-8000-000000000002',
   'b1000000-0000-4000-8000-000000000001',
@@ -48,6 +51,24 @@ INSERT INTO public.automation_action_outbox(
   'b1000000-0000-4000-8000-000000000004',repeat('d',64),
   'whatsapp_template','queued',now()-interval '1 minute');
 
+
+-- Existing providers MUST NOT be claimed by a parallel new dispatcher.
+DO $owners$
+BEGIN
+ IF EXISTS(SELECT 1 FROM public.automation_delivery_claim(
+  'b1000000-0000-4000-8000-000000000001',5))
+ THEN RAISE EXCEPTION 'Legacy-owned WhatsApp action was claimed'; END IF;
+ IF EXISTS(SELECT 1 FROM public.automation_action_outbox
+  WHERE workspace_id='b1000000-0000-4000-8000-000000000001'
+  AND state<>'queued')
+ THEN RAISE EXCEPTION 'Legacy-owned actions were mutated'; END IF;
+END $owners$;
+-- ONLY disposable QA now simulates a fully attested legacy stop.
+UPDATE public.automation_channel_ownership SET
+ owner='new_engine',legacy_dispatch_paused_at=clock_timestamp()-interval '2 minutes',
+ release_approved_at=clock_timestamp(),release_id='qa-release-protocol'
+ WHERE workspace_id='b1000000-0000-4000-8000-000000000001'
+ AND channel='whatsapp';
 SET ROLE service_role;
 DO $qa$
 DECLARE
