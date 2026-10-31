@@ -6,7 +6,7 @@ import type { NodeReferenceCatalog } from './api';
 
 const catalog:NodeReferenceCatalog={
   stages:[{id:'stage-1',name:'Diagnóstico pendente'}],
-  templates:[{id:'approved-verified',name:'oryneo_welcome_v3'}],
+  templates:[{id:'approved-verified',name:'oryneo_welcome_v3',variable_numbers:['1','2']}],
   knowledge:[],
   dictionaries:[],
 };
@@ -26,6 +26,22 @@ describe('Automações: inspetor tipado sem efeitos',()=>{
     expect(onChange).toHaveBeenCalledWith({
       template_registry_id:'approved-verified',locale:'pt_BR',
     });
+  });
+  it('exige fonte canônica para cada variável oficial sem valor implícito',()=>{
+    const onChange=vi.fn();
+    render(<TypedNodeConfigEditor
+      node={node('whatsapp_template',{template_registry_id:'approved-verified',locale:'pt_BR'})}
+      catalog={catalog} onChange={onChange}/>);
+    expect(screen.getByRole('combobox',{name:'Origem da variável 1'})).toHaveValue('');
+    expect(screen.getByRole('combobox',{name:'Origem da variável 2'})).toHaveValue('');
+    fireEvent.change(screen.getByRole('combobox',{name:'Origem da variável 1'}),{
+      target:{value:'opportunity.plan'},
+    });
+    expect(onChange).toHaveBeenCalledWith({
+      template_registry_id:'approved-verified',locale:'pt_BR',
+      bindings:{'1':'opportunity.plan'},
+    });
+    expect(screen.queryByRole('option',{name:'billing.credit_card'})).not.toBeInTheDocument();
   });
   it('um template não cadastrado permanece visível como não homologado, nunca como aprovado',()=>{
     const onChange=vi.fn();
