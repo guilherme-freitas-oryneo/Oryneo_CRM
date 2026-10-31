@@ -65,6 +65,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_queue.preview.sql
       - name: Testar deduplicação, fencing, recuperação e efeitos bloqueados
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_queue.qa.sql
+      - name: Preparar falhas recuperáveis com fencing no banco descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_failure.preview.sql
+      - name: Testar backoff, quarentena, permissões e ausência de envio
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_failure.qa.sql
       - name: Criar registros comerciais isolados para validação de renomeação
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_fixture.qa.sql
       - name: Testar migração de nomes mantendo IDs
@@ -129,3 +133,16 @@ jobs:
             THEN RAISE EXCEPTION 'Consolidated idempotent schema replay is unsafe'; END IF;
           END $qa$;
           SQL
+
+  failure-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck do worker e sanitização dos erros
+        run: |
+          deno check --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
+          deno test supabase/functions/tests/automation_shadow_failure_test.ts
