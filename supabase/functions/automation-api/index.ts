@@ -10,6 +10,9 @@ import { loadTrustedReferences } from './trustedReferences.ts';
 import { planServerShadow } from './shadowEngine.ts';
 import { parseSimulationFixture } from './simulationBoundary.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
+import {validateIntentDictionary,type IntentDictionary} from '../_shared/sdr/intentPolicy.ts';
+import {dictionaryDigest,readDictionaryPayload} from '../_shared/sdr/runtimeRelease.ts';
+import {isApprovedSdrRelease} from '../_shared/sdr/knowledgePolicy.ts';
 
 const url = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -95,6 +98,110 @@ Deno.serve(async request => {
   if (!grant) return reply({ error: 'Workspace não encontrado.' }, 404);
   const member = grant as Membership;
   const canEdit = ['editor', 'publisher', 'admin'].includes(member.role);
+
+  // Stage 4: immutable semantic source inventory and explicitly versioned
+  // draft edits. These endpoints NEVER activate the SDR or call Meta.
+  if (action === 'sdr-semantic-list') {
+    const [knowledge,dictionaries,active]=await Promise.all([
+      db.from('automation_knowledge_release')
+        .select('id,release_version,status,approved_by,content_sha256')
+        .eq('workspace_id',workspaceId)
+        .order('release_version',{ascending:false}).limit(25),
+      db.from('automation_intent_dictionary')
+        .select('id,release_version,language,status,approved_by,content_sha256,examples')
+        .eq('workspace_id',workspaceId)
+        .order('release_version',{ascending:false}).limit(25),
+      db.from('automation_sdr_active_release')
+        .select('knowledge_release_id,dictionary_release_id,revision,enabled')
+        .eq('workspace_id',workspaceId).maybeSingle(),
+    ]);
+    if(knowledge.error||dictionaries.error||active.error)
+      return reply({error:'Releases semânticos indisponíveis. Nenhum conteúdo foi alterado.'},503);
+    return reply({ok:true,readOnly:true,dispatchAuthorized:false,
+      knowledge:knowledge.data||[],dictionaries:(dictionaries.data||[]).map(d=>({
+        id:d.id,version:d.release_version,status:d.status,
+        approved:d.approved_by!==null,contentHash:d.content_sha256,
+        // All versions are read-only snapshots here. The editor always saves
+        // a NEW draft rather than mutating a published release.
+        dictionary:readDictionaryPayload({
+          id:d.id,release_version:d.release_version,language:d.language,status:d.status,
+          approved_by:d.approved_by,content_sha256:d.content_sha256,
+          examples:d.examples,synonyms:[],
+        }),
+      })),
+      selected:active.data||null,role:member.role});
+  }
+  if (action === 'sdr-dictionary-create') {
+    if(!['publisher','admin'].includes(member.role))
+      return reply({error:'Somente publicador ou administrador pode versionar conhecimento.'},403);
+    if(!isRecord(body.dictionary)||!Array.isArray(body.dictionary.entries))
+      return reply({error:'Dicionário de intenções inválido.'},400);
+    const normalized={
+      releaseVersion:body.dictionary.releaseVersion,
+      language:body.dictionary.language,entries:body.dictionary.entries,
+    } as IntentDictionary;
+    if(!validateIntentDictionary(normalized))return reply({
+      error:'Intenções, sinônimos e exemplos precisam passar pela validação.'},422);
+    const [workspaceState,runtime,latest]=await Promise.all([
+      db.from('automation_workspaces').select('active,slug')
+        .eq('id',workspaceId).maybeSingle(),
+      db.from('automation_runtime_settings').select('mode,emergency_stop')
+        .eq('workspace_id',workspaceId).maybeSingle(),
+      db.from('automation_intent_dictionary').select('release_version')
+        .eq('workspace_id',workspaceId).order('release_version',{ascending:false})
+        .limit(1).maybeSingle(),
+    ]);
+    if(workspaceState.error||runtime.error||latest.error||!workspaceState.data||!runtime.data)
+      return reply({error:'Validação do runtime indisponível.'},503);
+    if(workspaceState.data.slug!=='oryneo-crm'||workspaceState.data.active||
+      runtime.data.mode!=='disabled'||runtime.data.emergency_stop!==true)
+      return reply({error:'Só é possível versionar com o motor desligado.'},409);
+    const next=(latest.data?.release_version||0)+1;
+    if(!Number.isSafeInteger(body.expectedLatestVersion)||
+       body.expectedLatestVersion!==next-1||normalized.releaseVersion!==next)
+      return reply({error:'O dicionário mudou; recarregue as versões antes de criar.',
+        code:'SEMANTIC_REVISION_CONFLICT'},409);
+    const digest=await dictionaryDigest(normalized);
+    const {data, error}=await db.from('automation_intent_dictionary').insert({
+      workspace_id:workspaceId,release_version:next,language:'pt_BR',
+      status:'draft',approved_by:null,content_sha256:digest,
+      examples:normalized.entries,synonyms:[],
+    }).select('id,release_version,status').single();
+    if(error){const e=errorCode(error.code);return reply(e.body,e.status);}
+    return reply({ok:true,created:data,contentHash:digest,published:false,
+      dispatchAuthorized:false});
+  }
+  if (action === 'sdr-publish-disabled') {
+    if(!['publisher','admin'].includes(member.role))
+      return reply({error:'Publicação restrita ao publicador ou administrador.'},403);
+    if(!validUuid(body.knowledgeId)||!validUuid(body.dictionaryId)
+       ||typeof body.expectedRevision!=='number'||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<1)
+      return reply({error:'Referências de release ou revisão inválidas.'},400);
+    const [k,d]=await Promise.all([
+      db.from('automation_knowledge_release')
+       .select('id,release_version,status,approved_by,content_sha256,source_refs')
+       .eq('workspace_id',workspaceId).eq('id',body.knowledgeId).maybeSingle(),
+      db.from('automation_intent_dictionary')
+       .select('id,release_version,language,status,approved_by,content_sha256,examples,synonyms')
+       .eq('workspace_id',workspaceId).eq('id',body.dictionaryId).maybeSingle(),
+    ]);
+    if(k.error||d.error||!k.data||!d.data)
+      return reply({error:'Fontes de conhecimento indisponíveis.'},503);
+    if(k.data.status!=='draft'||d.data.status!=='draft'
+       ||!isApprovedSdrRelease({...k.data,status:'published',
+         approved_by:actor}))
+      return reply({error:'Playbook ou catálogo ainda não estão homologáveis.'},409);
+    const parsed=readDictionaryPayload(d.data);
+    if(!parsed||d.data.content_sha256!==await dictionaryDigest(parsed))
+      return reply({error:'O dicionário divergiu do hash de origem.'},409);
+    const {data,error}=await db.rpc('automation_sdr_publish_pair_disabled',{
+      p_workspace_id:workspaceId,p_actor_id:actor,p_knowledge_id:body.knowledgeId,
+      p_dictionary_id:body.dictionaryId,
+      p_expected_revision:body.expectedRevision,p_dictionary_hash:d.data.content_sha256,
+    });
+    if(error){const mapped=errorCode(error.code);return reply(mapped.body,mapped.status);}
+    return reply({ok:true,result:data,publishedDisabled:true,dispatchAuthorized:false});
+  }
 
   if (action === 'list') {
     const { data, error } = await db.from('automation_flows')

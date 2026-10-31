@@ -141,3 +141,20 @@ for(const width of [390,1440]){
     });
   });
 }
+
+for(const viewport of [{width:390,height:844},{width:768,height:1024},{width:1440,height:900}]){
+ test('SDR knowledge v1 candidate UI, negation and human review at '+viewport.width+'px',async({page})=>{
+  await page.setViewportSize(viewport);
+  await page.goto('/qa/automation-editor/index.html');
+  await page.getByRole('button',{name:'Inteligência SDR'}).click();
+  await expect(page.getByRole('region',{name:'Inteligência e intenções do SDR'})).toBeVisible();
+  await expect(page.getByRole('button',{name:/Salvar nova versão/})).toBeDisabled();
+  await page.getByRole('textbox',{name:'Mensagem de teste'}).fill('quero cancelar');
+  await expect(page.getByRole('status')).toContainText('Precisa de revisão humana');
+  await page.getByRole('textbox',{name:'Mensagem de teste'}).fill('não quero cancelar');
+  await expect(page.getByRole('status')).toContainText('Ambígua ou ausente');
+  const dimensions=await page.evaluate(()=>({document:document.documentElement.scrollWidth,viewport:window.innerWidth}));
+  expect(dimensions.document,'No unexpected horizontal overflow').toBeLessThanOrEqual(dimensions.viewport+5);
+  await page.screenshot({path:'qa/automation-editor/artifacts/sdr-intelligence-'+viewport.width+'.png',fullPage:true});
+ });
+}

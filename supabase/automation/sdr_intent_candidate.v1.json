@@ -1,0 +1,316 @@
+{
+  "releaseVersion": 1,
+  "language": "pt_BR",
+  "status": "draft_unapproved",
+  "authority": "candidate_not_live",
+  "dispatchAuthorized": false,
+  "entries": [
+    {
+      "id": "greeting",
+      "label": "Saudação",
+      "positive": [
+        "oi",
+        "olá",
+        "bom dia"
+      ],
+      "negative": [
+        "boi",
+        "oi concorrente"
+      ],
+      "synonyms": [
+        "boa tarde",
+        "boa noite"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "product",
+      "label": "Conhecer produto",
+      "positive": [
+        "quero conhecer o crm",
+        "como funciona a oryneo"
+      ],
+      "negative": [
+        "conheço o crm",
+        "não quero conhecer"
+      ],
+      "synonyms": [
+        "apresentar plataforma",
+        "solução da oryneo"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "price",
+      "label": "Preço e orçamento",
+      "positive": [
+        "qual o valor",
+        "quanto custa"
+      ],
+      "negative": [
+        "não perguntei preço",
+        "concorrente é caro"
+      ],
+      "synonyms": [
+        "preço dos planos",
+        "tabela de preços"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "plan",
+      "label": "Escolha do plano",
+      "positive": [
+        "qual plano",
+        "plano growth"
+      ],
+      "negative": [
+        "não quero plano",
+        "plano do concorrente"
+      ],
+      "synonyms": [
+        "plano start",
+        "plano scale"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "billing_cycle",
+      "label": "Mensal ou anual",
+      "positive": [
+        "plano anual",
+        "prefiro mensal"
+      ],
+      "negative": [
+        "não quero anual",
+        "concorrente é anual"
+      ],
+      "synonyms": [
+        "assinatura mensal",
+        "assinatura anual"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "landing_page",
+      "label": "Landing page vinculada",
+      "positive": [
+        "quero landing page",
+        "vocês fazem landing page"
+      ],
+      "negative": [
+        "não quero landing page",
+        "landing page do concorrente"
+      ],
+      "synonyms": [
+        "página de conversão",
+        "criação de site"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "traffic",
+      "label": "Tráfego pago vinculado",
+      "positive": [
+        "gestão de anúncios",
+        "quero tráfego pago"
+      ],
+      "negative": [
+        "não quero tráfego pago",
+        "concorrente faz anúncios"
+      ],
+      "synonyms": [
+        "campanhas pagas",
+        "anúncios no meta"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "integration",
+      "label": "Integrações",
+      "positive": [
+        "quais integrações",
+        "integra com meu sistema"
+      ],
+      "negative": [
+        "não quero integração",
+        "o concorrente integra"
+      ],
+      "synonyms": [
+        "integração com api",
+        "conectar sistemas"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "demo",
+      "label": "Demonstração",
+      "positive": [
+        "quero uma demonstração",
+        "podemos ver o sistema"
+      ],
+      "negative": [
+        "não quero demonstração",
+        "demo do concorrente"
+      ],
+      "synonyms": [
+        "mostrar o crm",
+        "apresentação do produto"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "schedule",
+      "label": "Agendamento",
+      "positive": [
+        "quero agendar",
+        "marcar uma reunião"
+      ],
+      "negative": [
+        "não quero marcar",
+        "reunião do concorrente"
+      ],
+      "synonyms": [
+        "agendar conversa",
+        "horário para reunião"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "contract",
+      "label": "Contrato",
+      "positive": [
+        "me envie o contrato",
+        "onde assino o contrato"
+      ],
+      "negative": [
+        "não quero assinar",
+        "contrato de outra empresa"
+      ],
+      "synonyms": [
+        "termos de contratação",
+        "assinatura do contrato"
+      ],
+      "risk": "human_review"
+    },
+    {
+      "id": "payment",
+      "label": "Pagamento",
+      "positive": [
+        "como posso pagar",
+        "link de pagamento"
+      ],
+      "negative": [
+        "não quero pagar",
+        "outra empresa já pagou"
+      ],
+      "synonyms": [
+        "fatura de pagamento",
+        "já paguei"
+      ],
+      "risk": "human_review"
+    },
+    {
+      "id": "grace_period",
+      "label": "Carência",
+      "positive": [
+        "tem carência",
+        "existe carência"
+      ],
+      "negative": [
+        "não quero carência",
+        "carência do concorrente"
+      ],
+      "synonyms": [
+        "prazo de carência",
+        "carência de uso"
+      ],
+      "risk": "human_review"
+    },
+    {
+      "id": "cancellation",
+      "label": "Cancelamento",
+      "positive": [
+        "quero cancelar",
+        "posso cancelar"
+      ],
+      "negative": [
+        "não quero cancelar",
+        "não vou cancelar"
+      ],
+      "synonyms": [
+        "cancelamento do contrato",
+        "rescisão contratual"
+      ],
+      "risk": "human_review"
+    },
+    {
+      "id": "support",
+      "label": "Suporte",
+      "positive": [
+        "preciso de suporte",
+        "estou com problema no crm"
+      ],
+      "negative": [
+        "não preciso de suporte",
+        "suporte do concorrente"
+      ],
+      "synonyms": [
+        "ajuda técnica",
+        "abrir chamado"
+      ],
+      "risk": "normal"
+    },
+    {
+      "id": "complaint",
+      "label": "Reclamação",
+      "positive": [
+        "quero reclamar",
+        "estou insatisfeito"
+      ],
+      "negative": [
+        "não quero reclamar",
+        "reclamação do concorrente"
+      ],
+      "synonyms": [
+        "fazer reclamação",
+        "serviço não funciona"
+      ],
+      "risk": "human_review"
+    },
+    {
+      "id": "withdrawal",
+      "label": "Desistência",
+      "positive": [
+        "quero desistir",
+        "não tenho interesse"
+      ],
+      "negative": [
+        "não vou desistir",
+        "desistência do concorrente"
+      ],
+      "synonyms": [
+        "não quero contratar",
+        "desisto da compra"
+      ],
+      "risk": "human_review"
+    },
+    {
+      "id": "human",
+      "label": "Atendimento humano",
+      "positive": [
+        "quero falar com atendente",
+        "me transfere para uma pessoa"
+      ],
+      "negative": [
+        "não preciso de atendente",
+        "atendente do concorrente"
+      ],
+      "synonyms": [
+        "falar com humano",
+        "preciso de uma pessoa"
+      ],
+      "risk": "human_review"
+    }
+  ]
+}

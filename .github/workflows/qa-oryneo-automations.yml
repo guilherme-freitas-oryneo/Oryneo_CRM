@@ -8,6 +8,10 @@ on:
       - 'qa/automation-editor*'
       - 'qa/automation-editor/**'
       - 'supabase/functions/automation-api/**'
+      - 'supabase/functions/_shared/sdr/**'
+      - 'supabase/functions/_shared/whatsapp/aiJobProcessor.ts'
+      - 'supabase/functions/whatsapp-ai-worker/**'
+      - 'src/playbook/**'
       - 'supabase/functions/automation-shadow-worker/**'
       - 'supabase/functions/tests/automation_*'
       - '.github/workflows/qa-oryneo-automations.yml'
@@ -119,6 +123,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_adoption_reapply.qa.sql
       - name: Pinar fontes oficiais do playbook como rascunho sem substituir treinamento
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/knowledge_draft_pin.qa.sql
+      - name: Homologar release do playbook e dicionário com CAS e rollback inativo
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/sdr_semantic_release.qa.sql
       - name: Preparar lease com fencing e protocolo de confirmação do provedor (isolado)
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_delivery_protocol.preview.sql
       - name: Provar ausência de envio duplicado, reconciliação de timeout e parada global
@@ -178,6 +184,9 @@ jobs:
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-api/index.ts
           deno check --min-dep-age=0 supabase/functions/automation-api/executionKernel.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/whatsapp-ai-worker/index.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_meta_stage4_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_commercial_action_policy_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_commercial_adapter_planner_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_execution_kernel_test.ts
