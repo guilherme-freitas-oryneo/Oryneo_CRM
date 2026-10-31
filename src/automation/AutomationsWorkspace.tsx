@@ -503,6 +503,8 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
           <div><span>Registros de ação</span><strong>{runtimeStatus?.actionRows ?? '—'}</strong><small>{runtimeStatus?.emergencyStop ? 'Bloqueados pela parada de emergência' : 'Consulte a política ativa'}</small></div>
           <div><span>Esperas em andamento</span><strong>{runtimeStatus?.waitingTimers ?? '—'}</strong><small>Canceladas por resposta: {runtimeStatus?.cancelledTimers ?? '—'}</small></div>
           <div><span>Esperas vencidas</span><strong>{runtimeStatus?.dueTimers ?? '—'}</strong><small>Somente observação, sem envio automático</small></div>
+          <div><span>Envios com resultado incerto</span><strong>{runtimeStatus?.uncertainActions ?? '—'}</strong><small>Exigem reconciliação com o provedor; não reenviar automaticamente</small></div>
+          <div><span>Envios confirmados pela nova engine</span><strong>{runtimeStatus?.sentActions ?? '—'}</strong><small>Na fila: {runtimeStatus?.queuedActions ?? '—'} · Reservados: {runtimeStatus?.leasedActions ?? '—'}</small></div>
         </div> : tab==='templates' ? <div className="ory-auto-catalog">
           <div className="ory-auto-catalog-heading"><div><strong>Catálogo oficial de templates</strong><p>Sincronização read-only da Meta. Status pode mudar; envio exige revalidação no servidor.</p></div><span>{metaTemplates.length} cadastrados</span></div>
           {metaTemplates.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Nome do template</th><th>Categoria</th><th>Idioma</th><th>Status</th></tr></thead><tbody>
