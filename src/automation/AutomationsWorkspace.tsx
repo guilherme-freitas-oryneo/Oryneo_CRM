@@ -338,6 +338,17 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     commit({ok:true,graph:{...current,nodes:[...current.nodes,node]}});
     setSelectedId(node.id);setSelectedIds([node.id]);
     setJsonConfig(JSON.stringify(node.config,null,2));setMenu(null);
+    // In a narrow viewport, center the inserted node rather than cutting its
+    // body beyond the canvas edge. Large layouts retain the user's scroll.
+    if(stage.current?.clientWidth&&stage.current.clientWidth<600&&typeof requestAnimationFrame==='function'){
+      requestAnimationFrame(()=>{
+        const el=stage.current;
+        if(el){
+          el.scrollLeft=Math.max(0,node.position.x*zoom-el.clientWidth/2+110);
+          el.scrollTop=Math.max(0,node.position.y*zoom-el.clientHeight/2+65);
+        }
+      });
+    }
     setNotice('Bloco inserido. Conecte as portas antes de validar ou publicar.');
   };
   const addAtCanvas=(type:NodeKind)=>{
