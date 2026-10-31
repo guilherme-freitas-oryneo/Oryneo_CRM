@@ -565,6 +565,14 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               setServerPreview(null);setPreview(simulateFlow(current,{eventType:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||''),context:{...buildSimulationCase(simulationCase),event:{type:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||'')}}}));
             }}><CirclePlay size={16}/>Simular</button>
             <button title="Exportar rascunho em JSON" onClick={exportDraft}><FileJson size={16}/></button>
+            <button title="Importar grafo JSON como novo rascunho, nunca substituir" onClick={()=>importInput.current?.click()}><Upload size={16}/><span>Importar</span></button>
+            <input ref={importInput} type="file" accept="application/json,.json" className="ory-auto-hidden-input"
+              aria-label="Importar fluxo JSON" onChange={e=>void uploadDraft(e)}/>
+            <button title="Alternar biblioteca de nós" aria-pressed={showPalette}
+              onClick={()=>setShowPalette(v=>!v)}><PanelLeftClose size={16}/></button>
+            <button title="Alternar inspetor" aria-pressed={showInspector}
+              onClick={()=>setShowInspector(v=>!v)}><PanelRightClose size={16}/></button>
+            <button title="Enquadrar todos os nós" onClick={fit}><Scan size={16}/></button>
             <button className="ory-auto-primary" disabled={syncBusy} onClick={()=>void saveDraft()}>{syncBusy?'Salvando…':'Salvar rascunho'}</button>
             {workspace&&['admin','publisher'].includes(workspace.role)&&<button
               title="Congelar versão homologada sem ativar automações" disabled={syncBusy||!current||remoteRevision[current.id]===undefined||JSON.stringify(current)!==lastRemoteJson[current.id]}
@@ -583,15 +591,22 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
           <span>{SIMULATION_CASES.find(item=>item.id===simulationCase)?.description}</span>
           <small>Nenhum dado real, mensagem ou cobrança é utilizado na simulação.</small>
         </div>
-        <div className="ory-auto-editor-main">
-          <aside className="ory-auto-palette"><h3>Biblioteca de nós</h3><label className="ory-auto-palette-search"><Search size={15}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar bloco"/></label>
+        <div className={'ory-auto-editor-main'+(!showPalette?' palette-collapsed':'')+(!showInspector?' inspector-collapsed':'')}>
+          {showPalette&&<aside className="ory-auto-palette"><h3>Biblioteca de nós</h3><label className="ory-auto-palette-search"><Search size={15}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar bloco"/></label>
             {([...new Set(nodePalette(current.kind).map(x=>x.descriptor.family))] as NodeFamily[]).map(family=><div className="ory-auto-palette-group" key={family}><h4>{NAMES[family]}</h4>
               {nodePalette(current.kind).filter(x=>x.descriptor.family===family && x.descriptor.title.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))).map(({type,descriptor})=>
-                <button key={type} disabled={!activeEdge || ['trigger','end','stop'].includes(type)} title={activeEdge?'Inserir bloco na conexão selecionada':'Selecione uma conexão no canvas para inserir o bloco'} onClick={()=>activeEdge&&addToEdge(activeEdge,type)}>
+                <button key={type} type="button" draggable={type!=='trigger'} disabled={type==='trigger'}
+                  title={activeEdge&&type!=='end'&&type!=='stop'?'Inserir na conexão selecionada':'Clique para posicionar ou arraste para o canvas'}
+                  aria-label={'Adicionar bloco '+descriptor.title}
+                  onDragStart={e=>beginPaletteDrag(e,type)}
+                  onClick={()=>spawnFromPalette(type)}>
                   <span className={'ory-auto-palette-dot family-'+family}/>{descriptor.title}<Plus size={13}/>
                 </button>)}</div>)}
-          </aside>
-          <div className="ory-auto-canvas-scroll" ref={stage} onContextMenu={e=>{
+          </aside>}
+          <div className="ory-auto-canvas-scroll" ref={stage}
+            role="region" aria-label={'Canvas visual do '+(current.kind==='sdr'?'SDR':'pipeline')}
+            onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-oryneo-node'))e.preventDefault();}}
+            onDrop={dropPaletteNode} onContextMenu={e=>{
             if ((e.target as Element).closest('.ory-auto-node,.ory-auto-edge-add,.ory-auto-context')) return;
             e.preventDefault();
             const bounds=e.currentTarget.getBoundingClientRect();
@@ -599,7 +614,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             const canvasY=(e.clientY-bounds.top+e.currentTarget.scrollTop)/zoom;
             setMenu({x:e.clientX,y:e.clientY,edgeId:null,nodeId:null,canvasX,canvasY});
           }}>
-            <div className="ory-auto-canvas" style={{transform:'scale('+zoom+')',transformOrigin:'top left',width:canvasSize.width,height:canvasSize.height}}>
+            <div className="ory-auto-canvas" style={{transform:'scale('+zoom+')',transformOrigin:'top left',width:canvasSize.width,height:canvasSize.height}}> 
               <svg aria-hidden="true" className="ory-auto-connections" viewBox={`0 0 ${canvasSize.width} ${canvasSize.height}`} style={{width:canvasSize.width,height:canvasSize.height}} preserveAspectRatio="none">
                 {current.edges.map(edge=>{
                   const src=current.nodes.find(n=>n.id===edge.source),dst=current.nodes.find(n=>n.id===edge.target);if(!src||!dst)return null;
@@ -621,7 +636,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                   <button key={port} className={sourcePort?.nodeId===node.id&&sourcePort.port===port?'active':''} onClick={()=>setSourcePort({nodeId:node.id,port})} title={'Conectar saída '+port} aria-label={'Conectar saída '+port}>{port}</button>)}</div>
               </div>)}
             </div>
-            <div className="ory-auto-canvas-controls"><button onClick={()=>setZoom(v=>Math.max(0.65,+(v-0.1).toFixed(2)))} aria-label="Diminuir zoom"><ZoomOut size={16}/></button><span>{Math.round(zoom*100)}%</span><button onClick={()=>setZoom(v=>Math.min(1.5,+(v+0.1).toFixed(2)))} aria-label="Aumentar zoom"><ZoomIn size={16}/></button><button onClick={fit}>100%</button></div>
+            <div className="ory-auto-canvas-controls"><button onClick={()=>setZoom(v=>Math.max(0.4,+(v-0.1).toFixed(2)))} aria-label="Diminuir zoom"><ZoomOut size={16}/></button><span>{Math.round(zoom*100)}%</span><button onClick={()=>setZoom(v=>Math.min(1.5,+(v+0.1).toFixed(2)))} aria-label="Aumentar zoom"><ZoomIn size={16}/></button><button onClick={()=>setZoom(1)} title="Zoom real">100%</button><button onClick={fit} title="Enquadrar fluxo"><LocateFixed size={15}/></button></div>
             {menu&&<div className="ory-auto-context" style={{position:'fixed',left:Math.min(menu.x,window.innerWidth-205),top:Math.min(menu.y,window.innerHeight-150)}}>
               {menu.nodeId&&current.edges.some(edge=>edge.source===menu.nodeId) && <button onClick={()=>{
                 const outgoing=current.edges.find(edge=>edge.source===menu.nodeId && edge.source_port==='out') ||
@@ -638,7 +653,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               <button onClick={()=>{setMenu(null);setSourcePort(null);setReconnecting(null)}}>Fechar menu</button>
             </div>}
           </div>
-          <aside className="ory-auto-inspector">
+          {showInspector&&<aside className="ory-auto-inspector">
             <div className="ory-auto-inspector-title"><Settings2 size={16}/><h3>Inspetor</h3></div>
             {selected ? <><span className="ory-auto-overline">PROPRIEDADES DO BLOCO</span><label>Nome<input value={selected.label} onChange={e=>commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,label:e.target.value}:n)}})}/></label>
               {selected.type==='condition' ? <ConditionRuleEditor value={selected.config.rule} onChange={rule=>commit({ok:true,graph:{
@@ -658,7 +673,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               <div className="ory-auto-empty-inspector"><GitBranch size={26}/><strong>Selecione um bloco</strong><p>Clique em um nó para editar. Use os botões + nas linhas para inserir etapas.</p></div>}
             <div className="ory-auto-check"><h4>Integridade do fluxo</h4><span className={validation?.ok?'valid':'invalid'}>{validation?.ok?'Estrutura conectada':(validation?.issues.length||0)+' observações'}</span>
               {(validation?.issues||[]).slice(0,4).map((issue,i)=><p key={i}>{issue.code} · {issue.path}</p>)}</div>
-          </aside>
+          </aside>}
         </div>
         {(notice||preview||serverPreview||sourcePort||reconnecting)&&<div className="ory-auto-status" role="status">{sourcePort?<span>Conectando: escolha o nó de destino ou pressione Esc.</span>:null}{reconnecting?<span>Reconectando: escolha o nó de destino ou pressione Esc.</span>:null}{notice&&<span>{notice}</span>}{preview&&<span>Simulação — não enviado · {preview.trace.length} nós visitados · {preview.issues.map(x=>x.code).join(', ')||'sem erro estrutural'}</span>}{serverPreview&&<span>Traçado do servidor · {serverPreview.trace.length} nós · {serverPreview.state} · sem disparos</span>}<button aria-label="Fechar aviso" onClick={()=>{setNotice('');setPreview(null);setServerPreview(null);setSourcePort(null);setReconnecting(null)}}><X size={15}/></button></div>}
       </div>}
