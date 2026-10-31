@@ -9,9 +9,21 @@ ALTER TABLE public.crm_events ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE public.crm_events ADD COLUMN IF NOT EXISTS actor uuid,
  ADD COLUMN IF NOT EXISTS actor_label text,
  ADD COLUMN IF NOT EXISTS detail jsonb NOT NULL DEFAULT '{}'::jsonb;
-GRANT SELECT,UPDATE ON public.crm_records TO service_role;
-GRANT SELECT,INSERT ON public.crm_history TO service_role;
-GRANT SELECT,INSERT ON public.crm_events TO service_role;
+\i supabase/automation/commercial_data_grants.preview.sql
+DO $acl$
+BEGIN
+ IF NOT has_table_privilege('service_role','public.crm_intake_requests','SELECT')
+  OR NOT has_table_privilege('service_role','public.crm_delivery_projects','SELECT')
+  OR NOT has_table_privilege('service_role','public.crm_events','SELECT')
+  OR NOT has_column_privilege('service_role','public.crm_records','data','UPDATE')
+  OR NOT has_column_privilege('service_role','public.crm_records','revision','UPDATE')
+  OR NOT has_column_privilege('service_role','public.crm_records','updated_at','UPDATE')
+  OR has_column_privilege('service_role','public.crm_records','kind','UPDATE')
+  OR has_column_privilege('service_role','public.crm_records','deleted','UPDATE')
+  OR has_table_privilege('anon','public.crm_history','SELECT')
+  OR has_table_privilege('anon','public.crm_events','INSERT')
+ THEN RAISE EXCEPTION 'Stage3 canonical least-privilege grants are incomplete or broadened'; END IF;
+END $acl$;
 \i supabase/automation/commercial_crm_claim.preview.sql
 \i supabase/automation/commercial_crm_stage_adapter.preview.sql
 -- Simulation grant ONLY inside disposable PostgreSQL QA (not in migration).
