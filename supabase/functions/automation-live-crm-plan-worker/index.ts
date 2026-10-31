@@ -56,6 +56,16 @@ Deno.serve(async request=>{
   return response({error:'CRM inbox claim unavailable'},503);
  let processed=0,unresolved=0,quarantined=0;
  for(const event of claimed.data as Event[]){
+  const started=performance.now();
+  const recordMetric=async(outcome:'completed'|'failed')=>{
+   // Telemetry is best-effort and cannot change the already committed result.
+   // Cost is unknown (never fabricated); the key is unique per fenced attempt.
+   const duration_ms=Math.min(600000,Math.max(0,Math.round(performance.now()-started)));
+   try{await db.rpc('automation_metric_record',{
+    p_workspace_id:workspaceId,p_key:'crm-plan:'+event.inbox_id+':'+event.lease_token,
+    p_category:'planner',p_outcome:outcome,p_duration_ms:duration_ms,
+   });}catch{/* Missing metrics must never trigger duplicate processing. */}
+  };
   try{
    const gate=await db.rpc('automation_channel_cutover_preflight',{
      p_workspace_id:workspaceId,p_channel:'crm',
@@ -104,7 +114,9 @@ Deno.serve(async request=>{
      ||committed.data?.externalMessagesSent!==0)
     throw Error('LIVE_COMMIT_UNAVAILABLE');
    processed++;
+   await recordMetric('completed');
   }catch(error){
+   await recordMetric('failed');
    try{
     const fail=await db.rpc('automation_live_crm_fail',{
      p_workspace_id:workspaceId,p_inbox_id:event.inbox_id,
