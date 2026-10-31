@@ -7,6 +7,7 @@ on:
       - 'src/automation/**'
       - 'qa/automation-editor*'
       - 'qa/automation-editor/**'
+      - 'qa/acceptance/**'
       - 'supabase/functions/automation-api/**'
       - 'supabase/functions/_shared/sdr/**'
       - 'supabase/functions/_shared/whatsapp/aiJobProcessor.ts'
@@ -115,6 +116,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/onboarding_paid_bridge.qa.sql
       - name: Homologar fontes comerciais canônicas em PostgreSQL descartável
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_sources.qa.sql
+      - name: Homologar jornada completa de referências canônicas sem efeitos financeiros ou mensagens
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/stage5_cross_stream_journey.qa.sql
       - name: Homologar ownership único de provedores com rollback e parada de emergência
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_channel_ownership.qa.sql
       - name: Sincronizar 33 componentes Meta oficiais com auditoria (isolado)
@@ -199,6 +202,11 @@ jobs:
           deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_context_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_simulation_boundary_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_stage5_sdr_recovery_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_stage5_local_perf_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/financial_qa_webhook_policy_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/checkout_settlement_policy_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/stripe_orphan_checkout_policy_test.ts
 
   crm-regression:
     runs-on: ubuntu-latest
@@ -248,3 +256,20 @@ jobs:
             qa/automation-editor/report/
             test-results/
           retention-days: 10
+
+  acceptance-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar rastreabilidade estrita 47/47 e limites de homologação isolada
+        run: node qa/acceptance/verify-stage5.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oryneo-stage5-47-case-evidence
+          path: qa/acceptance/report/stage5-evidence.json
+          retention-days: 20
