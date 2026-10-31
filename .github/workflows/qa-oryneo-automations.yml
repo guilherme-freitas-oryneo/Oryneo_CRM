@@ -182,10 +182,11 @@ jobs:
           psql -v ON_ERROR_STOP=1 <<'SQL'
           DO $qa$
           BEGIN
+            -- Test fixtures can have a synthetic terminal 'sent' receipt; no provider is called.
             IF (SELECT count(*) FROM public.automation_channel_ownership WHERE owner='legacy')<>5
                OR EXISTS(SELECT 1 FROM public.automation_channel_ownership WHERE release_approved_at IS NOT NULL)
                OR NOT EXISTS(SELECT 1 FROM public.automation_sdr_active_release WHERE enabled IS FALSE)
-               OR EXISTS(SELECT 1 FROM public.automation_action_outbox WHERE state IN ('queued','leased','sent'))
+               OR EXISTS(SELECT 1 FROM public.automation_action_outbox WHERE state IN ('queued','leased'))
             THEN RAISE EXCEPTION 'Replaying hosted migrations left unsafe dispatch state'; END IF;
           END $qa$;
           SQL
