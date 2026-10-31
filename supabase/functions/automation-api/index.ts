@@ -108,7 +108,7 @@ Deno.serve(async request => {
         .eq('workspace_id',workspaceId)
         .order('release_version',{ascending:false}).limit(25),
       db.from('automation_intent_dictionary')
-        .select('id,release_version,status,approved_by,content_sha256,examples')
+        .select('id,release_version,language,status,approved_by,content_sha256,examples')
         .eq('workspace_id',workspaceId)
         .order('release_version',{ascending:false}).limit(25),
       db.from('automation_sdr_active_release')
