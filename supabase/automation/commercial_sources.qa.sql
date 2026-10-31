@@ -116,14 +116,11 @@ BEGIN
     RAISE EXCEPTION 'Billing third item missing: %',result; END IF;
   END IF;
   result:=public.automation_commercial_shadow_ingest(w,stream,100);
-  IF (result->>'inserted')::int<>0
-  THEN RAISE EXCEPTION 'Duplicate journal replay: %, %',stream,result; END IF;
+  IF (result->>'inserted')::int<>(CASE WHEN stream='checkout' THEN 4 ELSE 0 END)
+  THEN RAISE EXCEPTION 'Unexpected bounded stream remainder: %, %',stream,result; END IF;
  END LOOP;
  -- Checkout must observe 6 live orders, but only a single first batch row
  -- was consumed above. Additional reads must not insert forbidden sandbox orders.
- result:=public.automation_commercial_shadow_ingest(w,'checkout',100);
- IF (result->>'inserted')::int<>4 THEN
-   RAISE EXCEPTION 'Expected four further verified live checkout starts: %',result; END IF;
  result:=public.automation_commercial_shadow_ingest(w,'checkout',100);
  IF (result->>'inserted')::int<>0 THEN RAISE EXCEPTION 'Checkout replay'; END IF;
 
