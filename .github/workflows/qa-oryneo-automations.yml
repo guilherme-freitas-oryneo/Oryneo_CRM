@@ -81,6 +81,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_whatsapp_adapter.preview.sql
       - name: Validar cursor, privacidade, deduplicação e nenhum envio
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_whatsapp_adapter.qa.sql
+      - name: Criar esperas persistentes sem dispatcher real (banco descartável)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_timers.preview.sql
+      - name: Testar cancelamento por resposta canônica, dedupe, tentativas e parada
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/wait_timers.qa.sql
       - name: Testar ponte para o onboarding existente, sem envios (isolado)
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/onboarding_paid_bridge.qa.sql
       - name: Sincronizar 33 componentes Meta oficiais com auditoria (isolado)
