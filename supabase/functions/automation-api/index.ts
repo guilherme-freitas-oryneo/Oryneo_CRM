@@ -97,7 +97,7 @@ Deno.serve(async request => {
 
   if (action === 'list') {
     const { data, error } = await db.from('automation_flows')
-      .select('id,name,kind,revision,enabled,published_version_id,updated_at')
+      .select('id,slug,name,kind,revision,enabled,published_version_id,updated_at')
       .eq('workspace_id', workspaceId).order('updated_at', { ascending: false }).limit(100);
     return error ? reply({ error: 'Falha ao listar fluxos.' }, 503)
       : reply({ ok: true, flows: data || [], role: member.role });
