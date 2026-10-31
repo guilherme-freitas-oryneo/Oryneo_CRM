@@ -190,4 +190,13 @@ describe('Automações: interação visual isolada', () => {
     expect(container.querySelectorAll('.ory-auto-edge-add')).toHaveLength(0);
   });
 
+  it('exibe propriedade dos canais somente em leitura e sem ação de cutover',async()=>{
+    const user=userEvent.setup();
+    render(<AutomationsWorkspace userId={userId}/>);
+    await user.click(screen.getByRole('button',{name:/Templates e canais/}));
+    expect(screen.getByRole('region',{name:'Proprietários das integrações comerciais'})).toBeInTheDocument();
+    expect(screen.getByText(/Nenhum disparo está autorizado por esta tela/)).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/Ativar canal|Transferir execução|Enviar agora/})).not.toBeInTheDocument();
+  });
+
 });
