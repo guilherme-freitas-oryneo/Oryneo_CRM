@@ -1,0 +1,48 @@
+.ory-sdr-intel{margin:0;color:#273a4d}
+.ory-sdr-header{display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
+.ory-sdr-header span{display:flex;align-items:center;gap:7px;color:#5e809a;letter-spacing:.13em;font-size:10px;font-weight:750}
+.ory-sdr-header h3{font-size:20px;letter-spacing:-.035em;font-weight:720;margin:9px 0}
+.ory-sdr-header p,.ory-sdr-inspect p,.ory-sdr-footer p{font-size:12px;line-height:1.65;color:#61778b;max-width:620px}
+.ory-sdr-header>button{display:flex;align-items:center;gap:8px;border:1px solid #d8e3ed;background:#fff;color:#395873;border-radius:8px;padding:9px 12px;font-size:12px;cursor:pointer}
+.ory-sdr-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:20px 0}
+.ory-sdr-metrics>div{display:flex;flex-direction:column;gap:5px;background:#fff;border:1px solid #e2eaf1;padding:15px 17px;border-radius:10px}
+.ory-sdr-metrics span{font-size:11px;color:#6f8293}.ory-sdr-metrics strong{font-size:19px;letter-spacing:-.04em;font-weight:730;color:#293f55}
+.ory-sdr-metrics small{font-size:10px;color:#8a9aaa}
+.ory-sdr-layout{display:grid;grid-template-columns:minmax(170px,210px) minmax(250px,1fr) minmax(200px,265px);align-items:stretch;gap:12px;min-height:510px}
+.ory-sdr-layout>aside,.ory-sdr-layout>.ory-sdr-edit{background:#fff;border:1px solid #e2eaf0;border-radius:11px;padding:15px;min-width:0}
+.ory-sdr-nav{display:flex;flex-direction:column;gap:3px;max-height:600px;overflow:auto}
+.ory-sdr-nav h4,.ory-sdr-inspect h4{font-size:12px;color:#375269;margin:0 0 12px}
+.ory-sdr-nav button{border:1px solid transparent;border-radius:7px;text-align:left;background:transparent;padding:9px 10px;cursor:pointer;display:flex;flex-direction:column;gap:3px;color:#4f6275}
+.ory-sdr-nav button.active{background:#eff5fa;border-color:#d8e7f3;color:#1e4f71}
+.ory-sdr-nav button:hover{background:#f3f7fa}
+.ory-sdr-nav button strong{font-size:11px;font-weight:650}.ory-sdr-nav button small{font-size:10px;color:#7e90a1}
+.ory-sdr-edit{display:flex;flex-direction:column;gap:12px}
+.ory-sdr-edit header{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #edf1f4;padding-bottom:11px}
+.ory-sdr-edit h4{font-size:15px;margin:0;letter-spacing:-.02em}
+.ory-sdr-edit header small{font-size:10px;color:#3b806e}
+.ory-sdr-edit label{display:flex;flex-direction:column;gap:7px;font-size:11px;font-weight:600;color:#4a647a}
+.ory-sdr-edit label small{color:#8b9baa;font-weight:400}
+.ory-sdr-edit input,.ory-sdr-edit textarea,.ory-sdr-edit select,.ory-sdr-inspect textarea{box-sizing:border-box;width:100%;border:1px solid #dce5ec;border-radius:7px;background:#fbfcfe;color:#263b50;padding:10px 11px;font:inherit;font-size:12px;line-height:1.6;resize:vertical}
+.ory-sdr-edit input:focus,.ory-sdr-edit textarea:focus,.ory-sdr-inspect textarea:focus{outline:2px solid #9bc8e3;outline-offset:1px}
+.ory-sdr-inspect h4{display:flex;align-items:center;gap:6px}
+.ory-sdr-result{display:flex;flex-direction:column;gap:7px;padding:14px;background:#f6f9fb;border-radius:8px;border:1px solid #e3ebf1;margin:12px 0 24px}
+.ory-sdr-result span{font-size:10px;color:#778da2}.ory-sdr-result strong{font-size:13px;color:#245273}
+.ory-sdr-result small{font-size:10px;color:#6f8395;line-height:1.5}
+.ory-sdr-version{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;border:0;border-bottom:1px solid #edf1f5;background:transparent;text-align:left;padding:9px 2px;font-size:12px;color:#425f76;cursor:pointer}
+.ory-sdr-version span{color:#8395a6;font-size:10px}
+.ory-sdr-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 4px;border-top:1px solid #e4ebf1;margin-top:20px}
+.ory-sdr-footer h4{display:flex;align-items:center;gap:8px;font-size:13px;color:#34526d;margin:0 0 5px}
+.ory-sdr-confirm{font-size:11px;color:#466078;display:flex;align-items:flex-start;gap:8px;margin-top:8px}
+.ory-sdr-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.ory-sdr-buttons button{display:flex;gap:8px;align-items:center;justify-content:center;border-radius:7px;background:#1b597a;border:1px solid #1b597a;color:#fff;padding:11px 13px;white-space:nowrap;font-size:11px;cursor:pointer}
+.ory-sdr-buttons button.secondary{background:#fff;color:#355774;border-color:#cbd9e5}
+.ory-sdr-buttons button:disabled,.ory-sdr-header button:disabled{opacity:.45;cursor:not-allowed}
+.ory-sdr-note,.ory-sdr-error{padding:10px 12px;border-radius:7px;background:#f0f5f9;font-size:11px;color:#44627a}
+.ory-sdr-error{background:#fff3f1;color:#8f4a46}
+@media(max-width:1100px){.ory-sdr-layout{grid-template-columns:minmax(160px,195px) minmax(0,1fr)}.ory-sdr-inspect{grid-column:1/-1}.ory-sdr-nav{max-height:650px}}
+@media(max-width:690px){.ory-sdr-header,.ory-sdr-footer{flex-direction:column;align-items:stretch}
+.ory-sdr-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ory-sdr-layout{grid-template-columns:minmax(0,1fr)}.ory-sdr-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-height:260px}
+.ory-sdr-nav h4{grid-column:1/-1}.ory-sdr-inspect{grid-column:auto}.ory-sdr-buttons{justify-content:stretch}
+.ory-sdr-buttons button{flex:1}}
+@media(prefers-reduced-motion:reduce){.ory-sdr-intel *{scroll-behavior:auto!important;transition:none!important}}
