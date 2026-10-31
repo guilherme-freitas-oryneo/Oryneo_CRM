@@ -198,3 +198,29 @@ jobs:
         run: npm run build -- --base=/Oryneo_CRM/
       - name: Testar regressão integral do CRM, pipeline, WhatsApp e UI
         run: npm run test -- --run
+
+  editor-browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependências travadas e navegador de QA isolado
+        run: |
+          npm ci
+          npm install --no-save --package-lock=false @playwright/test@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Executar interações e capturas desktop, tablet e mobile sem autenticação de produção
+        run: npx playwright test --config=qa/automation-editor/playwright.config.ts --workers=1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oryneo-phase2-visual-editor-qa
+          path: |
+            qa/automation-editor/artifacts/
+            qa/automation-editor/report/
+            test-results/
+          retention-days: 10
