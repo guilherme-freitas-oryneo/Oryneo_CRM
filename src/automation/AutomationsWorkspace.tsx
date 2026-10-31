@@ -8,6 +8,7 @@ import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomati
 import { ConditionRuleEditor } from './ConditionRuleEditor';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
+import { SIMULATION_CASES, buildSimulationCase, type SimulationCaseId } from './simulationCases';
 import './automations-workspace.css';
 
 type Tab = 'overview' | 'pipeline' | 'sdr' | 'triggers' | 'templates' | 'executions';
@@ -153,6 +154,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [zoom, setZoom] = useState(1);
   const [notice, setNotice] = useState('');
   const [preview, setPreview] = useState<ReturnType<typeof simulateFlow> | null>(null);
+  const [simulationCase,setSimulationCase]=useState<SimulationCaseId>('unknown');
   const [jsonConfig, setJsonConfig] = useState('');
   const [menu, setMenu] = useState<{ x: number; y: number; edgeId: string | null; nodeId: string | null; canvasX?: number; canvasY?: number } | null>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -271,7 +273,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     const eventType=String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||'');
     setSyncBusy(true);
     try {
-      const result=await simulateRemoteAutomationDraft(workspace.id,current,eventType,{});
+      const result=await simulateRemoteAutomationDraft(workspace.id,current,eventType,buildSimulationCase(simulationCase));
       setNotice('Simulação do servidor — nenhum envio, nenhuma gravação · '+
         result.state+' · '+result.trace.length+' nós · '+
         (result.issues.map(issue=>issue.code).join(', ')||'sem erros de execução'));
@@ -433,7 +435,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             <button title="Simular no servidor sem enviar" disabled={!workspace||syncBusy}
               onClick={()=>void simulateWithServer()}><CirclePlay size={16}/>Prévia servidor</button>
             <button title="Simular sem efeitos externos" onClick={()=>{
-              setPreview(simulateFlow(current,{eventType:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||''),context:{}}));
+              setPreview(simulateFlow(current,{eventType:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||''),context:{...buildSimulationCase(simulationCase),event:{type:String(current.nodes.find(n=>n.type==='trigger')?.config.event_type||'')}}}));
             }}><CirclePlay size={16}/>Simular</button>
             <button title="Exportar rascunho em JSON" onClick={exportDraft}><FileJson size={16}/></button>
             <button className="ory-auto-primary" disabled={syncBusy} onClick={()=>void saveDraft()}>{syncBusy?'Salvando…':'Salvar rascunho'}</button>
@@ -442,6 +444,17 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               onClick={()=>void freezeCanonicalVersion()}><ShieldCheck size={14}/>Congelar versão</button>}
             <button title="Publicação disponível após engine homologada" disabled>Ativar <LockKeyhole size={13}/></button>
           </div>
+        </div>
+        <div className="ory-auto-simulation-bar">
+          <label htmlFor="ory-auto-simulation-case">Cenário de teste</label>
+          <select id="ory-auto-simulation-case" aria-label="Cenário de simulação hipotética"
+            value={simulationCase}
+            onChange={event=>setSimulationCase(event.target.value as SimulationCaseId)}>
+            {SIMULATION_CASES.map(item=>
+              <option key={item.id} value={item.id}>{item.title}</option>)}
+          </select>
+          <span>{SIMULATION_CASES.find(item=>item.id===simulationCase)?.description}</span>
+          <small>Nenhum dado real, mensagem ou cobrança é utilizado na simulação.</small>
         </div>
         <div className="ory-auto-editor-main">
           <aside className="ory-auto-palette"><h3>Biblioteca de nós</h3><label className="ory-auto-palette-search"><Search size={15}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar bloco"/></label>
