@@ -184,3 +184,54 @@
 .ory-auto-canvas-scroll svg path.trace-path{stroke:#327f89;stroke-width:2.8}
 .ory-auto-edge-add.traced{border-color:#629bab;color:#327f89;background:#edf8f8;opacity:1}
 @media(prefers-reduced-motion:reduce){.ory-auto-node.traced .ory-auto-node-body,.ory-auto-canvas-scroll svg path.trace-path{transition:none}}
+
+/* Visual editor Phase 2 — scoped refinements, no global CRM overrides. */
+.ory-auto-hidden-input{position:absolute!important;width:1px;height:1px;opacity:0;pointer-events:none;clip-path:inset(50%)}
+.ory-auto-editor-main.palette-collapsed{grid-template-columns:minmax(300px,1fr) 254px}
+.ory-auto-editor-main.inspector-collapsed{grid-template-columns:222px minmax(300px,1fr)}
+.ory-auto-editor-main.palette-collapsed.inspector-collapsed{grid-template-columns:minmax(300px,1fr)}
+.ory-auto-palette-group>button[draggable=true]{cursor:grab}
+.ory-auto-palette-group>button[draggable=true]:active{cursor:grabbing}
+.ory-auto-node-more{position:absolute;z-index:8;right:5px;top:6px;min-width:27px;min-height:24px;
+ border:1px solid transparent;background:#ffffffdc;color:#62778b;border-radius:5px;font-size:15px;line-height:1;cursor:pointer}
+.ory-auto-node-more:hover,.ory-auto-node-more:focus-visible{border-color:#bdcbd8;color:#2e547a;background:#f2f7fb}
+.ory-auto-node-outputs button{touch-action:none;cursor:crosshair}
+.ory-auto-connections .ory-auto-edge-hit{stroke:transparent!important;stroke-width:20px;opacity:1;fill:none;cursor:pointer}
+.ory-auto-connections .ory-auto-edge-label{fill:#536b80;font-size:10px;font-weight:650;stroke:#f5f7fa;stroke-width:5px;paint-order:stroke;
+ pointer-events:none}
+.ory-auto-execution-detail{margin:14px 20px;padding:20px;background:#f9fbfd;border:1px solid #e0e8ee;border-radius:9px;overflow:hidden}
+.ory-auto-execution-detail h3{font-size:12px;margin:0 0 12px;color:#263b52}
+.ory-auto-execution-detail p{font-size:11px;color:#63778b;margin:8px 0}
+.ory-auto-execution-detail table{min-width:450px}
+.ory-auto-execution-link{background:transparent;border:0;padding:3px;color:#295e91;text-decoration:underline;cursor:pointer}
+.ory-auto-execution-link:hover{color:#153d66}
+.ory-auto-multiselect{padding:13px 8px;background:#f7fafc;border:1px solid #dfe8f1;border-radius:8px}
+.ory-auto-multiselect p{font-size:11px;color:#667d92;line-height:1.5}
+.ory-auto-multiselect button{border:1px solid #dae5ee;border-radius:6px;background:#fff;padding:8px 10px;color:#38546b}
+.ory-auto-editor-actions button[aria-pressed=true]{background:#eaf1f7;border-color:#8eacc8;color:#315f89}
+.ory-auto-canvas-scroll:focus-visible{outline:2px solid #567ea8;outline-offset:-2px}
+.ory-auto-node-body:focus-visible,.ory-auto-node-outputs button:focus-visible,.ory-auto-node-more:focus-visible{outline:2px solid #2869a6;outline-offset:3px}
+.ory-auto-context{max-height:min(440px,65vh);overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:1190px) and (min-width:841px){
+ .ory-auto-editor-main.palette-collapsed{grid-template-columns:minmax(300px,1fr) 210px}
+ .ory-auto-editor-main.inspector-collapsed{grid-template-columns:178px minmax(300px,1fr)}
+ .ory-auto-editor-main.palette-collapsed.inspector-collapsed{grid-template-columns:minmax(300px,1fr)}
+}
+@media(max-width:840px){
+ .ory-auto-editor-main.palette-collapsed,.ory-auto-editor-main.inspector-collapsed,
+ .ory-auto-editor-main.palette-collapsed.inspector-collapsed{grid-template-columns:minmax(0,1fr)}
+ .ory-auto-palette{max-height:220px}
+ .ory-auto-palette-group{min-width:125px}
+ .ory-auto-canvas-scroll{min-height:420px;max-height:520px;touch-action:pan-x pan-y}
+ .ory-auto-editor-actions{max-width:100%;overflow-x:auto;padding-bottom:3px}
+ .ory-auto-node-body{min-height:92px}
+ .ory-auto-node-outputs button{min-height:27px}
+}
+@media(max-width:390px){
+ .ory-auto-editor-name input{width:145px}
+ .ory-auto-editor-actions button{font-size:10px}
+ .ory-auto-canvas-scroll{min-height:400px}
+}
+@media(prefers-reduced-motion:reduce){
+ .ory-auto-node,.ory-auto-node-body,.ory-auto-connections path{transition:none!important;animation:none!important}
+}
