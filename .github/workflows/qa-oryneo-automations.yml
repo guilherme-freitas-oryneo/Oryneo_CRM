@@ -14,6 +14,7 @@ on:
       - 'supabase/functions/whatsapp-ai-worker/**'
       - 'src/playbook/**'
       - 'supabase/functions/automation-shadow-worker/**'
+      - 'supabase/functions/automation-commercial-crm-worker/**'
       - 'supabase/functions/tests/automation_*'
       - '.github/workflows/qa-oryneo-automations.yml'
   workflow_dispatch:
@@ -227,6 +228,7 @@ jobs:
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-api/index.ts
           deno check --min-dep-age=0 supabase/functions/automation-api/executionKernel.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-commercial-crm-worker/index.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/whatsapp-ai-worker/index.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_meta_stage4_test.ts
