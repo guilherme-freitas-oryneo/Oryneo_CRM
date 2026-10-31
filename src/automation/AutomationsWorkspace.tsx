@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBra
 import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, autoLayoutFlow, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
-import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, loadRemoteAutomationExecutionDetail, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime, type ServerShadowPreview, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution, type AutomationExecutionDetail } from './api';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, loadRemoteAutomationExecutionDetail, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime,loadRemoteCommercialReadiness, type CommercialReadiness, type ServerShadowPreview, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution, type AutomationExecutionDetail } from './api';
 import { ConditionRuleEditor } from './ConditionRuleEditor';
 import { duplicateDraftNode,fitGraphView,importDraftJson,moveSelectedNodes,removeEdgeById,removeSelectedNodes,routeBranchLabel,viewportToGraph } from './editorCommands';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
@@ -118,6 +118,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [metaTemplates, setMetaTemplates] = useState<AutomationTemplate[]>([]);
   const [nodeCatalog, setNodeCatalog] = useState<NodeReferenceCatalog | null>(null);
   const [runtimeStatus,setRuntimeStatus] = useState<AutomationRuntimeStatus | null>(null);
+  const [commercialReadiness,setCommercialReadiness]=useState<CommercialReadiness|null>(null);
   const [remoteExecutions, setRemoteExecutions] = useState<AutomationExecution[]>([]);
   const [remoteRevision, setRemoteRevision] = useState<Record<string, number>>({});
   const [lastRemoteJson, setLastRemoteJson] = useState<Record<string,string>>({});
@@ -133,15 +134,17 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       setWorkspace(first);
       const saved = await listRemoteAutomationFlows(first.id);
       if (!cancelled) { setRemoteFlows(saved); setRemoteRevision(Object.fromEntries(saved.map(flow => [flow.id, flow.revision]))); }
-      const [registry, executions, catalog, runtime] = await Promise.allSettled([
+      const [registry, executions, catalog, runtime, readiness] = await Promise.allSettled([
         listRemoteAutomationTemplates(first.id), listRemoteAutomationExecutions(first.id),
         loadRemoteNodeCatalog(first.id), loadRemoteAutomationRuntime(first.id),
+        loadRemoteCommercialReadiness(first.id),
       ]);
       if (cancelled) return;
       if (registry.status === 'fulfilled') setMetaTemplates(registry.value);
       if (executions.status === 'fulfilled') setRemoteExecutions(executions.value);
       if (catalog.status === 'fulfilled') setNodeCatalog(catalog.value);
       if (runtime.status === 'fulfilled') setRuntimeStatus(runtime.value);
+      if (readiness.status === 'fulfilled')setCommercialReadiness(readiness.value);
     }).catch(() => { if (!cancelled) setSyncError('Serviço de rascunhos indisponível. Use a cópia local.'); });
     return () => { cancelled = true; };
   }, [userId]);
@@ -763,6 +766,24 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               <td>{item.category}</td><td>{item.language}</td>
               <td><span className="ory-auto-approved">{item.provider_status}</span></td></tr>)}
           </tbody></table></div>:<p className="ory-auto-no-data">Sem catálogo carregado. O CRM não autoriza envios pela nova engine enquanto a sincronização não for verificada.</p>}
+          <section className="ory-auto-commercial-readiness" aria-label="Proprietários das integrações comerciais">
+            <h3>Integrações comerciais — propriedade de execução</h3>
+            <p>Consulta canônica e somente leitura. Nenhum botão transfere a execução
+              do SDR, e-mail, faturamento ou CRM para a nova engine.</p>
+            {commercialReadiness?.channels.length ? (
+              <div className="ory-auto-catalog-scroll"><table>
+                <thead><tr><th>Canal</th><th>Executor atual</th><th>Preparação</th></tr></thead><tbody>
+                {commercialReadiness.channels.map(item=><tr key={item.channel}>
+                  <td>{({whatsapp:'WhatsApp',email:'E-mail',crm:'CRM e pipeline',
+                    onboarding:'Implantação',billing:'Cobrança — leitura'} as Record<string,string>)[item.channel]}</td>
+                  <td>{item.owner==='legacy'?'Sistema existente':'Nova engine (verificar release)'}</td>
+                  <td>{item.eligibleForControlledQueue?'Pré-validação concluída; sem envio autorizado':
+                    'Desativado / dependente de homologação e liberação'}</td>
+                </tr>)}
+                </tbody></table></div>
+            ):<p className="ory-auto-no-data">Estado dos conectores ainda não confirmado.
+              Nenhum disparo está autorizado por esta tela.</p>}
+          </section>
         </div> : tab==='executions' ? <div className="ory-auto-catalog">
           <div className="ory-auto-catalog-heading"><div><strong>Execuções registradas</strong><p>Consulta autorizada aos registros da nova engine. Sem disparos ativos.</p></div><span>{remoteExecutions.length} registros</span></div>
           {remoteExecutions.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Execução</th><th>Estado</th><th>Início</th></tr></thead><tbody>
