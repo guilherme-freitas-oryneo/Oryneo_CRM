@@ -29,16 +29,26 @@ export async function loadTrustedReferences(
   ]);
   if(stages.error||templates.error||knowledge.error||dictionaries.error)
     throw new Error('CANONICAL_REFERENCES_UNAVAILABLE');
+  const verified=(templates.data||[]).filter((t:{
+    id:string;provider_status:string;parameter_schema:unknown;
+  })=>{
+    const schema=t.parameter_schema;
+    if(t.provider_status!=='APPROVED'||!schema||typeof schema!=='object'
+      ||Array.isArray(schema))return false;
+    const props=schema as Record<string,unknown>;
+    const indices=props.variable_numbers;
+    return props.components_verified===true && Array.isArray(indices)
+      && indices.length<=20
+      && indices.every(x=>typeof x==='string'&&/^[1-9][0-9]?$/.test(x))
+      && new Set(indices).size===indices.length;
+  });
   return {
     eventTypes:[...EVENTS],
     stageIds:(stages.data||[]).map((x:{id:string})=>x.id),
-    templateIds:(templates.data||[])
-      .filter((t:{provider_status:string;parameter_schema:unknown}) =>
-        t.provider_status==='APPROVED' &&
-        typeof t.parameter_schema==='object' && t.parameter_schema!==null &&
-        !Array.isArray(t.parameter_schema) &&
-        (t.parameter_schema as Record<string,unknown>).components_verified===true)
-      .map((t:{id:string})=>t.id),
+    templateIds:verified.map((t:{id:string})=>t.id),
+    templateVariables:Object.fromEntries(verified.map((t:{id:string;parameter_schema:{
+      variable_numbers:string[];
+    }})=>[t.id,t.parameter_schema.variable_numbers])),
     knowledgeIds:(knowledge.data||[]).map((x:{id:string})=>x.id),
     dictionaryIds:(dictionaries.data||[]).map((x:{id:string})=>x.id),
   };
