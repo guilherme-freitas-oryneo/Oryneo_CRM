@@ -12,7 +12,7 @@ CREATE TABLE public.crm_stripe_events(
  event_id text PRIMARY KEY,event_type text NOT NULL,livemode boolean NOT NULL,
  payload jsonb NOT NULL,processed_at timestamptz NOT NULL);
 GRANT SELECT ON public.crm_intake_requests,public.crm_stripe_events,
- public.crm_billing_orders,public.crm_delivery_projects TO service_role;
+ public.crm_billing_orders,public.crm_delivery_projects,public.crm_automation_jobs TO service_role;
 GRANT INSERT,UPDATE ON public.crm_intake_requests,public.crm_stripe_events,
  public.crm_billing_orders,public.crm_delivery_projects,public.crm_events TO service_role;
 \i supabase/automation/commercial_sources.preview.sql
