@@ -18,7 +18,7 @@ const k={
 const make=(last:string,settings:Record<string,unknown>={})=>buildSdrKnowledgeContext({
  latestUserMessage:last,
  release:{knowledge:k,dictionary:{
-   id:'22222222-2222-4222-8222-222222222222',release_version:1,status:'published',
+   id:'22222222-2222-4222-8222-222222222222',release_version:1,language:'pt_BR',status:'published',
    approved_by:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',content_sha256:'b'.repeat(64),
    examples:candidate.entries,synonyms:[],
  },entries:dictionary},canonicalPaymentVerified:false,
@@ -96,7 +96,7 @@ Deno.test('E07: stable dictionary digest enforces immutable release and rollback
  const hash=await dictionaryDigest(dictionary);
  check(hash.length===64,'Missing canonical digest');
  const base={id:'22222222-2222-4222-8222-222222222222',release_version:1,
-  status:'published',approved_by:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  language:'pt_BR',status:'published',approved_by:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   content_sha256:hash,examples:candidate.entries,synonyms:[]};
  const input={sources:{knowledge:k,dictionary:base,
   active:{enabled:true,knowledge_release_id:k.id,dictionary_release_id:base.id}},
