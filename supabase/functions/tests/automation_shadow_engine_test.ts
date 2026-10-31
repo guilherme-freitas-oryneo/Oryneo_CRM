@@ -74,3 +74,37 @@ Deno.test('WhatsApp side effect is only a proposal with deterministic action key
   const unverified=await planServerShadow(g,event(),refs);
   check(unverified.state==='blocked'&&unverified.plannedActions.length===0,'unapproved template was planned');
 });
+
+Deno.test('canonical billing_read advances only with an actual server-hydrated status',async()=>{
+ const g=graph();
+ const read={id:id(30),type:'billing_read',label:'Consultar cobrança',
+  position:{x:120,y:0},config:{},ports:['in','out']};
+ g.nodes.splice(1,0,read);
+ g.nodes.find((n:any)=>n.id===id(3)).config={
+   rule:{kind:'compare',field:'billing.status',op:'eq',value:'paid'},
+ };
+ g.edges[0].target=id(30);
+ g.edges.push({id:id(31),source:id(30),source_port:'out',target:id(3),target_port:'in'});
+ const paid=event();paid.context={billing:{status:'paid'}};
+ const declined=event();declined.context={billing:{status:'payment_failed'}};
+ const unknown=event();unknown.context={event:{type:'opportunity.created'}};
+ const a=await planServerShadow(g,paid,refs);
+ const b=await planServerShadow(g,declined,refs);
+ const c=await planServerShadow(g,unknown,refs);
+ check(a.state==='completed'&&a.trace.at(-1)?.nodeId===id(4),'paid status branch wrong');
+ check(b.state==='completed'&&b.trace.at(-1)?.nodeId===id(5),'failed status branch wrong');
+ check(c.state==='blocked'&&c.issues.some(i=>i.code==='BILLING_CONTEXT_NOT_VERIFIED'),
+  'missing canonical order was treated as verified');
+ check(!a.dispatchAuthorized&&!b.dispatchAuthorized&&a.plannedActions.length===0,
+  'billing read triggered an effect');
+});
+Deno.test('paid status alone cannot prove signed webhook settlement',async()=>{
+ const g=graph();
+ g.nodes[1].config={rule:{
+   kind:'compare',field:'billing.paid_verified',op:'eq',value:true,
+ }};
+ const e=event();e.context={billing:{status:'paid'}};
+ const result=await planServerShadow(g,e,refs);
+ check(result.state==='blocked'&&result.issues.some(i=>i.code==='CONDITION_CONTEXT_UNKNOWN'),
+  'paid claim bypassed signed payment verification');
+});
