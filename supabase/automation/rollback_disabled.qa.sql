@@ -13,8 +13,10 @@ DECLARE
  actor uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
  f uuid:='44444444-4444-4444-8444-444444444444';
  target uuid; other uuid:=gen_random_uuid(); graph jsonb;
- rev bigint; result jsonb; denied boolean;
+ rev bigint; result jsonb; denied boolean; actions_before bigint;
 BEGIN
+ SELECT count(*) INTO actions_before FROM public.automation_action_outbox
+ WHERE workspace_id=w AND state IN ('queued','leased','sent');
  SELECT published_version_id,revision INTO target,rev
   FROM public.automation_flows WHERE workspace_id=w AND id=f;
  IF target IS NULL THEN RAISE EXCEPTION 'Published fixture is missing'; END IF;
@@ -65,7 +67,8 @@ BEGIN
  IF NOT denied THEN RAISE EXCEPTION 'Editor permitted to roll back'; END IF;
  UPDATE public.automation_workspace_members SET role='admin'
  WHERE workspace_id=w AND user_id=actor;
- IF EXISTS(SELECT 1 FROM public.automation_action_outbox WHERE state IN ('queued','leased','sent'))
+ IF (SELECT count(*) FROM public.automation_action_outbox
+   WHERE workspace_id=w AND state IN ('queued','leased','sent'))<>actions_before
  THEN RAISE EXCEPTION 'Rollback emitted actions'; END IF;
 END $qa$;
 RESET ROLE;
