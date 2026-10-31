@@ -7,7 +7,9 @@
 import { planServerShadowCompiled } from '../functions/automation-api/shadowEngine.ts';
 import type { TrustedReferences } from '../functions/automation-api/graphGuard.ts';
 
-const w='11111111-1111-4111-8111-111111111111';
+const w='cf000000-0000-4000-8000-000000000001';
+const flow='cf000000-0000-4000-8000-000000000002';
+const version='cf000000-0000-4000-8000-000000000003';
 const SQL_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function assert(ok:unknown,msg:string):asserts ok { if(!ok)throw Error(msg); }
 async function sql(stmt:string){
@@ -34,8 +36,25 @@ const refs:TrustedReferences={
 };
 try {
  // Same backend functions as the hosted worker, but on a disposable database.
- await sql("UPDATE public.automation_workspaces SET active=true WHERE id='"+w+
-  "'; UPDATE public.automation_runtime_settings SET mode='shadow',emergency_stop=false WHERE workspace_id='"+w+"'; SELECT 'ready';");
+ // A dedicated workspace prevents older SQL fixtures from influencing the
+ // selected event or expected flow count; no production workspace is touched.
+ await sql("INSERT INTO public.automation_workspaces(id,slug,active) VALUES ("+
+  sqlLiteral(w)+"::uuid,'qa-engine-db-bridge',true);"+
+  "INSERT INTO public.automation_runtime_settings(workspace_id,mode,emergency_stop) VALUES ("+
+  sqlLiteral(w)+"::uuid,'shadow',false);"+
+  "INSERT INTO public.automation_flows(id,workspace_id,slug,name,kind,enabled) VALUES ("+
+  sqlLiteral(flow)+"::uuid,"+sqlLiteral(w)+"::uuid,'qa-bridge-flow','Compiler SQL bridge','pipeline',false);"+
+  "WITH g AS (SELECT jsonb_set(graph_json,'{id}',to_jsonb("+sqlLiteral(flow)+"::text)) x "+
+  "FROM public.automation_flow_versions WHERE flow_id='44444444-4444-4444-8444-444444444444' "+
+  "AND status='published' ORDER BY version DESC LIMIT 1) "+
+  "INSERT INTO public.automation_flow_versions"+
+  "(id,workspace_id,flow_id,version,schema_version,status,graph_json,content_sha256,published_by,published_at) "+
+  "SELECT "+sqlLiteral(version)+"::uuid,"+sqlLiteral(w)+"::uuid,"+
+    sqlLiteral(flow)+"::uuid,1,'1.0.0','published',x,"+
+    "encode(sha256(convert_to(x::text,'UTF8')),'hex'),"+
+    "'cf000000-0000-4000-8000-000000000009'::uuid,clock_timestamp() FROM g;"+
+  "UPDATE public.automation_flows SET published_version_id="+sqlLiteral(version)+"::uuid "+
+   "WHERE workspace_id="+sqlLiteral(w)+"::uuid; SELECT 'ready';");
  const inbox=await sql("SELECT public.automation_shadow_ingest('"+w+
   "','crm','qa.bridge.compiler.01','opportunity.created','{}'::jsonb)");
  assert(SQL_ID.test(inbox),'Inbox UUID missing');
