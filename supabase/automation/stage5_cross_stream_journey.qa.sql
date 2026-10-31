@@ -10,13 +10,13 @@ DECLARE
   onboard_id text:='onboarding:c1000000-0000-4000-8000-000000000002';
   bad_id text:='failed:c1000000-0000-4000-8000-000000000003';
   expired_id text:='expired:c1000000-0000-4000-8000-000000000004';
-  id text;
+  v_event_id text;
 BEGIN
  -- P01/P02: journey stages correlate by immutable canonical opportunity ID.
- FOREACH id IN ARRAY ARRAY[intake_id,checkout_id,paid_id,onboard_id] LOOP
+ FOREACH v_event_id IN ARRAY ARRAY[intake_id,checkout_id,paid_id,onboard_id] LOOP
    IF (SELECT count(*) FROM public.automation_event_inbox
-      WHERE event_id=id AND context_refs->>'opportunity_id'=opportunity)<>1
-   THEN RAISE EXCEPTION 'Stage5 canonical opportunity correlation lost: %',id; END IF;
+      WHERE event_id=v_event_id AND context_refs->>'opportunity_id'=opportunity)<>1
+   THEN RAISE EXCEPTION 'Stage5 canonical opportunity correlation lost: %',v_event_id; END IF;
  END LOOP;
  IF (SELECT context_refs->>'order_id' FROM public.automation_event_inbox
      WHERE event_id=paid_id)
