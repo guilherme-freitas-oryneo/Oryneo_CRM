@@ -12,6 +12,8 @@ DECLARE
   plans jsonb;
   outcome jsonb;
   denied boolean:=false;
+  v_recovered integer;
+  v_state text;
 BEGIN
   -- A disabled workspace cannot receive events from the new engine.
   BEGIN
@@ -98,9 +100,10 @@ BEGIN
   again:=public.automation_shadow_ingest(w,'crm','evt.exhausted','opportunity.created','{}'::jsonb);
   UPDATE public.automation_event_inbox SET attempts=5,lease_until=now()-interval '1 second'
     WHERE id=again;
-  IF public.automation_shadow_recover(w)<>1
-    OR (SELECT state FROM public.automation_event_inbox WHERE id=again)<>'failed'
-  THEN RAISE EXCEPTION 'Exhausted retry was not quarantined'; END IF;
+  SELECT public.automation_shadow_recover(w) INTO v_recovered;
+  SELECT state INTO v_state FROM public.automation_event_inbox WHERE id=again;
+  IF v_recovered<>1 OR v_state<>'failed'
+  THEN RAISE EXCEPTION 'Exhausted retry was not quarantined: count %, state %',v_recovered,v_state; END IF;
   -- Restore safe defaults before ending even in disposable fixture.
   UPDATE public.automation_runtime_settings SET mode='disabled',emergency_stop=true WHERE workspace_id=w;
   UPDATE public.automation_workspaces SET active=false WHERE id=w;
