@@ -12,13 +12,15 @@ import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
 import { SIMULATION_CASES, buildSimulationCase, type SimulationCaseId } from './simulationCases';
 import './automations-workspace.css';
 import './commercial-readiness.css';
+import {SdrIntelligencePanel} from './SdrIntelligencePanel.tsx';
 
-type Tab = 'overview' | 'pipeline' | 'sdr' | 'triggers' | 'templates' | 'executions';
+type Tab = 'overview' | 'pipeline' | 'sdr' | 'triggers' | 'intelligence' | 'templates' | 'executions';
 const TABS: { key: Tab; label: string; icon: typeof Workflow }[] = [
   { key: 'overview', label: 'Visão geral', icon: Layers3 },
   { key: 'pipeline', label: 'Fluxos do pipeline', icon: Workflow },
   { key: 'sdr', label: 'Fluxos do SDR', icon: GitBranch },
   { key: 'triggers', label: 'Gatilhos e condições', icon: Settings2 },
+  { key: 'intelligence', label: 'Inteligência SDR', icon: BookOpen },
   { key: 'templates', label: 'Templates e canais', icon: BookOpen },
   { key: 'executions', label: 'Execuções e diagnóstico', icon: History },
 ];
@@ -532,6 +534,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const subviews: Record<Exclude<Tab,'pipeline'|'sdr'>, { title: string; description: string }> = {
     overview: { title: 'Orquestração comercial', description: 'Centralize seus fluxos e acompanhe a transição para o novo motor com segurança.' },
     triggers: { title: 'Gatilhos e condições', description: 'Biblioteca de regras tipadas. Condições editáveis exigem confirmação do backend.' },
+    intelligence: { title: 'Playbook e intenções do SDR', description: 'Fontes versionadas e aprovação controlada, sem mexer no atendimento operacional.' },
     templates: { title: 'Templates e canais', description: 'Os modelos precisam ser sincronizados com a Meta antes de qualquer envio.' },
     executions: { title: 'Execuções e diagnóstico', description: 'A nova engine ainda não está habilitada. As execuções legadas permanecem no sistema atual.' },
   };
@@ -760,7 +763,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
           <div><span>Esperas vencidas</span><strong>{runtimeStatus?.dueTimers ?? '—'}</strong><small>Somente observação, sem envio automático</small></div>
           <div><span>Envios com resultado incerto</span><strong>{runtimeStatus?.uncertainActions ?? '—'}</strong><small>Exigem reconciliação com o provedor; não reenviar automaticamente</small></div>
           <div><span>Envios confirmados pela nova engine</span><strong>{runtimeStatus?.sentActions ?? '—'}</strong><small>Na fila: {runtimeStatus?.queuedActions ?? '—'} · Reservados: {runtimeStatus?.leasedActions ?? '—'}</small></div>
-        </div> : tab==='templates' ? <div className="ory-auto-catalog">
+        </div> : tab==='intelligence' ? <SdrIntelligencePanel workspaceId={workspace?.id||null} role={workspace?.role||null}/> : tab==='templates' ? <div className="ory-auto-catalog">
           <div className="ory-auto-catalog-heading"><div><strong>Catálogo oficial de templates</strong><p>Sincronização read-only da Meta. Status pode mudar; envio exige revalidação no servidor.</p></div><span>{metaTemplates.length} cadastrados</span></div>
           {metaTemplates.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Nome do template</th><th>Categoria</th><th>Idioma</th><th>Status</th></tr></thead><tbody>
             {metaTemplates.map(item=><tr key={item.id}><td>{item.template_name}<small>ID {item.provider_template_id||'não disponível'}</small></td>
