@@ -55,3 +55,31 @@ test('conexão e undo/redo preservam port IDs sem disparos',async({page})=>{
  await expect(lines).toHaveCount(2);
  await expect(page.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
 });
+
+test('arrastar bloco e conectar handle cria aresta tipada no mesmo grafo',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto('/qa/automation-editor/index.html');
+ await page.getByRole('button',{name:'Fluxos do pipeline'}).click();
+ await page.getByRole('button',{name:/Novo fluxo/}).first().click();
+ const canvas=page.getByRole('region',{name:'Canvas visual do pipeline'});
+ const palette=page.getByRole('button',{name:'Adicionar bloco Condição'});
+ await palette.dragTo(canvas,{targetPosition:{x:430,y:240}});
+ await expect(page.getByRole('button',{name:'Editar nó Condição'})).toBeVisible();
+ await page.getByRole('button',{name:'Conectar saída yes do nó Condição'})
+   .dragTo(page.getByRole('button',{name:'Editar nó Fim'}));
+ await expect(page.locator('.ory-auto-edge-add')).toHaveCount(2);
+ await expect(page.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
+});
+
+test('salvar e reabrir novo rascunho mantém nós e conexões sem acionar provedores',async({page})=>{
+ await page.goto('/qa/automation-editor/index.html');
+ await page.getByRole('button',{name:'Fluxos do SDR'}).click();
+ await page.getByRole('button',{name:/Novo fluxo/}).first().click();
+ await page.getByRole('button',{name:'Adicionar bloco Classificação de intenção'}).click();
+ await page.getByRole('button',{name:'Salvar rascunho'}).click();
+ await expect(page.getByText('Cópia de segurança salva neste navegador.')).toBeVisible();
+ await page.getByRole('button',{name:'Voltar à lista'}).click();
+ await page.getByRole('button',{name:/Novo fluxo SDR/}).first().click();
+ await expect(page.getByRole('button',{name:'Editar nó Classificação de intenção'})).toBeVisible();
+ await expect(page.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
+});
