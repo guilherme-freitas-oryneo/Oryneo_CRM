@@ -51,12 +51,12 @@ VALUES('11111111-1111-4111-8111-111111111111',
  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',clock_timestamp()-interval '15 minutes',true);
 INSERT INTO public.automation_template_registry
 (id,workspace_id,provider_account_id,provider_template_id,template_name,
- language,category,provider_status,parameter_schema)
+ language,category,provider_status,parameter_schema,synced_at)
 VALUES('c9000000-0000-4000-8000-000000000003',
  '11111111-1111-4111-8111-111111111111',
  '2222222222222222','5555555555555555','oryneo_utility_example_v3',
  'pt_BR','UTILITY','APPROVED',
- '{"components_verified":true,"variable_numbers":["1"]}'::jsonb);
+ '{"components_verified":true,"variable_numbers":["1"]}'::jsonb,clock_timestamp());
 INSERT INTO public.automation_flows
 (id,workspace_id,slug,name,kind,enabled)
 VALUES('c9000000-0000-4000-8000-000000000004',
