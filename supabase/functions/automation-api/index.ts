@@ -244,6 +244,37 @@ Deno.serve(async request => {
   }
 
 
+  // Workspace-scoped, strictly non-PII execution diagnostics for the
+  // visual trace inspector. No raw message, prompt, provider payload, token,
+  // arbitrary sanitized_trace JSON or customer identifier is returned.
+  if (action === 'execution-detail') {
+    if (!validUuid(body.executionId))
+      return reply({error:'Execução inválida.'},400);
+    const [header,nodes,actions,waits]=await Promise.all([
+      db.from('automation_executions')
+        .select('id,flow_version_id,state,started_at,finished_at')
+        .eq('workspace_id',workspaceId).eq('id',body.executionId).maybeSingle(),
+      db.from('automation_node_executions')
+        .select('id,node_id,state,attempt,result_code,created_at')
+        .eq('workspace_id',workspaceId).eq('execution_id',body.executionId)
+        .order('created_at',{ascending:true}).limit(500),
+      db.from('automation_action_outbox')
+        .select('node_id,action_type,state,attempts,result_code,created_at')
+        .eq('workspace_id',workspaceId).eq('execution_id',body.executionId)
+        .order('created_at',{ascending:true}).limit(100),
+      db.from('automation_wait_timers')
+        .select('id,node_id,state,reason_code,due_at,created_at,updated_at')
+        .eq('workspace_id',workspaceId).eq('execution_id',body.executionId)
+        .order('created_at',{ascending:true}).limit(100),
+    ]);
+    if([header,nodes,actions,waits].some(r=>r.error))
+      return reply({error:'Diagnóstico indisponível.'},503);
+    if(!header.data)return reply({error:'Execução não encontrada.'},404);
+    return reply({ok:true,readOnly:true,sanitized:true,dispatchAuthorized:false,
+      execution:header.data,nodes:nodes.data||[],
+      actions:actions.data||[],timers:waits.data||[]});
+  }
+
   // Authenticated preflight reads canonical references on the server.
   // Results cannot be reused as an authorization token.
   if (action === 'simulate') {
