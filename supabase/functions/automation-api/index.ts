@@ -124,6 +124,35 @@ Deno.serve(async request => {
       : reply({ ok: true, templates: data || [], componentsVerified: false });
   }
 
+  // Authorized read-only choices for typed node inspectors. Never send the
+  // whole commercial record or unverified template components to the browser.
+  if (action === 'catalog') {
+    const [stages,templates,knowledge,dictionaries]=await Promise.all([
+      db.from('crm_records').select('id,data').eq('kind','stage').eq('deleted',false).limit(100),
+      db.from('automation_template_registry')
+        .select('id,template_name,provider_status,parameter_schema,language')
+        .eq('workspace_id',workspaceId).limit(200),
+      db.from('automation_knowledge_release').select('id,release_version')
+        .eq('workspace_id',workspaceId).eq('status','published').limit(100),
+      db.from('automation_intent_dictionary').select('id,release_version')
+        .eq('workspace_id',workspaceId).eq('status','published').limit(100),
+    ]);
+    if(stages.error||templates.error||knowledge.error||dictionaries.error)
+      return reply({error:'Catálogo canônico indisponível.'},503);
+    return reply({ok:true,catalog:{
+      stages:(stages.data||[]).map(x=>({id:x.id,name:
+        typeof x.data?.name==='string'?x.data.name:'Etapa sem nome'})),
+      templates:(templates.data||[])
+        .filter(t=>t.provider_status==='APPROVED'&&t.language==='pt_BR'
+          &&t.parameter_schema&&typeof t.parameter_schema==='object'
+          &&!Array.isArray(t.parameter_schema)
+          &&t.parameter_schema.components_verified===true)
+        .map(t=>({id:t.id,name:t.template_name})),
+      knowledge:(knowledge.data||[]).map(x=>({id:x.id,name:'Conhecimento v'+x.release_version})),
+      dictionaries:(dictionaries.data||[]).map(x=>({id:x.id,name:'Intenções v'+x.release_version})),
+    },readOnly:true});
+  }
+
   if (action === 'executions') {
     const { data, error } = await db.from('automation_executions')
       .select('id,flow_version_id,state,started_at,finished_at,correlation_id')
