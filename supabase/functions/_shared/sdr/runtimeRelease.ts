@@ -13,15 +13,27 @@ export type SdrSafeContext={
  knowledgeVersion:number|null;dictionaryVersion:number|null;
  dispatchAuthorized:false;
 };
+/** Stable SHA input across PostgreSQL JSONB and JavaScript object key ordering. */
+export function canonicalJson(value:unknown):string{
+ if(Array.isArray(value))return '['+value.map(canonicalJson).join(',')+']';
+ if(value&&typeof value==='object'){
+  const keys=Object.keys(value as Record<string,unknown>).sort();
+  return '{'+keys.filter(k=>(value as Record<string,unknown>)[k]!==undefined)
+   .map(k=>JSON.stringify(k)+':'+canonicalJson((value as Record<string,unknown>)[k])).join(',')+'}';
+ }
+ return JSON.stringify(value);
+}
+export async function dictionaryDigest(dictionary:IntentDictionary):Promise<string>{
+ const raw=canonicalJson({format:'oryneo-intents-v1',release_version:dictionary.releaseVersion,
+  language:dictionary.language,entries:dictionary.entries});
+ return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw))),
+  x=>x.toString(16).padStart(2,'0')).join('');
+}
 export async function verifyDictionaryDigest(
  release:SdrDictionaryRecord|null,entries:IntentDictionary|null,
 ):Promise<boolean>{
  if(!isApprovedDictionary(release,entries))return false;
- const raw=JSON.stringify({format:'oryneo-intents-v1',release_version:entries!.releaseVersion,
-  language:entries!.language,entries:entries!.entries});
- const binary=new TextEncoder().encode(raw);
- const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',binary)),
-  x=>x.toString(16).padStart(2,'0')).join('');
+ const hash=await dictionaryDigest(entries!);
  return hash===release!.content_sha256;
 }
 export function readDictionaryPayload(r:SdrDictionaryRecord|null):IntentDictionary|null{
