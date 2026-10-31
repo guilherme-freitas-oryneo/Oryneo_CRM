@@ -41,7 +41,11 @@ Arquivos relevantes:
 - Engine preservada: Deno check/test e PostgreSQL 17 descartável (worker, leases, timers, RLS, CAS, rollback) sem efeitos externos.
 - Browser Chromium real, 390/768/1024/1440 pixels: Pipeline, SDR, drag-and-drop de palette, handles, inserção em edge, desfazer/refazer, salvar/reabrir, E01/E06; screenshots anexados à execução do GitHub Actions.
 - A captura visual foi inspecionada em desktop e mobile; os cards permanecem dentro do viewport quando selecionados, com scroll no canvas em fluxos amplos.
-- URL dos jobs e contagem final registrados no PR #75 quando a CI encerrar.
+- **CI final homologada:** [GitHub Actions run #41230030162](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41230030162) — **4/4 jobs verdes** (`crm-regression`, `editor-browser-qa`, `schema-isolation`, `failure-policy`).
+- **CRM/Vite:** build aprovado; **526 testes Vitest aprovados em 79 arquivos**.
+- **Chromium:** **13/13 cenários Playwright aprovados**, incluindo 390/768/1024/1440 px, drag/drop, conexão real de portas, E01 com movimento persistido, E06 com três condições preservadas, retomada de drafts e undo/redo.
+- **PostgreSQL descartável + Deno:** fluxo canônico `ingest → lease → compiler → durable ACK` com **1 fluxo, 2 nós, 0 efeitos externos**; RLS, rollback e parada de emergência aprovados.
+- **Capturas e artefatos:** `oryneo-phase2-visual-editor-qa` (artefato #13052873167), oito imagens reais da UI dos dois editores em quatro larguras, acessíveis no link da CI.
 
 ## Limites deliberados
 - A etapa entrega o **editor visual completo para preparação, validação e simulação**; a ativação real continua bloqueada.
