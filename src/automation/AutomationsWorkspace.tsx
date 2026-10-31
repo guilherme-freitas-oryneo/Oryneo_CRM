@@ -501,6 +501,8 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
           <div><span>Templates Meta sincronizados</span><strong>{metaTemplates.length||'—'}</strong><small>Envios exigem status e consentimento válidos no momento do disparo</small></div>
           <div><span>Eventos pendentes</span><strong>{runtimeStatus?.pendingEvents ?? '—'}</strong><small>Observação autorizada do servidor</small></div>
           <div><span>Registros de ação</span><strong>{runtimeStatus?.actionRows ?? '—'}</strong><small>{runtimeStatus?.emergencyStop ? 'Bloqueados pela parada de emergência' : 'Consulte a política ativa'}</small></div>
+          <div><span>Esperas em andamento</span><strong>{runtimeStatus?.waitingTimers ?? '—'}</strong><small>Canceladas por resposta: {runtimeStatus?.cancelledTimers ?? '—'}</small></div>
+          <div><span>Esperas vencidas</span><strong>{runtimeStatus?.dueTimers ?? '—'}</strong><small>Somente observação, sem envio automático</small></div>
         </div> : tab==='templates' ? <div className="ory-auto-catalog">
           <div className="ory-auto-catalog-heading"><div><strong>Catálogo oficial de templates</strong><p>Sincronização read-only da Meta. Status pode mudar; envio exige revalidação no servidor.</p></div><span>{metaTemplates.length} cadastrados</span></div>
           {metaTemplates.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Nome do template</th><th>Categoria</th><th>Idioma</th><th>Status</th></tr></thead><tbody>
