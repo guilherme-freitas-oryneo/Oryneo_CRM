@@ -9,7 +9,15 @@ CREATE TABLE IF NOT EXISTS public.crm_wa_channels(
 );
 GRANT SELECT ON public.crm_wa_channels TO service_role;
 GRANT SELECT ON public.crm_wa_conversations TO service_role;
+ALTER TABLE public.crm_wa_messages ADD COLUMN IF NOT EXISTS
+ provider_message_id text UNIQUE;
+ALTER TABLE public.crm_wa_messages ADD COLUMN IF NOT EXISTS kind text,
+ ADD COLUMN IF NOT EXISTS delivery_status text;
+ALTER TABLE public.crm_wa_conversations ADD COLUMN IF NOT EXISTS last_preview text,
+ ADD COLUMN IF NOT EXISTS last_message_at timestamptz,
+ ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 \i supabase/automation/live_whatsapp_delivery.preview.sql
+\i supabase/automation/live_meta_receipt.preview.sql
 -- Test-only grants; production grant is SELECT only for the consent ledger.
 GRANT INSERT,UPDATE ON public.automation_whatsapp_marketing_consents TO service_role;
 GRANT UPDATE ON public.automation_template_registry TO service_role;
@@ -103,7 +111,7 @@ DECLARE
  w uuid:='11111111-1111-4111-8111-111111111111';
  action uuid:='c9000000-0000-4000-8000-000000000008';
  convo uuid:='c9000000-0000-4000-8000-000000000002';
- v record;counted integer:=0;
+ v record;counted integer:=0; receipt jsonb; denied boolean:=false;
 BEGIN
  FOR v IN SELECT * FROM public.automation_whatsapp_claim_template(w,2) LOOP
   IF v.action_id<>action OR v.template_registry_id IS NULL OR
@@ -112,10 +120,28 @@ BEGIN
   counted:=counted+1;
  END LOOP;
  IF counted<>1 THEN RAISE EXCEPTION 'VALID_UTILITY_TEMPLATE_NOT_CLAIMED'; END IF;
+ receipt:=public.automation_meta_template_receipt(w,action,v.claim_token,
+   'wamid.macro6.qa.0001','Mensagem homologada sem envio real');
+ IF receipt->>'receiptStored'<>'true'
+ OR (SELECT count(*) FROM public.crm_wa_messages
+    WHERE provider_message_id='wamid.macro6.qa.0001' AND conversation_id=convo)<>1
+ OR (SELECT state FROM public.automation_action_outbox WHERE id=action)<>'sent'
+ THEN RAISE EXCEPTION 'META_RECEIPT_OR_CRM_READ_MODEL_NOT_ATOMIC'; END IF;
+ receipt:=public.automation_meta_template_receipt(w,action,v.claim_token,
+   'wamid.macro6.qa.0001','Mensagem homologada sem envio real');
+ IF receipt->>'alreadyRecorded'<>'true' THEN RAISE EXCEPTION 'META_RECEIPT_REPLAY'; END IF;
+ denied:=false;
+ BEGIN
+  PERFORM public.automation_meta_template_receipt(w,action,
+   'ffffffff-ffff-4fff-8fff-ffffffffffff','wamid.macro6.qa.0002','Mensagem');
+ EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
+ IF NOT denied THEN RAISE EXCEPTION 'META_STALE_RECEIPT_ACCEPTED'; END IF;
+
  IF EXISTS(SELECT 1 FROM public.automation_whatsapp_claim_template(w,2))
  THEN RAISE EXCEPTION 'META_DUPLICATE_CLAIM'; END IF;
  UPDATE public.automation_action_outbox SET state='queued',
- claim_token=NULL,lease_until=NULL WHERE id=action;
+ claim_token=NULL,lease_until=NULL,provider_result_id=NULL,
+ reconciled_at=NULL WHERE id=action;
  UPDATE public.crm_wa_conversations SET opted_out=true WHERE id=convo;
  IF EXISTS(SELECT 1 FROM public.automation_whatsapp_claim_template(w,2))
  THEN RAISE EXCEPTION 'META_OPT_OUT_IGNORED'; END IF;
