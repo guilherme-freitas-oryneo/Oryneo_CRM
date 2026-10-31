@@ -16,7 +16,7 @@ export type SdrReleaseRecord={
 };
 export type SdrDictionaryRecord={
  id:string;release_version:number;status:string;approved_by:string|null;
- content_sha256:string|null;examples:unknown;synonyms:unknown;
+ language:string;content_sha256:string|null;examples:unknown;synonyms:unknown;
 };
 export type SdrReleaseContext={
  knowledge:SdrReleaseRecord|null;dictionary:SdrDictionaryRecord|null;
