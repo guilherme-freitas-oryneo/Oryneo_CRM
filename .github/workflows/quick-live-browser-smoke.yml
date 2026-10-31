@@ -1,0 +1,84 @@
+name: ORYNEO — Navegador real do CRM publicado (sem downloads de browser)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/quick-live-browser-smoke.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-public:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Validar Chrome pré-instalado
+        shell: bash
+        run: |
+          set -euo pipefail
+          which google-chrome
+          google-chrome --version
+      - name: Instalar pacote JS sem fazer download dos navegadores
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: |
+          npm ci
+          npm install --no-save --ignore-scripts --no-package-lock playwright@1.56.1
+      - name: Verificar UI pública em mobile e desktop sem autenticação ou envio
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {chromium} from 'playwright';
+          import fs from 'node:fs';
+          fs.mkdirSync('qa-live-browser',{recursive:true});
+          const chrome=process.env.CHROME_BIN||'/usr/bin/google-chrome';
+          const browser=await chromium.launch({
+            executablePath:chrome,headless:true,args:['--no-sandbox'],
+          });
+          const crm='https://crm.oryneo.com.br/';
+          for(const mode of [
+           {name:'mobile',width:390,height:844,isMobile:true},
+           {name:'desktop',width:1440,height:900,isMobile:false}
+          ]){
+           const context=await browser.newContext({
+            viewport:{width:mode.width,height:mode.height},
+            isMobile:mode.isMobile,hasTouch:mode.isMobile,
+            reducedMotion:'reduce'
+           });
+           const page=await context.newPage();
+           const failures=[];
+           page.on('pageerror',err=>failures.push(err.message));
+           const resp=await page.goto(crm,{waitUntil:'domcontentloaded',timeout:45000});
+           if(!resp||resp.status()!==200)throw Error('PUBLIC_CRM_HTTP_'+mode.name);
+           const email=page.locator('input[name="email"]');
+           const password=page.locator('input[name="password"]');
+           await email.waitFor({state:'visible',timeout:30000});
+           await password.waitFor({state:'visible',timeout:30000});
+           const report=await page.evaluate(()=>{
+            const fields=[document.querySelector('input[name="email"]'),
+             document.querySelector('input[name="password"]')];
+            return {
+             title:document.title,
+             form:fields.every(el=>el&&el.getBoundingClientRect().width>0),
+             horizontalOverflow:document.documentElement.scrollWidth>
+              window.innerWidth+2,
+            };
+           });
+           await page.screenshot({path:'qa-live-browser/'+mode.name+'.png',fullPage:true});
+           if(!report.form||report.horizontalOverflow||failures.length)
+            throw Error('PUBLIC_CRM_BROWSER_'+mode.name+': '+JSON.stringify({report,failures}));
+           console.log('PUBLIC_BROWSER_PASS',mode.name,JSON.stringify(report));
+           await context.close();
+          }
+          await browser.close();
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oryneo-live-browser-390-1440
+          path: qa-live-browser/
+          if-no-files-found: ignore
