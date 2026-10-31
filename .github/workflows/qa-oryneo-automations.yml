@@ -211,10 +211,15 @@ jobs:
       - name: Instalar dependências travadas e navegador de QA isolado
         run: |
           npm ci
-          npm install --no-save --package-lock=false @playwright/test@1.58.2
-          npx playwright install --with-deps chromium
+          # Install browser QA tooling in an isolated prefix, not the application's
+          # pinned dependency graph; avoid npm Arborist modifying CRM node_modules.
+          mkdir -p /tmp/oryneo-playwright
+          npm install --prefix /tmp/oryneo-playwright --no-save --package-lock=false @playwright/test@1.58.2
+          ln -s /tmp/oryneo-playwright/node_modules/@playwright node_modules/@playwright
+          ln -s /tmp/oryneo-playwright/node_modules/playwright node_modules/playwright
+          /tmp/oryneo-playwright/node_modules/.bin/playwright install --with-deps chromium
       - name: Executar interações e capturas desktop, tablet e mobile sem autenticação de produção
-        run: npx playwright test --config=qa/automation-editor/playwright.config.ts --workers=1
+        run: /tmp/oryneo-playwright/node_modules/.bin/playwright test --config=qa/automation-editor/playwright.config.ts --workers=1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
