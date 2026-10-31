@@ -245,7 +245,7 @@
     {
       "id": "E09",
       "path": "qa/automation-editor/editor.pw.ts",
-      "needle": "em 390px",
+      "needle": "Stage5 E09: 390px touch controls",
       "level": "browser",
       "liveValidated": false
     },
