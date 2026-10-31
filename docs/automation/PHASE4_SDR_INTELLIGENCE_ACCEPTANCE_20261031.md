@@ -67,9 +67,17 @@ A observação vale para o **instante da consulta**; não autoriza envios futuro
 | B03/SDR legado | PR encadeada, origem preservada e treinamento novo default OFF |
 | 8 modelos iniciais | Já implantados como **drafts inativos** e cobertos pela regressão herdada |
 
-## 4. Evidência final de CI
+## 4. Evidência final de CI — aceite em ambiente isolado
 
-O GitHub Actions da branch precisa concluir os quatro jobs `schema-isolation`, `failure-policy`, `crm-regression` e `editor-browser-qa`. A release só é considerada tecnicamente aceita depois da verificação do **HEAD de código**. Os testes Deno cobrem o classificador, recuperação, release, situações de risco e prova Meta; o PostgreSQL 17 é descartável e nenhuma ação sai da sandbox.
+**[GitHub Actions #41238539367](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41238539367)** — HEAD de código `6c545afd4d1071ae659ee64121c802a95d75eae5`, **4/4 jobs verdes**:
+
+- `crm-regression`: **531/531 testes Vitest em 80 arquivos**; build TypeScript + Vite verde; hash das fontes Playbook/Billing conferido, sem alterações.
+- `editor-browser-qa`: **18/18 casos Chromium Playwright**, incluindo o editor semântico com negação e revisão humana nas larguras de 390, 768 e 1440 pixels, mais regressão visual e funcional dos editores Pipeline/SDR.
+- `failure-policy`: typecheck Deno da API e do worker SDR opt-in, regras S02/S03/S09/S11/S12/S13/K01/K02/K03/E07 e controles Meta C01/C02/E11/E12, sem chamadas reais a provedores.
+- `schema-isolation`: PostgreSQL 17 descartável; `stage4-sdr-release-fenced-immutable-cas-qa-passed`, CAS/rollback, papéis, snapshots imutáveis e zero envios. Ponte Deno/PostgreSQL aprovada: um fluxo, dois rastros, **0 efeitos externos**.
+- Os testes e capturas reais de navegador estão disponíveis como artefato `oryneo-phase2-visual-editor-qa` da execução; apesar do nome legado do artefato, foram acrescentadas capturas da nova aba de Inteligência SDR.
+
+**Aceite do escopo de engenharia da Macroetapa 4: concluído em isolamento.** As autorizações comerciais, termos legais, a integração operacional live e os 47 cenários integrados ainda exigem as etapas 5–6.
 
 **Não confundir:** uma execução com CI verde prova os cenários automatizados; não equivale a conversa real do SDR com cliente, aprovação de termos legais ou ativação de canais no ambiente publicado.
 
@@ -85,4 +93,4 @@ O GitHub Actions da branch precisa concluir os quatro jobs `schema-isolation`, `
 
 Como o trabalho está em branch de desenvolvimento, rollback técnico é não integrar/reverter o PR #77. O banco em produção, a chave de treinamento, o SDR antigo e a conta Meta permanecem sem alteração. Em uma liberação futura, selecionar um snapshot antigo só sob controle de revisão CAS e parada de emergência; a operação **não** altera o conteúdo já publicado.
 
-**Conclusão do desenvolvimento:** o componente da Etapa 4 foi entregue em isolamento e aguarda evidência final de CI e homologação global posterior. Nenhum envio foi autorizado por esta etapa.
+**Conclusão técnica:** o componente da Etapa 4 passou pela CI integral e está **homologado em ambiente isolado**. Homologação global posterior e ativação de produção permanecem fora desta etapa. Nenhum envio foi autorizado por esta entrega.
