@@ -179,6 +179,8 @@ jobs:
 
       - name: Homologar planejamento live CRM com fencing, idempotência e nenhuma mensagem
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_crm_execution.qa.sql
+      - name: Homologar claim de template Meta com consentimento e parada, sem envios
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_whatsapp_delivery.qa.sql
       - name: Homologar continuação transacional de ações CRM até estado terminal
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_crm_continue.qa.sql
       - name: Homologar armar e desarmar fluxo publicado CRM enquanto o runtime está desligado
