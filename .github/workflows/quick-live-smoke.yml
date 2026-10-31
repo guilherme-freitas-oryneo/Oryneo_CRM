@@ -1,0 +1,44 @@
+name: ORYNEO — HTTP live smoke do CRM publicado
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/quick-live-smoke.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-http:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirmar frontend público sem autenticar, enviar lead ou cobrar
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          const origin='https://crm.oryneo.com.br';
+          async function get(path){
+            const u=origin+path;
+            const r=await fetch(u,{redirect:'follow',
+              headers:{'Cache-Control':'no-cache'},
+              signal:AbortSignal.timeout(35000)});
+            if(r.status!==200)throw Error('HTTP_PUBLIC_'+r.status+' '+path);
+            return {response:r,body:await r.text()};
+          }
+          const entry=await get('/');
+          if(!entry.body.includes('oryneo-y.svg')||
+            !entry.body.includes('/assets/'))
+            throw Error('PUBLIC_ENTRY_ASSETS_MISSING');
+          const js=entry.body.match(/src="(\/assets\/[^"]+\.js)"/);
+          if(!js)throw Error('PUBLIC_MODULE_MISSING');
+          const built=await get(js[1]);
+          if(built.body.length<1024)throw Error('PUBLIC_BUNDLE_EMPTY');
+          const contentType=built.response.headers.get('content-type')||'';
+          if(!/javascript/.test(contentType))throw Error('PUBLIC_BUNDLE_MIME_INVALID');
+          for(const path of ['/oryneo-y.svg','/pagar/','/contratar/','/Oryneo_CRM/']){
+            const p=await get(path);
+            if(p.body.length<50)throw Error('PUBLIC_PATH_EMPTY_'+path);
+          }
+          console.log('ORYNEO_HTTP_PUBLIC_SMOKE_OK',{origin,asset:js[1],
+            loginBytes:entry.body.length,bundleBytes:built.body.length,
+            noLeadsSent:true,noPaymentCreated:true});
+          JS
