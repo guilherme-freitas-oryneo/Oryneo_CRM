@@ -338,7 +338,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     commit({ok:true,graph:{...current,nodes:[...current.nodes,node]}});
     setSelectedId(node.id);setSelectedIds([node.id]);
     setJsonConfig(JSON.stringify(node.config,null,2));setMenu(null);
-    setNotice('Bloco inserido. Conecte as portas e valide os ramos antes de congelar.');
+    setNotice('Bloco inserido. Conecte as portas antes de validar ou publicar.');
   };
   const addAtCanvas=(type:NodeKind)=>{
     if(!menu)return;
