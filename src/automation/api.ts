@@ -179,3 +179,20 @@ export async function simulateRemoteAutomationDraft(
    throw new Error('Simulação sem garantias de segurança.');
  return result.result;
 }
+
+/** Server-authorized, workspace-scoped execution trace. Never returns payloads or PII. */
+export type AutomationExecutionDetail={
+  execution:{id:string;flow_version_id:string;state:string;started_at:string;finished_at:string|null};
+  nodes:{id:string;node_id:string;state:string;attempt:number;result_code:string|null;created_at:string}[];
+  actions:{node_id:string;action_type:string;state:string;attempts:number;result_code:string|null;created_at:string}[];
+  timers:{id:string;node_id:string;state:string;reason_code:string|null;due_at:string;created_at:string;updated_at:string}[];
+};
+export async function loadRemoteAutomationExecutionDetail(
+ workspaceId:string,executionId:string,
+):Promise<AutomationExecutionDetail>{
+ const result=await invoke<{ok:true;readOnly:true;sanitized:true;dispatchAuthorized:false}
+  & AutomationExecutionDetail>({action:'execution-detail',workspaceId,executionId});
+ if(!result.readOnly||!result.sanitized||result.dispatchAuthorized!==false)
+  throw new Error('Resposta de auditoria não verificada.');
+ return {execution:result.execution,nodes:result.nodes||[],actions:result.actions||[],timers:result.timers||[]};
+}

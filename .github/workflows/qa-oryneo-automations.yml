@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'supabase/automation/**'
+      - 'src/automation/**'
+      - 'qa/automation-editor*'
+      - 'qa/automation-editor/**'
       - 'supabase/functions/automation-api/**'
       - 'supabase/functions/automation-shadow-worker/**'
       - 'supabase/functions/tests/automation_*'
@@ -136,7 +139,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Executar evento real em PostgreSQL descartável pelo compilador Deno
-        run: deno run --allow-run=psql supabase/automation/engine_db_bridge.qa.ts
+        run: deno run --min-dep-age=0 --allow-run=psql supabase/automation/engine_db_bridge.qa.ts
       - name: Verificar migração idempotente, runtime desligado e outbox intacto
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -164,19 +167,19 @@ jobs:
           deno-version: v2.x
       - name: Typecheck do worker e sanitização dos erros
         run: |
-          deno check --node-modules-dir=auto supabase/functions/automation-api/index.ts
-          deno check supabase/functions/automation-api/executionKernel.ts
-          deno check --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
-          deno test supabase/functions/tests/automation_execution_kernel_test.ts
-          deno test supabase/functions/tests/automation_compiled_shadow_test.ts
-          deno test supabase/functions/tests/automation_shadow_failure_test.ts
-          deno test supabase/functions/tests/automation_graph_guard_test.ts
-          deno test supabase/functions/tests/automation_shadow_engine_test.ts
-          deno test supabase/functions/tests/automation_action_policy_test.ts
-          deno test supabase/functions/tests/automation_worker_guards_test.ts
-          deno test supabase/functions/tests/automation_shadow_context_test.ts
-          deno test supabase/functions/tests/automation_simulation_boundary_test.ts
-          deno test supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-api/index.ts
+          deno check --min-dep-age=0 supabase/functions/automation-api/executionKernel.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_execution_kernel_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_compiled_shadow_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_failure_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_graph_guard_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_engine_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_action_policy_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_worker_guards_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_context_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_simulation_boundary_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts
 
   crm-regression:
     runs-on: ubuntu-latest
@@ -195,3 +198,34 @@ jobs:
         run: npm run build -- --base=/Oryneo_CRM/
       - name: Testar regressão integral do CRM, pipeline, WhatsApp e UI
         run: npm run test -- --run
+
+  editor-browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependências travadas e navegador de QA isolado
+        run: |
+          npm ci
+          # Install browser QA tooling in an isolated prefix, not the application's
+          # pinned dependency graph; avoid npm Arborist modifying CRM node_modules.
+          mkdir -p /tmp/oryneo-playwright
+          npm install --prefix /tmp/oryneo-playwright --no-save --package-lock=false @playwright/test@1.58.2
+          ln -s /tmp/oryneo-playwright/node_modules/@playwright node_modules/@playwright
+          ln -s /tmp/oryneo-playwright/node_modules/playwright node_modules/playwright
+          /tmp/oryneo-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Executar interações e capturas desktop, tablet e mobile sem autenticação de produção
+        run: /tmp/oryneo-playwright/node_modules/.bin/playwright test --config=qa/automation-editor/playwright.config.ts --workers=1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oryneo-phase2-visual-editor-qa
+          path: |
+            qa/automation-editor/artifacts/
+            qa/automation-editor/report/
+            test-results/
+          retention-days: 10
