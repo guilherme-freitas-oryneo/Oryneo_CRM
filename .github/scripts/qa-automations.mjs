@@ -11,6 +11,7 @@ const session = {access_token:token,token_type:'bearer',expires_in:7200,expires_
 const cases = [
   {engine:chromium,name:'chromium-desktop',width:1440,height:900,touch:false},
   {engine:chromium,name:'chromium-mobile',width:390,height:844,touch:true},
+  {engine:chromium,name:'chromium-laptop',width:1024,height:768,touch:false},
   {engine:webkit,name:'webkit-tablet',width:768,height:1024,touch:true},
 ];
 fs.mkdirSync('qa-results',{recursive:true});
@@ -35,6 +36,7 @@ for (const c of cases) {
       if(input.action==='workspaces')return response({ok:true,workspaces:[{id:workspaceId,slug:'oryneo-crm',role:'admin',active:false}]});
       if(input.action==='list')return response({ok:true,flows:[]});
       if(input.action==='templates')return response({ok:true,templates:[]});
+      if(input.action==='catalog')return response({ok:true,catalog:{stages:[],templates:[],knowledge:[],dictionaries:[]},readOnly:true});
       if(input.action==='executions')return response({ok:true,executions:[]});
       if(input.action==='create')return response({ok:true,result:{id:input.graph.id,revision:1,versionId:'99999999-9999-4999-8999-999999999999'}},201);
       throw Error('Unexpected automation API action: '+input.action);
@@ -52,7 +54,7 @@ for (const c of cases) {
     await page.getByRole('textbox',{name:'Nome do fluxo'}).waitFor();
     await page.getByTitle('Simular sem efeitos externos').click();
     await page.getByText(/Simulação — não enviado/i).waitFor();
-    if(await page.getByRole('button',{name:/Publicar/}).isEnabled())throw Error('Unsafe publish enabled');
+    if(!await page.getByTitle('Publicação disponível após engine homologada').isDisabled())throw Error('Unsafe activation enabled');
     await page.screenshot({path:'qa-results/oryneo-automations-'+c.name+'.png',fullPage:false});
     await page.getByRole('button',{name:'Salvar rascunho'}).click();
     await page.getByText(/Nenhum disparo executado/i).waitFor({timeout:10000});
@@ -63,7 +65,7 @@ for (const c of cases) {
     const bodyWidth=await page.evaluate(()=>document.body.scrollWidth);
     if(bodyWidth>c.width+22)throw Error('Unexpected horizontal body overflow '+bodyWidth+'/'+c.width);
     if(errors.length)throw Error('Page errors '+errors.join(' | '));
-    if(actions.some(x=>['send','execute','publish'].includes(x)))throw Error('Unexpected effect action '+actions);
+    if(actions.some(x=>['send','execute','publish','publish-disabled'].includes(x)))throw Error('Unexpected effect action '+actions);
     if(!actions.includes('create'))throw Error('Draft persistence not invoked');
     console.log('AUTOMATIONS PASS',c.name,JSON.stringify({width:c.width,actionCount:actions.length,safeNoDispatch:true}));
   } finally {
