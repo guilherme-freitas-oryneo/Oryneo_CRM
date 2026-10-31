@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS public.crm_wa_channels(
 GRANT SELECT ON public.crm_wa_channels TO service_role;
 GRANT SELECT ON public.crm_wa_conversations TO service_role;
 \i supabase/automation/live_whatsapp_delivery.preview.sql
+-- Test-only grants; production grant is SELECT only for the consent ledger.
+GRANT INSERT,UPDATE ON public.automation_whatsapp_marketing_consents TO service_role;
+GRANT UPDATE ON public.automation_template_registry TO service_role;
 DO $acl$
 BEGIN
  IF has_table_privilege('authenticated',
@@ -123,6 +126,26 @@ BEGIN
  THEN RAISE EXCEPTION 'META_PAUSED_TEMPLATE_CLAIMED'; END IF;
  UPDATE public.automation_template_registry SET provider_status='APPROVED'
  WHERE id='c9000000-0000-4000-8000-000000000003';
+ UPDATE public.automation_template_registry SET category='MARKETING'
+ WHERE id='c9000000-0000-4000-8000-000000000003';
+ IF EXISTS(SELECT 1 FROM public.automation_whatsapp_claim_template(w,2))
+ THEN RAISE EXCEPTION 'MARKETING_WITHOUT_SEPARATE_OPT_IN_ALLOWED'; END IF;
+ INSERT INTO public.automation_whatsapp_marketing_consents(
+  workspace_id,conversation_id,purpose,granted_at,proof_kind,
+  proof_sha256,verified_by,verified_at)
+ VALUES(w,convo,'commercial_followup',clock_timestamp()-interval '30 minutes',
+  'explicit_inbound',repeat('a',64),
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  clock_timestamp()-interval '15 minutes');
+ IF (SELECT count(*) FROM public.automation_whatsapp_claim_template(w,2)
+ WHERE action_id=action)<>1
+ THEN RAISE EXCEPTION 'VERIFIED_MARKETING_OPT_IN_NOT_RECOGNIZED'; END IF;
+ UPDATE public.automation_action_outbox SET state='queued',
+ claim_token=NULL,lease_until=NULL WHERE id=action;
+ UPDATE public.automation_whatsapp_marketing_consents
+ SET revoked_at=clock_timestamp() WHERE workspace_id=w AND conversation_id=convo;
+ IF EXISTS(SELECT 1 FROM public.automation_whatsapp_claim_template(w,2))
+ THEN RAISE EXCEPTION 'REVOKED_MARKETING_CONSENT_IGNORED'; END IF;
  UPDATE public.automation_runtime_settings SET emergency_stop=true WHERE workspace_id=w;
  IF EXISTS(SELECT 1 FROM public.automation_whatsapp_claim_template(w,2))
  THEN RAISE EXCEPTION 'META_KILL_SWITCH_IGNORED'; END IF;
