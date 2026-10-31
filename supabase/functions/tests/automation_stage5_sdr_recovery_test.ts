@@ -78,6 +78,6 @@ Deno.test('S09: takeover during AI generation leaves stale candidate, never an a
 Deno.test('C01: free reply context expires when inbound exceeds 24h; no provider request',async()=>{
  const f=fixture(()=>({...context('1'),lastInboundAt:'2026-10-30T16:59:59.999Z'}));
  const d=await processAiJob(job('1'),f.deps);
- expect(d.state==='superseded','Expired conversation failed closed');
+ expect(d.state==='cancelled','Expired conversation failed closed');
  expect(f.calls.generation===0,'Expired session reached model');
 });
