@@ -37,6 +37,19 @@ BEGIN
   EXCEPTION WHEN invalid_parameter_value THEN denied:=true;
   END;
   IF NOT denied THEN RAISE EXCEPTION 'Event accepted arbitrary contextual fields'; END IF;
+  denied:=false;
+  BEGIN
+    PERFORM public.automation_shadow_ingest(w,'crm','evt.badid','opportunity.created',
+      '{"lead_id":"not-a-uuid"}'::jsonb);
+  EXCEPTION WHEN invalid_parameter_value THEN denied:=true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'Invalid reference ID was accepted'; END IF;
+  denied:=false;
+  BEGIN
+    PERFORM public.automation_shadow_claim(w,NULL);
+  EXCEPTION WHEN invalid_parameter_value THEN denied:=true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'Null batch claim accepted'; END IF;
 
   SELECT * INTO first_claim FROM public.automation_shadow_claim(w,1);
   IF NOT FOUND OR first_claim.inbox_id IS DISTINCT FROM e OR first_claim.attempt<>1 THEN
