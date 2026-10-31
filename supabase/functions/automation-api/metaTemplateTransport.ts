@@ -10,7 +10,7 @@ const providerReceipt=(x:unknown):x is string=>
  typeof x==='string'&&x.length>=3&&x.length<=512
  &&/^[A-Za-z0-9_.:/=-]+$/.test(x);
 export async function freshApprovedTemplate(
- requester:Requester,token:string,proof:TemplateProof,
+ requester:Requester,token:string,proof:TemplateProof,snapshot?:string,
 ):Promise<boolean>{
  if(!/^[0-9]{8,24}$/.test(proof.id)||!token)
   return false;
@@ -22,7 +22,9 @@ export async function freshApprovedTemplate(
   });
   if(!result.ok)return false;
   const body=await result.json();
-  return inspectFreshMetaApproval(body,proof).approved===true;
+  const verdict=inspectFreshMetaApproval(body,proof);
+  return verdict.approved===true &&
+    (snapshot===undefined||(verdict.approved&&verdict.body===snapshot));
  }catch{return false;}
 }
 export async function sendVerifiedTemplate(
