@@ -157,7 +157,7 @@ Deno.serve(async request => {
   // Reading status does not start a worker, publish a version or change a gate.
   if (action === 'runtime') {
     const [settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
-      runningCounts, actionCounts] = await Promise.all([
+      runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts] = await Promise.all([
       db.from('automation_runtime_settings').select('mode,emergency_stop,updated_at')
         .eq('workspace_id', workspaceId).maybeSingle(),
       db.from('automation_workspaces').select('active')
@@ -172,9 +172,15 @@ Deno.serve(async request => {
         .eq('workspace_id', workspaceId),
       db.from('automation_action_outbox').select('id', { head:true, count:'exact' })
         .eq('workspace_id', workspaceId),
+      db.from('automation_wait_timers').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','waiting'),
+      db.from('automation_wait_timers').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','due'),
+      db.from('automation_wait_timers').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','cancelled'),
     ]);
     if ([settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
-      runningCounts, actionCounts].some(r => r.error) ||
+      runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts].some(r => r.error) ||
       !settings.data || !workspaceState.data)
       return reply({error:'Estado do motor indisponível.'},503);
     return reply({ok:true,readOnly:true,runtime:{
@@ -187,6 +193,9 @@ Deno.serve(async request => {
       pendingEvents:inboxCounts.count||0,
       executions:runningCounts.count||0,
       actionRows:actionCounts.count||0,
+      waitingTimers:waitingCounts.count||0,
+      dueTimers:dueCounts.count||0,
+      cancelledTimers:cancelledCounts.count||0,
       dispatchAuthorized:false,
     }});
   }
