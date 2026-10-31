@@ -59,6 +59,17 @@ export function TypedNodeConfigEditor({node,catalog,onChange}:Props){
     <span>{title}</span>
   </label>;
 
+  const approvedTemplateFields=[
+    'conversation.customer_name','opportunity.title','opportunity.source',
+    'opportunity.plan','opportunity.cycle','opportunity.next_action.title',
+    'billing.company',
+  ];
+  const template=catalog?.templates.find(t=>t.id===cfg.template_registry_id);
+  const variables=Array.isArray(template?.variable_numbers)
+    ?template.variable_numbers:[];
+  const bindings=(cfg.bindings&&typeof cfg.bindings==='object'&&
+    !Array.isArray(cfg.bindings))?cfg.bindings as Record<string,unknown>:{};
+
   switch(node.type){
     case 'trigger':return <div className="ory-auto-typed-config">
       {choice('event_type','Evento canônico',EVENT_CHOICES)}
@@ -85,7 +96,17 @@ export function TypedNodeConfigEditor({node,catalog,onChange}:Props){
     case 'whatsapp_template':return <div className="ory-auto-typed-config">
       {reference('template_registry_id','Template aprovado com componentes verificados',catalog?.templates)}
       {choice('locale','Idioma',['pt_BR'])}
-      <small>A aprovação na Meta não substitui consentimento e política de envio.</small>
+      {variables.map(index=><label key={index}>
+        {'Variável oficial {{'+index+'}}'}
+        <select aria-label={'Origem da variável '+index}
+          value={txt(bindings[index])}
+          onChange={event=>edit('bindings',{...bindings,[index]:event.target.value})}>
+          <option value="">Selecione um campo canônico</option>
+          {approvedTemplateFields.map(field=><option key={field} value={field}>{field}</option>)}
+        </select>
+      </label>)}
+      {template&&variables.length===0&&<small>Nenhum parâmetro posicional validado pelo catálogo. A publicação permanece bloqueada até a verificação.</small>}
+      <small>O servidor exige a origem explícita de cada variável. Não são criados valores presumidos.</small>
     </div>;
     case 'whatsapp_reply':return <div className="ory-auto-typed-config">
       {input('text_ref','Referência do texto aprovado',256)}
