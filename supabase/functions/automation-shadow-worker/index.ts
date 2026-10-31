@@ -10,6 +10,7 @@ import { planServerShadow } from '../automation-api/shadowEngine.ts';
 import { loadTrustedReferences } from '../automation-api/trustedReferences.ts';
 import { loadShadowCanonicalContext } from '../automation-api/shadowContext.ts';
 import { isCanonicalUuid, validWorkerToken, workerIsConfigured } from './workerGuards.ts';
+import { shadowFailureCode } from './failurePolicy.ts';
 
 const projectUrl=Deno.env.get('SUPABASE_URL')||'';
 const serviceRole=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
@@ -65,7 +66,7 @@ Deno.serve(async request=>{
   if(claimed.error||!Array.isArray(claimed.data))
     return json({error:'Unable to claim shadow events'},503);
 
-  let processed=0,unresolved=0;
+  let processed=0,unresolved=0,failedRecorded=0,quarantined=0;
   for(const event of claimed.data as Claimed[]){
     try{
       // Revalidate stop switch on each event, not only at start of request.
@@ -95,7 +96,8 @@ Deno.serve(async request=>{
           n.type==='trigger'&&n.config?.event_type===event.event_type);
       });
       if(candidates.length>20)throw new Error('SHADOW_FLOW_LIMIT');
-      const context=await loadShadowCanonicalContext(db,event.event_type,event.context_refs);
+      const context=await loadShadowCanonicalContext(db,event.event_type,event.context_refs)
+        .catch(()=>{throw new Error('SHADOW_CONTEXT_UNAVAILABLE');});
       // New canonical inbound activity cancels older shadow waits immediately.
       // The database independently verifies an actual inbound journal entry,
       // rejecting fabricated event text, reactions or client-provided claims.
@@ -115,7 +117,7 @@ Deno.serve(async request=>{
           eventType:event.event_type,
           // Context is canonical, read-only, and excludes personal data.
           context,
-        },refs);
+        },refs).catch(()=>{throw new Error('SHADOW_PLANNER_FAILED');});
         plans.push({flowVersionId:version.id,decision});
       }
       const acknowledged=await db.rpc('automation_shadow_finish',{
@@ -124,10 +126,21 @@ Deno.serve(async request=>{
       });
       if(acknowledged.error)throw new Error('SHADOW_ACK_FAILED');
       processed++;
-    }catch{
-      // Do not acknowledge unknown results or invent a retry. The lease
-      // expires, and the DB claims at most five times before quarantining.
-      unresolved++;
+    }catch(error){
+      // Never leak provider errors or personal data. A fixed reason code and
+      // fencing token let the database schedule bounded retries and quarantine.
+      // RPC failure leaves the lease untouched for the original recovery path.
+      try {
+        const failure=await db.rpc('automation_shadow_fail',{
+          p_workspace_id:workspaceId,p_inbox_id:event.inbox_id,
+          p_lease_token:event.lease_token,p_error_code:shadowFailureCode(error),
+        });
+        if(failure.error)unresolved++;
+        else {
+          failedRecorded++;
+          if(failure.data==='quarantined')quarantined++;
+        }
+      } catch { unresolved++; }
     }
   }
   // Mark due timers for diagnostics only. There is NO live continuation,
@@ -146,7 +159,7 @@ Deno.serve(async request=>{
     timersStoppedByPolicy:Number(guarded.data||0),
     timersDue:due.data.filter((x:{result_state:string})=>x.result_state==='due').length,
     timersCancelled:due.data.filter((x:{result_state:string})=>x.result_state==='cancelled').length,
-    processed,unresolved,recovered:recovered.data||0,
+    processed,unresolved,failedRecorded,quarantined,recovered:recovered.data||0,
     crmScanned:Number(ingested.data?.scanned||0),crmInserted:Number(ingested.data?.inserted||0),
     waScanned:Number(ingestedWa.data?.scanned||0),waInserted:Number(ingestedWa.data?.inserted||0),
   });
