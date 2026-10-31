@@ -61,7 +61,7 @@ BEGIN
  WHERE x->>'id'=a.node_id AND x->>'type'='crm_task';
  IF n IS NULL OR jsonb_typeof(n->'config')<>'object'
  THEN RAISE EXCEPTION 'TASK_NODE_UNVERIFIED' USING ERRCODE='42501'; END IF;
- IF (n->'config') ? 'title' IS FALSE THEN
+ IF NOT ((n->'config') ? 'title') THEN
    RAISE EXCEPTION 'TASK_TITLE_MISSING' USING ERRCODE='42501'; END IF;
  v_title:=btrim(n->'config'->>'title');
  IF v_title IS NULL OR length(v_title) NOT BETWEEN 1 AND 160
@@ -88,8 +88,7 @@ BEGIN
   d.data->'next_action'->>'done' IS DISTINCT FROM 'true'
  THEN RAISE EXCEPTION 'TASK_OPEN_HUMAN_ACTION_EXISTS' USING ERRCODE='42501'; END IF;
  v_next:=jsonb_build_object('title',v_title,'due_at',
-   to_char(clock_timestamp()+make_interval(mins=>v_offset),
-     'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'done',false);
+   clock_timestamp()+make_interval(mins=>v_offset),'done',false);
  UPDATE public.crm_records SET
   data=jsonb_set(d.data,'{next_action}',v_next,true),
   revision=revision+1,updated_at=clock_timestamp()
