@@ -5,6 +5,7 @@
  * membership and workspace role checks. Never trust client-supplied actor IDs.
  */
 import { inspectServerGraph } from './graphGuard.ts';
+import { loadTrustedReferences } from './trustedReferences.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 
 const url = Deno.env.get('SUPABASE_URL') ?? '';
@@ -132,42 +133,71 @@ Deno.serve(async request => {
   }
 
 
-  // Read-only server validation. It never creates a version or authorizes any
-  // send. All referenced IDs are resolved from the current workspace, not the
-  // browser. Empty/unverified references block release candidacy.
+  // Authenticated preflight reads canonical references on the server.
+  // Results cannot be reused as an authorization token.
   if (action === 'validate') {
-    const [stages, templates, knowledge, dictionaries] = await Promise.all([
-      db.from('crm_records').select('id').eq('kind', 'stage').eq('deleted', false).limit(100),
-      db.from('automation_template_registry')
-        .select('id,provider_status,parameter_schema').eq('workspace_id', workspaceId).limit(200),
-      db.from('automation_knowledge_release')
-        .select('id').eq('workspace_id', workspaceId).eq('status', 'published').limit(100),
-      db.from('automation_intent_dictionary')
-        .select('id').eq('workspace_id', workspaceId).eq('status', 'published').limit(100),
-    ]);
-    if (stages.error || templates.error || knowledge.error || dictionaries.error) {
-      return reply({ error: 'Referências canônicas indisponíveis para validação.' }, 503);
+    try {
+      const references=await loadTrustedReferences(db,workspaceId);
+      const validation=inspectServerGraph(body.graph,references);
+      return reply({ok:true,validation,preflightOnly:true,dispatchAuthorized:false});
+    } catch {
+      return reply({error:'Referências canônicas indisponíveis para validação.'},503);
     }
-    const refs = {
-      eventTypes: [
-        'opportunity.created', 'opportunity.updated', 'opportunity.stage_changed',
-        'lead.intake_received', 'checkout.started', 'checkout.expired',
-        'billing.paid_verified', 'billing.failed', 'conversation.inbound',
-        'conversation.human_takeover', 'meeting.scheduled', 'proposal.sent',
-      ],
-      stageIds: (stages.data || []).map(item => item.id),
-      templateIds: (templates.data || [])
-        .filter(item => item.provider_status === 'APPROVED'
-          && item.parameter_schema
-          && typeof item.parameter_schema === 'object'
-          && !Array.isArray(item.parameter_schema)
-          && item.parameter_schema.components_verified === true)
-        .map(item => item.id),
-      knowledgeIds: (knowledge.data || []).map(item => item.id),
-      dictionaryIds: (dictionaries.data || []).map(item => item.id),
-    };
-    const validation = inspectServerGraph(body.graph, refs);
-    return reply({ ok: true, validation, preflightOnly: true, dispatchAuthorized: false });
+  }
+
+  /**
+   * Manual freeze-only release. The graph is re-read from the DB and independently
+   * validated: a client-supplied graph, allowlist or success boolean is NEVER used.
+   * This cannot enable automations and does not enqueue, schedule or send actions.
+   */
+  if (action === 'publish-disabled') {
+    if (!['admin','publisher'].includes(member.role)) {
+      return reply({error:'Papel de publicador obrigatório.'},403);
+    }
+    if (!validUuid(body.flowId) || !Number.isSafeInteger(body.expectedRevision)
+      || Number(body.expectedRevision)<1) {
+      return reply({error:'Identificador ou revisão inválidos.'},400);
+    }
+    const {data:settings,error:settingsError}=await db.from('automation_runtime_settings')
+      .select('mode,emergency_stop').eq('workspace_id',workspaceId).maybeSingle();
+    if(settingsError) return reply({error:'Estado de segurança indisponível.'},503);
+    if(settings?.mode!=='disabled'||settings?.emergency_stop!==true)
+      return reply({error:'Publicação sem ativação exige runtime desabilitado e parada de emergência.'},409);
+    const {data:flow,error:flowError}=await db.from('automation_flows')
+      .select('id,kind,revision').eq('workspace_id',workspaceId).eq('id',body.flowId).maybeSingle();
+    if(flowError) return reply({error:'Falha ao consultar versão canônica.'},503);
+    if(!flow) return reply({error:'Fluxo não encontrado.'},404);
+    if(flow.revision!==body.expectedRevision)
+      return reply({error:'O fluxo foi alterado. Reabra antes de publicar.',code:'REVISION_CONFLICT'},409);
+    const {data:version,error:versionError}=await db.from('automation_flow_versions')
+      .select('id,status,graph_json').eq('workspace_id',workspaceId).eq('flow_id',flow.id)
+      .eq('status','draft').order('version',{ascending:false}).limit(1).maybeSingle();
+    if(versionError) return reply({error:'Falha ao consultar rascunho.'},503);
+    if(!version) return reply({error:'Não existe rascunho para publicação.'},409);
+    const graph=version.graph_json;
+    if(!graphFrom(graph)||graph.id!==flow.id||graph.kind!==flow.kind)
+      return reply({error:'Rascunho inconsistente.'},422);
+    let validation;
+    try {
+      const refs=await loadTrustedReferences(db,workspaceId);
+      validation=inspectServerGraph(graph,refs);
+    } catch {
+      return reply({error:'Referências não puderam ser verificadas.'},503);
+    }
+    if(!validation.ok) return reply({
+      error:'O servidor encontrou bloqueios de publicação.',validation,code:'PREFLIGHT_FAILED',
+    },422);
+    const {data:released,error:releaseError}=await db.rpc('automation_publish_disabled',{
+      p_workspace_id:workspaceId,p_actor_id:actor,p_flow_id:flow.id,
+      p_expected_revision:body.expectedRevision,p_graph:graph,
+      p_validation:{
+        ok:true,issues:[],dispatchAuthorized:false,
+        preflight:'server',nodeCount:validation.nodeCount,
+        edgeCount:validation.edgeCount,
+      },
+    });
+    if(releaseError){const mapped=errorCode(releaseError.code);return reply(mapped.body,mapped.status);}
+    return reply({ok:true,result:released,publishedDisabled:true,dispatchAuthorized:false});
   }
 
   if (!canEdit) return reply({ error: 'Somente editores podem modificar rascunhos.' }, 403);
