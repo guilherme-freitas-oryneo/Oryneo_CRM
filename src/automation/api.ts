@@ -108,7 +108,7 @@ export async function freezeRemoteAutomationVersion(
 }
 
 
-export type CatalogChoice={id:string;name:string};
+export type CatalogChoice={id:string;name:string;variable_numbers?:string[]};
 export type NodeReferenceCatalog={
   stages:CatalogChoice[];
   templates:CatalogChoice[];
