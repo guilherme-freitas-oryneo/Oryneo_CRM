@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'supabase/automation/**'
+      - 'supabase/migrations/*oryneo_*.sql'
+      - 'supabase/migrations/*crm_automation_*.sql'
       - 'src/automation/**'
       - 'qa/automation-editor*'
       - 'qa/automation-editor/**'
