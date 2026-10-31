@@ -15,12 +15,16 @@ CREATE TABLE public.crm_proposals(
  id uuid PRIMARY KEY,deal_id uuid NOT NULL,status text NOT NULL,
  snapshot_sha256 text,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  updated_at timestamptz NOT NULL DEFAULT clock_timestamp());
+CREATE TABLE public.crm_wa_automation_events(
+ id uuid PRIMARY KEY,conversation_id uuid NOT NULL,
+ from_mode text NOT NULL,to_mode text NOT NULL,
+ occurred_at timestamptz NOT NULL DEFAULT clock_timestamp());
 GRANT SELECT ON public.crm_intake_requests,public.crm_stripe_events,
  public.crm_billing_orders,public.crm_delivery_projects,public.crm_automation_jobs,
- public.crm_proposals TO service_role;
+ public.crm_proposals,public.crm_wa_automation_events TO service_role;
 GRANT INSERT,UPDATE ON public.crm_intake_requests,public.crm_stripe_events,
  public.crm_billing_orders,public.crm_delivery_projects,public.crm_events,
- public.crm_proposals TO service_role;
+ public.crm_proposals,public.crm_wa_automation_events TO service_role;
 \i supabase/automation/commercial_sources.preview.sql
 
 -- The historic intake must not be replayed on cursor initialization.
@@ -45,7 +49,7 @@ BEGIN
   WHERE workspace_id=w;
  UPDATE public.automation_workspaces SET active=false WHERE id=w;
  SELECT count(*) INTO before_jobs FROM public.crm_automation_jobs;
- FOREACH stream IN ARRAY ARRAY['intake','checkout','billing','mail','delivery','proposal','meeting'] LOOP
+ FOREACH stream IN ARRAY ARRAY['intake','checkout','billing','mail','delivery','proposal','meeting','handoff'] LOOP
    anchor:=public.automation_commercial_init_cursor(w,actor,stream);
    repeated:=public.automation_commercial_init_cursor(w,actor,stream);
    IF anchor IS NULL OR anchor<>repeated
@@ -121,10 +125,15 @@ BEGIN
  VALUES('c2000000-0000-4000-8000-000000000002',
    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','meeting_scheduled',
    clock_timestamp()+interval '14 seconds');
+ INSERT INTO public.crm_wa_automation_events(id,conversation_id,from_mode,to_mode,occurred_at) VALUES
+ ('c4000000-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+   'sdr_active','human_locked',clock_timestamp()+interval '15 seconds'),
+ ('c4000000-0000-4000-8000-000000000002','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
+   'human_locked','review',clock_timestamp()+interval '16 seconds');
  UPDATE public.automation_workspaces SET active=true WHERE id=w;
  UPDATE public.automation_runtime_settings SET mode='shadow',emergency_stop=false
  WHERE workspace_id=w;
- FOREACH stream IN ARRAY ARRAY['intake','checkout','billing','mail','delivery','proposal','meeting'] LOOP
+ FOREACH stream IN ARRAY ARRAY['intake','checkout','billing','mail','delivery','proposal','meeting','handoff'] LOOP
   result:=public.automation_commercial_shadow_ingest(w,stream,1);
   IF result->>'inserted'<>'1' THEN
    RAISE EXCEPTION 'First bounded shadow scan failed: %, %',stream,result; END IF;
@@ -155,8 +164,14 @@ BEGIN
   'email-sent:c2000000-0000-4000-8000-000000000001',
   'onboarding:c1000000-0000-4000-8000-000000000002',
   'proposal:c3000000-0000-4000-8000-000000000001',
-  'meeting:c2000000-0000-4000-8000-000000000002');
- IF n<>9 THEN RAISE EXCEPTION 'Expected nine canonical source envelopes: %',n; END IF;
+  'meeting:c2000000-0000-4000-8000-000000000002',
+  'handoff:c4000000-0000-4000-8000-000000000001');
+ IF n<>10 THEN RAISE EXCEPTION 'Expected ten canonical source envelopes: %',n; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.automation_event_inbox
+   WHERE source='whatsapp' AND event_type='conversation.human_takeover'
+     AND event_id='handoff:c4000000-0000-4000-8000-000000000001'
+     AND context_refs='{"conversation_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01"}'::jsonb)
+ THEN RAISE EXCEPTION 'Canonical human takeover was not mirrored'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.automation_event_inbox
    WHERE event_id='email-sent:c2000000-0000-4000-8000-000000000001'
      AND source='mail' AND event_type='mail.sent')
@@ -170,7 +185,8 @@ BEGIN
    'paid:c1000000-0000-4000-8000-000000000006',
    'intake:c0000000-0000-4000-8000-000000000001',
    'proposal:c3000000-0000-4000-8000-000000000002',
-   'proposal:c3000000-0000-4000-8000-000000000003'))
+   'proposal:c3000000-0000-4000-8000-000000000003',
+   'handoff:c4000000-0000-4000-8000-000000000002'))
  THEN RAISE EXCEPTION 'Unverified/sandbox/historic business fact ingested'; END IF;
  IF EXISTS(SELECT 1 FROM public.automation_event_inbox
     WHERE context_refs::text ~ '(customer|email|phone|body|message)')
