@@ -65,7 +65,7 @@ async function approvedSdrTraining(input:{
    .select('id,release_version,status,approved_by,content_sha256,source_refs')
    .eq('workspace_id',w).eq('id',active.data.knowledge_release_id).maybeSingle(),
   db.from('automation_intent_dictionary')
-   .select('id,release_version,status,approved_by,content_sha256,examples,synonyms')
+   .select('id,release_version,language,status,approved_by,content_sha256,examples,synonyms')
    .eq('workspace_id',w).eq('id',active.data.dictionary_release_id).maybeSingle(),
  ]);
  if(knowledge.error||dictionary.error)throw Error('SDR_RELEASE_READ_UNAVAILABLE');
