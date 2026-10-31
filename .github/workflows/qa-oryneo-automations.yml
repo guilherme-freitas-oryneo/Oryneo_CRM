@@ -73,3 +73,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_migration.preview.sql
       - name: Confirmar negócios, IDs e auditoria preservados
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/pipeline_label_assert.qa.sql
+      - name: Instalar cursor idempotente para eventos reais do CRM (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_crm_adapter.preview.sql
+      - name: Testar bootstrap, ordem, replay e parada de emergência
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_crm_adapter.qa.sql
