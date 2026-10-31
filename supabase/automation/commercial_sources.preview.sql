@@ -61,7 +61,7 @@ WITH (security_invoker=true) AS
        ))
  UNION ALL
  SELECT 'mail',e.created_at,e.id::text,'mail',
-   'email-sent:'||e.id::text,'opportunity.updated',
+   'email-sent:'||e.id::text,'mail.sent',
    jsonb_build_object('opportunity_id',e.deal_id::text)
  FROM public.crm_events e WHERE e.event_type='email_sent' AND e.deal_id IS NOT NULL
  UNION ALL
