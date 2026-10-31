@@ -81,3 +81,5 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_whatsapp_adapter.preview.sql
       - name: Validar cursor, privacidade, deduplicação e nenhum envio
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_whatsapp_adapter.qa.sql
+      - name: Testar ponte para o onboarding existente, sem envios (isolado)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/onboarding_paid_bridge.qa.sql
