@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.automation_sdr_active_release(
  workspace_id uuid PRIMARY KEY REFERENCES public.automation_workspaces(id) ON DELETE RESTRICT,
  knowledge_release_id uuid REFERENCES public.automation_knowledge_release(id) ON DELETE RESTRICT,
  dictionary_release_id uuid REFERENCES public.automation_intent_dictionary(id) ON DELETE RESTRICT,
- enabled boolean NOT NULL DEFAULT false,
+ enabled boolean NOT NULL DEFAULT false CHECK(enabled=false),
  revision bigint NOT NULL DEFAULT 1 CHECK(revision>=1),
  changed_by uuid,
  changed_at timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS public.automation_sdr_active_release(
 ALTER TABLE public.automation_sdr_active_release ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.automation_sdr_active_release FROM PUBLIC,anon,authenticated;
 GRANT SELECT ON public.automation_sdr_active_release TO service_role;
+GRANT UPDATE(knowledge_release_id,dictionary_release_id,revision,changed_by,changed_at)
+ ON public.automation_sdr_active_release TO service_role;
 -- Runtime opt-in requires a future, separately authorized release procedure.
 -- No UPDATE grant is given to service_role in this stage.
 INSERT INTO public.automation_sdr_active_release(workspace_id)
@@ -101,8 +103,8 @@ BEGIN
  WHERE id=d.id AND status='draft';
  UPDATE public.automation_sdr_active_release SET
   knowledge_release_id=k.id,dictionary_release_id=d.id,
-  revision=revision+1,changed_by=p_actor_id,changed_at=clock_timestamp(),
-  enabled=false WHERE workspace_id=p_workspace_id AND revision=p_expected_revision;
+  revision=revision+1,changed_by=p_actor_id,changed_at=clock_timestamp()
+  WHERE workspace_id=p_workspace_id AND revision=p_expected_revision;
  INSERT INTO public.automation_audit_log(workspace_id,actor_id,action,target_type,target_id,summary)
  VALUES(p_workspace_id,p_actor_id,'sdr_pair_published_disabled','knowledge_release',k.id,
    jsonb_build_object('dictionary_version',d.release_version,
@@ -142,7 +144,7 @@ BEGIN
  THEN RAISE EXCEPTION 'SDR_ROLLBACK_TARGET_INVALID' USING ERRCODE='42501'; END IF;
  UPDATE public.automation_sdr_active_release SET
   knowledge_release_id=p_knowledge_id,dictionary_release_id=p_dictionary_id,
-  enabled=false,revision=revision+1,changed_by=p_actor_id,changed_at=clock_timestamp()
+  revision=revision+1,changed_by=p_actor_id,changed_at=clock_timestamp()
  WHERE workspace_id=p_workspace_id AND revision=p_expected_revision;
  INSERT INTO public.automation_audit_log(workspace_id,actor_id,action,target_type,target_id,summary)
  VALUES(p_workspace_id,p_actor_id,'sdr_pair_selected_disabled',
