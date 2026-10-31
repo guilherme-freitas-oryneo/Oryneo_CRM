@@ -58,6 +58,11 @@ BEGIN
    owner='new_engine',legacy_dispatch_paused_at=clock_timestamp()-interval '2 minutes',
    release_approved_at=clock_timestamp(),release_id='qa-macro6-crm-only'
  WHERE workspace_id=w AND channel='crm';
+ -- The disposable schema already contains pending shadow fixtures. They are
+ -- unrelated to this canonical CRM claim and must not consume its batch slot.
+ UPDATE public.automation_event_inbox SET state='ignored'
+  WHERE workspace_id=w AND state='pending' AND source='crm'
+   AND event_id IS DISTINCT FROM 'crm:'||ev::text;
  inbox:=public.automation_live_crm_ingest(w,ev);
  IF inbox IS NULL OR public.automation_live_crm_ingest(w,ev)<>inbox
  THEN RAISE EXCEPTION 'LIVE_CRM_REPLAY_NOT_DEDUPED'; END IF;
