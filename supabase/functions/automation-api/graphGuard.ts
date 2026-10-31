@@ -5,6 +5,7 @@
  * enqueue an event, schedule a timer, send a message or modify billing.
  * Provider references must be read from the database immediately before use.
  */
+import {validateTemplateBindings} from './templateBindings.ts';
 export type GraphIssue = { code: string; path: string };
 export type GraphDecision = {
   ok: boolean;
@@ -17,6 +18,7 @@ export type TrustedReferences = {
   eventTypes: readonly string[];
   stageIds: readonly string[];
   templateIds: readonly string[];
+  templateVariables?: Readonly<Record<string,readonly string[]>>;
   knowledgeIds: readonly string[];
   dictionaryIds: readonly string[];
 };
@@ -119,9 +121,20 @@ export function inspectServerGraph(raw: unknown, refs: TrustedReferences): Graph
     if (n.type==='condition' && (!only(n.config,['rule']) || !validRule(n.config.rule))) add('CONDITION_INVALID',p);
     if (n.type==='wait' && (!only(n.config,['duration_minutes','cancel_on_reply'])
       || !int(n.config.duration_minutes,1,43200) || typeof n.config.cancel_on_reply!=='boolean')) add('WAIT_INVALID',p);
-    if (n.type==='whatsapp_template' && (!only(n.config,['template_registry_id','locale'])
-      || !uuid(n.config.template_registry_id) || !refs.templateIds.includes(n.config.template_registry_id)
-      || n.config.locale!=='pt_BR')) add('TEMPLATE_NOT_VERIFIED',p);
+    if (n.type==='whatsapp_template') {
+      const id=String(n.config.template_registry_id);
+      if (!only(n.config,['template_registry_id','locale','bindings'])
+        || !uuid(n.config.template_registry_id) || !refs.templateIds.includes(id)
+        || n.config.locale!=='pt_BR') add('TEMPLATE_NOT_VERIFIED',p);
+      const expected=refs.templateVariables?.[id];
+      // The hosted registry carries exact component indices; an unpublished
+      // placeholder mapping never implicitly becomes a valid Meta send.
+      if(refs.templateVariables && !expected) add('META_VARIABLES_UNVERIFIED',p);
+      else if(expected){
+        const bind=validateTemplateBindings(n.config.bindings,expected);
+        for(const issue of bind.issues)add(issue,p+'.config.bindings');
+      }
+    }
     if (n.type==='crm_task' && (!only(n.config,['title','due_offset_minutes'])
       || !text(n.config.title,160) || !int(n.config.due_offset_minutes,1,43200)))
       add('TASK_CONFIG_INVALID',p);

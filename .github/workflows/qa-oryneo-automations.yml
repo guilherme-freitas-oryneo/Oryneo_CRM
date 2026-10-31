@@ -17,6 +17,7 @@ on:
       - 'src/playbook/**'
       - 'supabase/functions/automation-shadow-worker/**'
       - 'supabase/functions/automation-commercial-crm-worker/**'
+      - 'supabase/functions/automation-meta-template-worker/**'
       - 'supabase/functions/tests/automation_*'
       - '.github/workflows/qa-oryneo-automations.yml'
   workflow_dispatch:
@@ -177,6 +178,18 @@ jobs:
           END $qa$;
           SQL
 
+      - name: Homologar planejamento live CRM com fencing, idempotência e nenhuma mensagem
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_crm_execution.qa.sql
+      - name: Homologar claim de template Meta com consentimento e parada, sem envios
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_whatsapp_delivery.qa.sql
+      - name: Homologar continuação transacional de ações CRM até estado terminal
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_crm_continue.qa.sql
+      - name: Executar compilador Deno real através de transações CRM em PostgreSQL isolado
+        run: deno run --min-dep-age=0 --allow-run=psql supabase/automation/engine_live_crm_bridge.qa.ts
+      - name: Homologar armar e desarmar fluxo publicado CRM enquanto o runtime está desligado
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/live_crm_arm_disabled.qa.sql
+      - name: Homologar métricas agregadas, RLS e custos somente comprovados
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/runtime_observability.qa.sql
       - name: Reexecutar migrações hospedadas preservando o estado sintético preexistente
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -234,6 +247,8 @@ jobs:
           deno check --min-dep-age=0 supabase/functions/automation-api/executionKernel.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-commercial-crm-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-live-crm-plan-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-meta-template-worker/index.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/whatsapp-ai-worker/index.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_meta_stage4_test.ts
@@ -243,6 +258,10 @@ jobs:
           deno test --min-dep-age=0 supabase/functions/tests/automation_compiled_shadow_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_failure_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_graph_guard_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_template_bindings_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_meta_template_request_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_meta_transport_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_meta_canonical_context_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_engine_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_action_policy_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_worker_guards_test.ts

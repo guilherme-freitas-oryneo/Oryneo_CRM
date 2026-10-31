@@ -293,7 +293,7 @@ Deno.serve(async request => {
           &&t.parameter_schema&&typeof t.parameter_schema==='object'
           &&!Array.isArray(t.parameter_schema)
           &&t.parameter_schema.components_verified===true)
-        .map(t=>({id:t.id,name:t.template_name})),
+        .map(t=>({id:t.id,name:t.template_name,variable_numbers: t.parameter_schema.variable_numbers})),
       knowledge:(knowledge.data||[]).map(x=>({id:x.id,name:'Conhecimento v'+x.release_version})),
       dictionaries:(dictionaries.data||[]).map(x=>({id:x.id,name:'Intenções v'+x.release_version})),
     },readOnly:true});
@@ -527,6 +527,29 @@ Deno.serve(async request => {
       return reply(mapped.body,mapped.status);
     }
     return reply({ok:true,result:rolled,rolledBackDisabled:true,dispatchAuthorized:false});
+  }
+
+  // Pre-arm a FROZEN CRM-only graph without enabling runtime or transports.
+  // Database fences ownership, role, revision, graph hash and hard stop.
+  if(action==='arm-crm-disabled'){
+    if(!['admin','publisher'].includes(member.role))
+      return reply({error:'Publicador obrigatório para preparar o fluxo.'},403);
+    if(!validUuid(body.flowId)||!validUuid(body.versionId)
+      ||!Number.isSafeInteger(body.expectedRevision)
+      ||Number(body.expectedRevision)<1||typeof body.enabled!=='boolean')
+      return reply({error:'Parâmetros da versão inválidos.'},400);
+    const {data,error}=await db.rpc('automation_arm_crm_disabled',{
+      p_workspace_id:workspaceId,p_actor_id:actor,
+      p_flow_id:body.flowId,p_expected_revision:body.expectedRevision,
+      p_version_id:body.versionId,p_enabled:body.enabled,
+    });
+    if(error){
+      const mapped=errorCode(error.code);
+      return reply(mapped.body,mapped.status);
+    }
+    if(data?.dispatchAuthorized!==false||data?.runtimeDisabled!==true)
+      return reply({error:'Preparação não comprovou parada da engine.'},503);
+    return reply({ok:true,result:data,armedOnly:true,dispatchAuthorized:false});
   }
 
   if (!canEdit) return reply({ error: 'Somente editores podem modificar rascunhos.' }, 403);
