@@ -16,6 +16,10 @@ const enabled=Deno.env.get('AUTOMATION_COMMERCIAL_CRM_ENABLED')==='true';
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{
  status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'},
 });
+export type CommercialCrmWorkerReport={
+ ok:true;processed:number;unresolved:number;channel:'crm';
+ externalMessagesSent:0;paymentsCreated:0;
+};
 type Claim={
  action_id:string;claim_token:string;
  action_type:'crm_stage_change'|'crm_task';
