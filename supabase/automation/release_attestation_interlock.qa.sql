@@ -61,6 +61,19 @@ BEGIN
  UPDATE public.automation_channel_ownership
  SET owner='new_engine',legacy_dispatch_paused_at=now(),
   release_approved_at=now(),release_id='qa-runtime' WHERE workspace_id=w AND channel='crm';
+ -- The same trigger used on the real outbox is checked on a disposable
+ -- local action row, including current approval and expiring consent.
+ CREATE TEMP TABLE qa_release_action_probe(
+  id text PRIMARY KEY,workspace_id uuid,action_type text,state text
+ );
+ CREATE TRIGGER qa_release_action_gate BEFORE UPDATE
+  ON qa_release_action_probe FOR EACH ROW
+  EXECUTE FUNCTION public.automation_release_action_lease_guard();
+ INSERT INTO qa_release_action_probe VALUES('crm-action',w,'crm_task','queued');
+ UPDATE qa_release_action_probe SET state='leased' WHERE id='crm-action';
+ IF (SELECT state FROM qa_release_action_probe WHERE id='crm-action')<>'leased'
+ THEN RAISE EXCEPTION 'VALID_CRM_ACTION_NOT_LEASED'; END IF;
+ UPDATE qa_release_action_probe SET state='queued' WHERE id='crm-action';
  -- Separate channel is not approved even though global gates are satisfied.
  blocked:=false;
  BEGIN
@@ -73,6 +86,11 @@ BEGIN
  UPDATE public.automation_workspaces SET active=true WHERE id=w;
  UPDATE public.automation_release_attestations
  SET revoked_at=clock_timestamp() WHERE workspace_id=w AND scope='global' AND gate='legal';
+ blocked:=false;
+ BEGIN
+  UPDATE qa_release_action_probe SET state='leased' WHERE id='crm-action';
+ EXCEPTION WHEN insufficient_privilege THEN blocked:=true; END;
+ IF NOT blocked THEN RAISE EXCEPTION 'REVOKED_EVIDENCE_ALLOWED_NEW_ACTION_LEASE'; END IF;
  IF (SELECT mode FROM public.automation_runtime_settings WHERE workspace_id=w)<>'disabled'
  OR (SELECT emergency_stop FROM public.automation_runtime_settings WHERE workspace_id=w) IS DISTINCT FROM true
  OR (SELECT active FROM public.automation_workspaces WHERE id=w) IS DISTINCT FROM false
