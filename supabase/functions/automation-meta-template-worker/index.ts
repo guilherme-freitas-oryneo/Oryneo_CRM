@@ -140,6 +140,11 @@ Deno.serve(async request=>{
    });
    if(presend.error||presend.data!==true)
     throw Error('META_PRESEND_POLICY_REVOKED');
+   const release=await db.rpc('automation_release_missing_gates',{
+    p_workspace_id:workspaceId,p_channel:'whatsapp',
+   });
+   if(release.error||!Array.isArray(release.data)||release.data.length!==0)
+    throw Error('META_RELEASE_ATTESTATION_REVOKED');
    // Final provider-side effect. NO automatic retry at this boundary.
    didPost=true;
    const out=await sendVerifiedTemplate(fetch,metaToken,item.phone_number_id,{
