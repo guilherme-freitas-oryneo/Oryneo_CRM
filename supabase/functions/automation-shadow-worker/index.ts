@@ -143,8 +143,7 @@ Deno.serve(async request=>{
       } catch { unresolved++; }
     }
   }
-  // Mark due timers for diagnostics only. There is NO live continuation,
-  // outbound adapter, scheduled retry or implicit branch execution here.
+  // Due shadow timers are resumed from immutable snapshots; never send or mutate CRM.
   const guarded=await db.rpc('automation_wait_shadow_reconcile_policy',{
     p_workspace_id:workspaceId,p_limit:50,
   });
@@ -154,12 +153,72 @@ Deno.serve(async request=>{
   });
   if(due.error||!Array.isArray(due.data))
     return json({error:'Shadow timer reconciliation unavailable',processed,unresolved},503);
+  // Poll sets due state idempotently. A crash between poll and resume cannot
+  // lose the timer: the due rows remain durable until resumed or quarantined.
+  const dueRows=await db.from('automation_wait_timers')
+    .select('id,execution_id,node_id')
+    .eq('workspace_id',workspaceId).eq('state','due')
+    .is('resumed_at',null).lte('resume_next_at',new Date().toISOString())
+    .order('due_at',{ascending:true}).limit(10);
+  if(dueRows.error)return json({error:'Shadow continuation index unavailable',processed,unresolved},503);
+  let resumedTimers=0,resumeRetries=0,resumeQuarantined=0;
+  for(const timer of dueRows.data||[]){
+    let failureCode='SHADOW_RESUME_UNAVAILABLE';
+    try {
+      const gate=await db.from('automation_runtime_settings')
+        .select('mode,emergency_stop').eq('workspace_id',workspaceId).maybeSingle();
+      if(gate.error||gate.data?.mode!=='shadow'||gate.data.emergency_stop!==false)
+        break;
+      const execution=await db.from('automation_executions')
+        .select('flow_version_id,inbox_id,state')
+        .eq('workspace_id',workspaceId).eq('id',timer.execution_id).maybeSingle();
+      if(execution.error||execution.data?.state!=='shadow')
+        throw new Error('SHADOW_RESUME_UNAVAILABLE');
+      const version=await db.from('automation_flow_versions')
+        .select('graph_json,status')
+        .eq('workspace_id',workspaceId).eq('id',execution.data.flow_version_id).maybeSingle();
+      if(version.error||version.data?.status!=='published')
+        throw new Error('SHADOW_RESUME_UNAVAILABLE');
+      const inbox=await db.from('automation_event_inbox')
+        .select('source,event_id,event_type,context_refs')
+        .eq('workspace_id',workspaceId).eq('id',execution.data.inbox_id).maybeSingle();
+      if(inbox.error||!inbox.data||!inbox.data.context_refs)
+        throw new Error('SHADOW_RESUME_UNAVAILABLE');
+      failureCode='SHADOW_RESUME_CONTEXT';
+      const context=await loadShadowCanonicalContext(
+        db,inbox.data.event_type,inbox.data.context_refs
+      );
+      failureCode='SHADOW_RESUME_PLAN';
+      const decision=await planServerShadowCompiled(version.data.graph_json,{
+        workspaceId,flowVersionId:execution.data.flow_version_id,
+        source:inbox.data.source,eventId:inbox.data.event_id,
+        eventType:inbox.data.event_type,context,
+      },refs,{nodeId:timer.node_id,port:'out'});
+      if(decision.state==='blocked'||!decision.trace.length)
+        throw new Error('SHADOW_RESUME_PLAN');
+      failureCode='SHADOW_RESUME_ACK';
+      const saved=await db.rpc('automation_wait_shadow_resume',{
+        p_workspace_id:workspaceId,p_wait_id:timer.id,p_decision:decision,
+      });
+      if(saved.error)throw new Error('SHADOW_RESUME_ACK');
+      resumedTimers++;
+    }catch{
+      // Only bounded fixed reason codes; no external payloads or PII in logs.
+      const failed=await db.rpc('automation_wait_shadow_resume_fail',{
+        p_workspace_id:workspaceId,p_wait_id:timer.id,p_code:failureCode,
+      }).catch(()=>null);
+      if(failed?.error||!failed)unresolved++;
+      else if(failed.data==='quarantined')resumeQuarantined++;
+      else resumeRetries++;
+    }
+  }
   return json({
     ok:true,shadowOnly:true,dispatchAuthorized:false,
     timersStoppedByPolicy:Number(guarded.data||0),
     timersDue:due.data.filter((x:{result_state:string})=>x.result_state==='due').length,
     timersCancelled:due.data.filter((x:{result_state:string})=>x.result_state==='cancelled').length,
-    processed,unresolved,failedRecorded,quarantined,recovered:recovered.data||0,
+    processed,unresolved,failedRecorded,quarantined,
+    resumedTimers,resumeRetries,resumeQuarantined,recovered:recovered.data||0,
     crmScanned:Number(ingested.data?.scanned||0),crmInserted:Number(ingested.data?.inserted||0),
     waScanned:Number(ingestedWa.data?.scanned||0),waInserted:Number(ingestedWa.data?.inserted||0),
   });
