@@ -1,5 +1,16 @@
 -- Disposable PostgreSQL 17 test. Executes no e-mail, webhook or external action.
 \set ON_ERROR_STOP on
+-- Isolated automation release gate, never contact production Meta/e-mail.
+CREATE TABLE public.automation_workspaces (
+ id uuid PRIMARY KEY,slug text NOT NULL,active boolean NOT NULL
+);
+CREATE TABLE public.automation_runtime_settings (
+ workspace_id uuid PRIMARY KEY,mode text NOT NULL,emergency_stop boolean NOT NULL
+);
+INSERT INTO public.automation_workspaces VALUES
+ ('11111111-1111-4111-8111-111111111111','oryneo-crm',true);
+INSERT INTO public.automation_runtime_settings VALUES
+ ('11111111-1111-4111-8111-111111111111','live',false);
 CREATE TABLE public.crm_billing_orders (
  id uuid PRIMARY KEY,
  deal_id uuid NOT NULL,
@@ -50,6 +61,16 @@ INSERT INTO public.crm_delivery_projects(order_id) VALUES
 INSERT INTO public.crm_delivery_projects(order_id)
  VALUES('10000000-0000-4000-8000-000000000001')
  ON CONFLICT(order_id) DO NOTHING;
+-- Disable the bridge before a new paid order. The pre-existing stage trigger
+-- remains untouched, but the new trigger must NOT schedule any additional mail.
+UPDATE public.automation_runtime_settings
+ SET mode='disabled',emergency_stop=true
+ WHERE workspace_id='11111111-1111-4111-8111-111111111111';
+INSERT INTO public.crm_billing_orders(id,deal_id,status,paid_at,billing_environment)
+ VALUES('10000000-0000-4000-8000-000000000006',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa06','paid',now(),'live');
+INSERT INTO public.crm_delivery_projects(order_id)
+ VALUES('10000000-0000-4000-8000-000000000006');
 -- Simulate the old stage trigger reattempt after the new paid-event bridge.
 INSERT INTO public.crm_automation_jobs(deal_id,job_type,due_at)
  VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','implementation_started_email',now())
@@ -65,7 +86,7 @@ BEGIN
  IF EXISTS(SELECT 1 FROM public.crm_automation_jobs j JOIN public.crm_billing_orders o
   ON o.deal_id=j.deal_id WHERE o.status<>'paid' OR o.paid_at IS NULL OR o.billing_environment<>'live')
  THEN RAISE EXCEPTION 'Unsafe sandbox/unpaid job was created'; END IF;
- IF (SELECT count(*) FROM public.crm_delivery_projects)<>5
+ IF (SELECT count(*) FROM public.crm_delivery_projects)<>6
  THEN RAISE EXCEPTION 'Delivery project missing or duplicated'; END IF;
 END; $$;
 SELECT 'onboarding-paid-bridge-passed' AS qa_result;
