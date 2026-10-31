@@ -88,6 +88,14 @@ BEGIN
     jsonb_set(decision,'{plannedActions,0,actionKey}',to_jsonb(repeat('f',64))));
  EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
  IF NOT denied THEN RAISE EXCEPTION 'FORGED_CONTINUATION_ACCEPTED'; END IF;
+ IF (SELECT count(*) FROM public.automation_live_crm_pending_continuations(w,5)
+    WHERE action_id=previous)<>1
+ THEN RAISE EXCEPTION 'SENT_RECEIPT_NOT_DISCOVERED_FOR_RECOVERY'; END IF;
+ IF public.automation_live_crm_continuation_fail(w,previous,'LIVE_CONTEXT_UNAVAILABLE')<>'retry'
+ THEN RAISE EXCEPTION 'CONTINUATION_RETRY_NOT_RECORDED'; END IF;
+ IF EXISTS(SELECT 1 FROM public.automation_live_crm_pending_continuations(w,5)
+   WHERE action_id=previous)
+ THEN RAISE EXCEPTION 'CONTINUATION_BACKOFF_IGNORED'; END IF;
  result:=public.automation_live_crm_continue(w,exec,previous,decision);
  IF result->>'continued'<>'true' OR result->>'dispatchAuthorized'<>'false'
  THEN RAISE EXCEPTION 'CONTINUATION_COMMIT_FAILED: %',result; END IF;
