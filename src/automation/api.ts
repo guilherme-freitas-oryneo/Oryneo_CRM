@@ -152,3 +152,30 @@ export async function loadRemoteAutomationRuntime(
   }>({action:'runtime',workspaceId});
   return result.runtime;
 }
+
+
+export type ServerShadowPreview={
+  shadowOnly:true;
+  dispatchAuthorized:false;
+  state:'blocked'|'completed'|'awaiting_server_outcome'|'waiting';
+  trace:{nodeId:string;type:string;status:string;nextPort?:string}[];
+  plannedActions:{nodeId:string;type:string;actionKey:string}[];
+  issues:{code:string;path:string}[];
+};
+/**
+ * Hypothetical, non-persisting preview against the current server graph guard.
+ * Never pass real customer contact information or an invented payment receipt.
+ */
+export async function simulateRemoteAutomationDraft(
+ workspaceId:string,graph:FlowDefinition,eventType:string,
+ sampleContext:Record<string,unknown>={},
+):Promise<ServerShadowPreview>{
+ const result=await invoke<{
+  ok:true;dryRun:true;simulationOnly:true;dispatchAuthorized:false;
+  persisted:false;result:ServerShadowPreview;
+ }>({action:'simulate',workspaceId,graph,eventType,sampleContext});
+ if(!result.dryRun||!result.simulationOnly||result.dispatchAuthorized!==false||
+    result.persisted!==false||result.result.dispatchAuthorized!==false)
+   throw new Error('Simulação sem garantias de segurança.');
+ return result.result;
+}
