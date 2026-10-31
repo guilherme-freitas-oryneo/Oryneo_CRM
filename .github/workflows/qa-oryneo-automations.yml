@@ -162,3 +162,26 @@ jobs:
           deno test supabase/functions/tests/automation_execution_kernel_test.ts
           deno test supabase/functions/tests/automation_compiled_shadow_test.ts
           deno test supabase/functions/tests/automation_shadow_failure_test.ts
+          deno test supabase/functions/tests/automation_graph_guard_test.ts
+          deno test supabase/functions/tests/automation_shadow_engine_test.ts
+          deno test supabase/functions/tests/automation_action_policy_test.ts
+          deno test supabase/functions/tests/automation_worker_guards_test.ts
+          deno test supabase/functions/tests/automation_shadow_context_test.ts
+          deno test supabase/functions/tests/automation_simulation_boundary_test.ts
+          deno test supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts
+
+  crm-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependências travadas pelo lockfile
+        run: npm ci
+      - name: Verificar TypeScript, Vite e output do GitHub Pages
+        run: npm run build -- --base=/Oryneo_CRM/
+      - name: Testar regressão integral do CRM, pipeline, WhatsApp e UI
+        run: npm run test -- --run
