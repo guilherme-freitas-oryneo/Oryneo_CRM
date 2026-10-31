@@ -157,6 +157,13 @@ BEGIN
   'proposal:c3000000-0000-4000-8000-000000000001',
   'meeting:c2000000-0000-4000-8000-000000000002');
  IF n<>9 THEN RAISE EXCEPTION 'Expected nine canonical source envelopes: %',n; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.automation_event_inbox
+   WHERE event_id='email-sent:c2000000-0000-4000-8000-000000000001'
+     AND source='mail' AND event_type='mail.sent')
+ THEN RAISE EXCEPTION 'Mail receipt must NOT re-trigger opportunity.updated / lead automation'; END IF;
+ IF EXISTS(SELECT 1 FROM public.automation_event_inbox
+   WHERE source='mail' AND event_type='opportunity.updated')
+ THEN RAISE EXCEPTION 'Outbound email feedback loop unsafe'; END IF;
  IF EXISTS(SELECT 1 FROM public.automation_event_inbox e
   WHERE e.event_id IN(
    'paid:c1000000-0000-4000-8000-000000000005',
