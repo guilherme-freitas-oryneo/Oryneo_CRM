@@ -429,9 +429,13 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     if (!p || !current || p.id !== event.pointerId) return;
     pointer.current = null;
     const dx = (event.clientX - p.originX) / zoom, dy = (event.clientY - p.originY) / zoom;
-    if (Math.abs(dx) + Math.abs(dy) > 3) commit(moveNode(current, p.nodeId, { x: Math.max(12,p.startX+dx), y: Math.max(12,p.startY+dy) }));
+    if (Math.abs(dx) + Math.abs(dy) > 3) {
+      if(selectedIds.includes(p.nodeId)&&selectedIds.length>1){
+        commit(moveSelectedNodes(current,selectedIds,dx,dy));
+      }else commit(moveNode(current,p.nodeId,{x:Math.max(12,p.startX+dx),y:Math.max(12,p.startY+dy)}));
+    }
   };
-  const showNode = (node: FlowNode) => {
+  const showNode = (node: FlowNode,shift=false) => {
     if (reconnecting && current) {
       commit(reconnectEdge(current, reconnecting, node.id));
       setReconnecting(null); setActiveEdge(null); return;
@@ -443,7 +447,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       commit(connectPorts(current, edge));
       setSourcePort(null); return;
     }
-    setSelectedId(node.id); setActiveEdge(null); setJsonConfig(JSON.stringify(node.config, null, 2));
+    selectNode(node,shift);
   };
   const applyJsonConfig = () => {
     if (!current || !selected) return;
@@ -457,19 +461,48 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       setNotice('JSON inválido: o nó não foi alterado.');
     }
   };
-  const fit = () => setZoom(1);
+  const fit=()=>{
+    const el=stage.current;
+    if(!el||!current)return;
+    const view=fitGraphView(current.nodes,{width:el.clientWidth,height:el.clientHeight});
+    setZoom(view.zoom);
+    requestAnimationFrame(()=>{
+      if(stage.current){stage.current.scrollLeft=view.left;stage.current.scrollTop=view.top;}
+    });
+  };
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (!history) return;
-      if ((event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)) return;
+      if (event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement ||
+        (event.target instanceof HTMLElement&&event.target.isContentEditable)) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault(); setHistory(h => h ? (event.shiftKey ? redoEdit(h) : undoEdit(h)) : null);
       }
-      if (event.key === 'Escape') { setSourcePort(null); setReconnecting(null); setMenu(null); }
+      if ((event.key==='Delete'||event.key==='Backspace')&&(selectedIds.length||selectedId||activeEdge)){
+        event.preventDefault();removeSelection();
+      }
+      if ((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='d'&&selectedId){
+        event.preventDefault();duplicateSelected();
+      }
+      if ((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='c'&&selectedId){
+        event.preventDefault();setNodeClipboard(selectedId);
+      }
+      if ((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='v'&&nodeClipboard&&current){
+        event.preventDefault();
+        const id=crypto.randomUUID();
+        const change=duplicateDraftNode(current,nodeClipboard,id);
+        commit(change);
+        if(change.ok){setSelectedId(id);setSelectedIds([id]);}
+      }
+      if (event.key === 'Escape') {
+        setSourcePort(null);setReconnecting(null);setMenu(null);setSelectedIds([]);setSelectedId(null);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [history]);
+  }, [history,selectedIds,selectedId,activeEdge,nodeClipboard,current]);
   const subviews: Record<Exclude<Tab,'pipeline'|'sdr'>, { title: string; description: string }> = {
     overview: { title: 'Orquestração comercial', description: 'Centralize seus fluxos e acompanhe a transição para o novo motor com segurança.' },
     triggers: { title: 'Gatilhos e condições', description: 'Biblioteca de regras tipadas. Condições editáveis exigem confirmação do backend.' },
