@@ -5,6 +5,12 @@ INSERT INTO public.automation_workspaces(id,slug,active)
  VALUES('b1000000-0000-4000-8000-000000000001','qa-delivery-protocol',true);
 INSERT INTO public.automation_runtime_settings(workspace_id,mode,emergency_stop)
  VALUES('b1000000-0000-4000-8000-000000000001','live',false);
+-- The disposable sender fixture explicitly attests its own isolated owner.
+INSERT INTO public.automation_channel_ownership(
+ workspace_id,channel,owner,legacy_dispatch_paused_at,release_approved_at,release_id)
+ VALUES('b1000000-0000-4000-8000-000000000001','whatsapp',
+ 'new_engine',clock_timestamp()-interval '2 minutes',clock_timestamp(),
+ 'qa-release-protocol');
 INSERT INTO public.automation_flows(id,workspace_id,slug,name,kind,enabled)
  VALUES('b1000000-0000-4000-8000-000000000002',
   'b1000000-0000-4000-8000-000000000001',
