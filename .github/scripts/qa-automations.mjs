@@ -54,6 +54,9 @@ for (const c of cases) {
     await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Fluxos do pipeline/}).click();
     await page.getByRole('button',{name:/Novo fluxo/i}).click();
     await page.getByRole('textbox',{name:'Nome do fluxo'}).waitFor();
+    await page.getByTitle('Organizar nós automaticamente').click();
+    await page.getByTitle('Desfazer').click();
+    await page.getByTitle('Refazer').click();
     await page.getByTitle('Simular sem efeitos externos').click();
     await page.getByText(/Simulação — não enviado/i).waitFor();
     if(!await page.getByTitle('Publicação disponível após engine homologada').isDisabled())throw Error('Unsafe activation enabled');
