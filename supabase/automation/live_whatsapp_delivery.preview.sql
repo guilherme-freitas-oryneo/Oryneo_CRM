@@ -35,7 +35,24 @@ CREATE TABLE IF NOT EXISTS public.automation_whatsapp_marketing_consents(
   CHECK(purpose='commercial_followup'),
  granted_at timestamptz NOT NULL,
  proof_kind text NOT NULL CHECK(proof_kind IN('opt_in_form','signed_agreement','explicit_inbound')),
- proof_sha256 text NOT NULL CHECK(proof_sha256 ~ '^[0-9a-f]{64}
+ proof_sha256 text NOT NULL CHECK(length(proof_sha256)=64 AND proof_sha256 ~ '^[0-9a-f]+$'),
+ verified_by uuid NOT NULL,
+ verified_at timestamptz NOT NULL,
+ revoked_at timestamptz,
+ PRIMARY KEY(workspace_id,conversation_id,purpose),
+ CONSTRAINT automation_marketing_consent_verified_after_grant
+ CHECK(verified_at>=granted_at),
+ CONSTRAINT automation_marketing_consent_revoked_after_grant
+ CHECK(revoked_at IS NULL OR revoked_at>=granted_at)
+);
+ALTER TABLE public.automation_whatsapp_marketing_consents ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.automation_whatsapp_marketing_consents FROM PUBLIC,anon,authenticated;
+GRANT SELECT ON public.automation_whatsapp_marketing_consents TO service_role;
+CREATE INDEX IF NOT EXISTS automation_wa_consent_recent_idx
+ ON public.automation_whatsapp_marketing_consents(workspace_id,verified_at DESC)
+ WHERE revoked_at IS NULL;
+
+CREATE OR REPLACE FUNCTION public.automation_whatsapp_claim_template(
  p_workspace_id uuid,p_limit integer DEFAULT 3
 ) RETURNS TABLE(action_id uuid,claim_token uuid,action_key text,
  conversation_id uuid,template_registry_id uuid,phone_number_id text,
