@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, DragEvent as ReactDragEvent, ChangeEvent as ReactChangeEvent } from 'react';
-import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBranch, History, Layers3, LockKeyhole, Plus, Redo2, Search, Settings2, ShieldCheck, Undo2, Workflow, X, ZoomIn, ZoomOut, PanelLeftClose, PanelRightClose, Scan, Copy, Trash2, Upload, Move, LocateFixed } from 'lucide-react';
+import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBranch, History, Layers3, LockKeyhole, Plus, Redo2, Search, Settings2, ShieldCheck, Undo2, Workflow, X, ZoomIn, ZoomOut, PanelLeftClose, PanelRightClose, Scan, Upload, LocateFixed } from 'lucide-react';
 import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, autoLayoutFlow, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
@@ -158,6 +158,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [reconnecting, setReconnecting] = useState<string | null>(null);
   const [sourcePort, setSourcePort] = useState<{ nodeId: string; port: string } | null>(null);
   const [search, setSearch] = useState('');
+  const [nodeSearch,setNodeSearch]=useState('');
   const [zoom, setZoom] = useState(1);
   const [notice, setNotice] = useState('');
   const [preview, setPreview] = useState<ReturnType<typeof simulateFlow> | null>(null);
@@ -370,7 +371,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     const file=event.target.files?.[0];
     event.target.value='';
     if(!file||!current)return;
-    if(file.size>250_000||!(/\\.json$/i).test(file.name)){
+    if(file.size>250_000||!(/\.json$/i).test(file.name)){
       setNotice('Importação recusada: escolha JSON com até 250 KB.');return;
     }
     try{
@@ -411,6 +412,16 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>
       n.id===node.id?{...n,disabled:!n.disabled}:n)}});
     setMenu(null);
+  };
+  const focusMatchingNode=()=>{
+    const term=nodeSearch.trim().toLocaleLowerCase('pt-BR');
+    const node=current?.nodes.find(n=>n.label.toLocaleLowerCase('pt-BR').includes(term));
+    if(!term||!node){setNotice('Não foi encontrado um bloco com esse nome.');return;}
+    selectNode(node,false);
+    if(stage.current){
+      stage.current.scrollLeft=Math.max(0,node.position.x*zoom-stage.current.clientWidth/2+110);
+      stage.current.scrollTop=Math.max(0,node.position.y*zoom-stage.current.clientHeight/2+65);
+    }
   };
   const inspectExecution=async(item:AutomationExecution)=>{
     if(!workspace)return;
@@ -573,6 +584,10 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             <button title="Alternar inspetor" aria-pressed={showInspector}
               onClick={()=>setShowInspector(v=>!v)}><PanelRightClose size={16}/></button>
             <button title="Enquadrar todos os nós" onClick={fit}><Scan size={16}/></button>
+            <input className="ory-auto-node-search" type="search" aria-label="Procurar nó no fluxo"
+              placeholder="Localizar bloco…" value={nodeSearch} onChange={e=>setNodeSearch(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Enter')focusMatchingNode();}}/>
+            <button title="Centralizar nó pesquisado" onClick={focusMatchingNode} disabled={!nodeSearch.trim()}><Search size={15}/></button>
             <button className="ory-auto-primary" disabled={syncBusy} onClick={()=>void saveDraft()}>{syncBusy?'Salvando…':'Salvar rascunho'}</button>
             {workspace&&['admin','publisher'].includes(workspace.role)&&<button
               title="Congelar versão homologada sem ativar automações" disabled={syncBusy||!current||remoteRevision[current.id]===undefined||JSON.stringify(current)!==lastRemoteJson[current.id]}
@@ -675,7 +690,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               {menu.edgeId&&<button onClick={()=>{setActiveEdge(menu.edgeId);setMenu(null)}}>Inserir nó nesta conexão</button>}
               {menu.edgeId&&<button onClick={()=>{setReconnecting(menu.edgeId);setMenu(null);setNotice('Clique no nó de destino para reconectar.')}}>Reconectar destino</button>}
               {menu.edgeId&&<button onClick={()=>{if(current)commit(removeEdgeById(current,menu.edgeId!));setActiveEdge(null);setMenu(null);}}>Remover conexão</button>}
-              {menu.nodeId&&<button onClick={()=>duplicateSelected()}>Duplicar nó</button>}
+              {menu.nodeId&&<button onClick={()=>{setSelectedId(menu.nodeId);setSelectedIds([menu.nodeId]);const id=crypto.randomUUID();const edit=duplicateDraftNode(current,menu.nodeId,id);commit(edit);if(edit.ok){setSelectedId(id);setSelectedIds([id]);}setMenu(null);}}>Duplicar nó</button>}
               {menu.nodeId&&current.nodes.find(n=>n.id===menu.nodeId)?.type!=='trigger'&&
                 <button onClick={toggleDisabled}>{current.nodes.find(n=>n.id===menu.nodeId)?.disabled?'Reativar bloco':'Desativar bloco'}</button>}
               {menu.nodeId&&current.nodes.find(n=>n.id===menu.nodeId)?.type!=='trigger'&&
@@ -685,7 +700,11 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
           </div>
           {showInspector&&<aside className="ory-auto-inspector">
             <div className="ory-auto-inspector-title"><Settings2 size={16}/><h3>Inspetor</h3></div>
-            {selected ? <><span className="ory-auto-overline">PROPRIEDADES DO BLOCO</span><label>Nome<input value={selected.label} onChange={e=>commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,label:e.target.value}:n)}})}/></label>
+            {selectedIds.length>1 ? <div className="ory-auto-multiselect">
+              <strong>{selectedIds.length} nós selecionados</strong>
+              <p>Arraste qualquer nó selecionado para mover o grupo preservando conexões, ou pressione Delete para remover os blocos (o gatilho é protegido).</p>
+              <button type="button" onClick={removeSelection}>Remover seleção</button>
+            </div> : selected ? <><span className="ory-auto-overline">PROPRIEDADES DO BLOCO</span><label>Nome<input value={selected.label} onChange={e=>commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,label:e.target.value}:n)}})}/></label>
               {selected.type==='condition' ? <ConditionRuleEditor value={selected.config.rule} onChange={rule=>commit({ok:true,graph:{
                 ...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,config:{rule}}:n),
               }})}/> : <>
@@ -697,7 +716,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                 <label>Configuração JSON<textarea aria-label="Configuração JSON do nó" spellCheck={false} rows={7} value={jsonConfig} onChange={e=>setJsonConfig(e.target.value)}/></label>
                 <button onClick={applyJsonConfig}>Aplicar configuração</button>
               </>}
-              {selected.type!=='trigger'&&<button className="ory-auto-danger" onClick={()=>{commit(removeNode(current,selected.id));setSelectedId(null)}}>Remover bloco</button>}
+              {selected.type!=='trigger'&&<button className="ory-auto-danger" onClick={()=>{commit(removeNode(current,selected.id));setSelectedId(null);setSelectedIds([])}}>Remover bloco</button>}
               <p className="ory-auto-aside-hint">Alterações locais exigem validação e publicação por servidor antes de produzir efeitos.</p>
             </> : activeEdge ? <><p>Conexão selecionada. Escolha um bloco na biblioteca à esquerda para inseri-lo entre os nós.</p><button onClick={()=>{setReconnecting(activeEdge);setNotice('Selecione o novo nó de destino no canvas.')}}>Reconectar destino</button><button onClick={()=>setActiveEdge(null)}>Desmarcar conexão</button></> :
               <div className="ory-auto-empty-inspector"><GitBranch size={26}/><strong>Selecione um bloco</strong><p>Clique em um nó para editar. Use os botões + nas linhas para inserir etapas.</p></div>}
