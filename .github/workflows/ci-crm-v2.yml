@@ -49,6 +49,7 @@ jobs:
           deno test supabase/functions/tests/automation_action_policy_test.ts
           deno test supabase/functions/tests/automation_shadow_context_test.ts
           deno test supabase/functions/tests/automation_meta_template_verifier_test.ts
+          deno test supabase/functions/tests/automation_meta_snapshot_test.ts
           deno check --node-modules-dir=auto supabase/functions/intake-mail-worker/index.ts
           deno check --node-modules-dir=auto supabase/functions/stripe-webhook/index.ts
           deno check --node-modules-dir=auto supabase/functions/proposal-create/index.ts
