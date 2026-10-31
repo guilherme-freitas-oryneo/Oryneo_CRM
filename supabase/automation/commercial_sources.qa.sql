@@ -122,6 +122,9 @@ BEGIN
  -- Checkout must observe 6 live orders, but only a single first batch row
  -- was consumed above. Additional reads must not insert forbidden sandbox orders.
  result:=public.automation_commercial_shadow_ingest(w,'checkout',100);
+ IF (result->>'inserted')::int<>4 THEN
+   RAISE EXCEPTION 'Expected four further verified live checkout starts: %',result; END IF;
+ result:=public.automation_commercial_shadow_ingest(w,'checkout',100);
  IF (result->>'inserted')::int<>0 THEN RAISE EXCEPTION 'Checkout replay'; END IF;
 
  SELECT count(*) INTO n FROM public.automation_event_inbox
