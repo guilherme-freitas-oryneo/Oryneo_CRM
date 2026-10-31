@@ -69,6 +69,10 @@ Deno.test('effect actions require reviewed policy and verified references',()=>{
   const accepted=inspectServerGraph(a,{...refs,templateIds:[id(33)]});
   expect(accepted.ok,'verified references may be inspected: '+JSON.stringify(accepted.issues));
   expect(!accepted.dispatchAuthorized,'reference inspection never authorizes dispatch');
+  const official={...refs,templateIds:[id(33)],templateVariables:{[id(33)]:['1','2']}};
+  expect(codes(a,official).includes('MAPPING_REQUIRED'),'Missing official placeholders should block publication');
+  a.nodes[1].config.bindings={'1':'conversation.customer_name','2':'opportunity.plan'};
+  expect(inspectServerGraph(a,official).ok,'Explicit typed bindings unexpectedly rejected');
   const b=valid();b.nodes[1].type='email';b.nodes[1].ports=['in','out','error'];
   b.edges[1].source_port='out';b.edges[2].source_port='error';
   expect(codes(b).includes('ACTION_ADAPTER_NOT_HOMOLOGATED'),'email blocked until adapter audited');
