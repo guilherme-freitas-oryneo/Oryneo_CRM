@@ -115,6 +115,13 @@ BEGIN
     'decision',jsonb_set(decision,'{plannedActions,0,type}','"whatsapp_template"'::jsonb))));
  EXCEPTION WHEN insufficient_privilege THEN refused:=true; END;
  IF NOT refused THEN RAISE EXCEPTION 'UNREVIEWED_EXTERNAL_ACTION_ACCEPTED'; END IF;
+ refused:=false;
+ BEGIN
+  PERFORM public.automation_live_crm_finish(w,inbox,token,
+   jsonb_build_array(jsonb_build_object('flowVersionId',version,
+    'decision',jsonb_set(decision,'{state}','"waiting"'::jsonb))));
+ EXCEPTION WHEN invalid_parameter_value THEN refused:=true; END;
+ IF NOT refused THEN RAISE EXCEPTION 'LIVE_WAIT_WITHOUT_SCHEDULER_ACCEPTED'; END IF;
  IF EXISTS(SELECT 1 FROM public.automation_executions WHERE inbox_id=inbox)
  THEN RAISE EXCEPTION 'FORGED_ACTION_PERSISTED'; END IF;
  result:=public.automation_live_crm_finish(w,inbox,token,plan);
