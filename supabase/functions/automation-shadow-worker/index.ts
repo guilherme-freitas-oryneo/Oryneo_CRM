@@ -204,9 +204,12 @@ Deno.serve(async request=>{
       resumedTimers++;
     }catch{
       // Only bounded fixed reason codes; no external payloads or PII in logs.
-      const failed=await db.rpc('automation_wait_shadow_resume_fail',{
-        p_workspace_id:workspaceId,p_wait_id:timer.id,p_code:failureCode,
-      }).catch(()=>null);
+      let failed:null|{error:unknown;data:unknown}=null;
+      try {
+        failed=await db.rpc('automation_wait_shadow_resume_fail',{
+          p_workspace_id:workspaceId,p_wait_id:timer.id,p_code:failureCode,
+        });
+      }catch { /* retain due timer for retry by next worker */ }
       if(failed?.error||!failed)unresolved++;
       else if(failed.data==='quarantined')resumeQuarantined++;
       else resumeRetries++;
