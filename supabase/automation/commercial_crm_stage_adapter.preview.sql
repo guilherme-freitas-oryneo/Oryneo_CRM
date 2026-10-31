@@ -37,6 +37,17 @@ BEGIN
  IF a.state<>'leased' OR a.claim_token IS DISTINCT FROM p_claim_token
  OR a.lease_until IS NULL OR a.lease_until<clock_timestamp()
  THEN RAISE EXCEPTION 'CRM_ACTION_LEASE_INVALID' USING ERRCODE='42501'; END IF;
+ -- Shared row locks serialize this mutation against emergency-stop and
+ -- owner changes. A stop/cutover cannot interleave after preflight.
+ PERFORM 1 FROM public.automation_runtime_settings st
+ JOIN public.automation_workspaces w ON w.id=st.workspace_id
+ JOIN public.automation_channel_ownership own ON own.workspace_id=w.id
+ WHERE w.id=p_workspace_id AND w.slug='oryneo-crm' AND w.active
+   AND st.mode='live' AND st.emergency_stop IS FALSE
+   AND own.channel='crm' AND own.owner='new_engine'
+ FOR SHARE OF st,w,own;
+ IF NOT FOUND THEN RAISE EXCEPTION 'CRM_ACTION_RUNTIME_FENCE_DENIED'
+   USING ERRCODE='42501'; END IF;
  v_owner:=public.automation_channel_cutover_preflight(p_workspace_id,'crm');
  IF v_owner->>'eligible'<>'true' OR v_owner->>'dispatchAuthorized'<>'false'
  THEN RAISE EXCEPTION 'CRM_ACTION_CHANNEL_NOT_RELEASED' USING ERRCODE='42501'; END IF;
