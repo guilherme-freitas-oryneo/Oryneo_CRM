@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
-import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBranch, History, Layers3, LockKeyhole, Plus, Redo2, Search, Settings2, ShieldCheck, Undo2, Workflow, X, ZoomIn, ZoomOut } from 'lucide-react';
+import type { PointerEvent as ReactPointerEvent, DragEvent as ReactDragEvent, ChangeEvent as ReactChangeEvent } from 'react';
+import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBranch, History, Layers3, LockKeyhole, Plus, Redo2, Search, Settings2, ShieldCheck, Undo2, Workflow, X, ZoomIn, ZoomOut, PanelLeftClose, PanelRightClose, Scan, Copy, Trash2, Upload, Move, LocateFixed } from 'lucide-react';
 import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, autoLayoutFlow, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
-import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime, type ServerShadowPreview, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, loadRemoteAutomationExecutionDetail, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime, type ServerShadowPreview, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution, type AutomationExecutionDetail } from './api';
 import { ConditionRuleEditor } from './ConditionRuleEditor';
+import { duplicateDraftNode,fitGraphView,importDraftJson,moveSelectedNodes,removeEdgeById,removeSelectedNodes,routeBranchLabel,viewportToGraph } from './editorCommands';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
 import { SIMULATION_CASES, buildSimulationCase, type SimulationCaseId } from './simulationCases';
@@ -148,6 +149,12 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [history, setHistory] = useState<DraftHistory | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeEdge, setActiveEdge] = useState<string | null>(null);
+  const [selectedIds,setSelectedIds]=useState<string[]>([]);
+  const [showPalette,setShowPalette]=useState(true);
+  const [showInspector,setShowInspector]=useState(true);
+  const [executionDetail,setExecutionDetail]=useState<AutomationExecutionDetail|null>(null);
+  const [detailLoading,setDetailLoading]=useState(false);
+  const [nodeClipboard,setNodeClipboard]=useState<string|null>(null);
   const [reconnecting, setReconnecting] = useState<string | null>(null);
   const [sourcePort, setSourcePort] = useState<{ nodeId: string; port: string } | null>(null);
   const [search, setSearch] = useState('');
@@ -159,6 +166,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [jsonConfig, setJsonConfig] = useState('');
   const [menu, setMenu] = useState<{ x: number; y: number; edgeId: string | null; nodeId: string | null; canvasX?: number; canvasY?: number } | null>(null);
   const stage = useRef<HTMLDivElement>(null);
+  const importInput=useRef<HTMLInputElement>(null);
   const pointer = useRef<{ id: number; nodeId: string; originX: number; originY: number; startX: number; startY: number } | null>(null);
   const current = history?.graph;
   const trace=serverPreview?.trace||preview?.trace||[];
@@ -182,7 +190,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const open = (graph: FlowDefinition) => {
     setTab(graph.kind);
     setOpenId(graph.id); setHistory(createHistory(graph));
-    setSelectedId(null); setActiveEdge(null); setPreview(null);setServerPreview(null);
+    setSelectedId(null);setSelectedIds([]); setActiveEdge(null); setPreview(null);setServerPreview(null);
     setNotice('Editor isolado: nenhum fluxo está conectado a disparos reais.');
   };
   const create = (kind: FlowKind) => open(connectedDraft(kind));
