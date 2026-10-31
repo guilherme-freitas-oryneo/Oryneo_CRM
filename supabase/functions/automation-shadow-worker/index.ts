@@ -165,6 +165,15 @@ Deno.serve(async request=>{
   for(const timer of dueRows.data||[]){
     let failureCode='SHADOW_RESUME_UNAVAILABLE';
     try {
+      // Reconcile the canonical conversation AFTER the timer became due.
+      // This closes the gap between polling and planning a continuation.
+      const guard=await db.rpc('automation_wait_shadow_due_policy',{
+        p_workspace_id:workspaceId,p_wait_id:timer.id,
+      });
+      if(guard.error)throw new Error('SHADOW_RESUME_UNAVAILABLE');
+      if(guard.data==='cancelled'||guard.data==='not_due')continue;
+      if(guard.data==='runtime_stopped')break;
+      if(guard.data!=='ready')throw new Error('SHADOW_RESUME_UNAVAILABLE');
       const gate=await db.from('automation_runtime_settings')
         .select('mode,emergency_stop').eq('workspace_id',workspaceId).maybeSingle();
       if(gate.error||gate.data?.mode!=='shadow'||gate.data.emergency_stop!==false)
