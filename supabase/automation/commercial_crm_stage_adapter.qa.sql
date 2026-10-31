@@ -11,6 +11,8 @@ GRANT SELECT,UPDATE ON public.crm_records TO service_role;
 GRANT SELECT,INSERT ON public.crm_history TO service_role;
 GRANT SELECT,INSERT ON public.crm_events TO service_role;
 \i supabase/automation/commercial_crm_stage_adapter.preview.sql
+-- Simulation grant ONLY inside disposable PostgreSQL QA (not in migration).
+GRANT UPDATE ON public.automation_channel_ownership TO service_role;
 
 BEGIN;
 UPDATE public.automation_workspaces SET active=true
