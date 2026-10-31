@@ -19,6 +19,10 @@ DECLARE
  convo_missing uuid:='6a000000-0000-4000-8000-000000000005';
  due timestamptz:=clock_timestamp()+interval '1 hour';
 BEGIN
+ -- Earlier QA cases share this disposable workspace; terminate their
+ -- intentionally unexpired fixtures before asserting THIS case's count.
+ UPDATE public.automation_wait_timers SET state='cancelled',
+   reason_code='QA_PRIOR_FIXTURE' WHERE workspace_id=w AND state='waiting';
  SELECT id INTO flow_version FROM public.automation_flow_versions
   WHERE workspace_id=w AND status='published' ORDER BY version DESC LIMIT 1;
  IF flow_version IS NULL THEN RAISE EXCEPTION 'Missing published QA fixture'; END IF;
