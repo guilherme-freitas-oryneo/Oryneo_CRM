@@ -28,7 +28,7 @@ describe('ORYNEO eight starter journeys',()=>{
     expect(graph.nodes.some(n=>n.id===edge.source&&n.ports.includes(edge.source_port))).toBe(true);
     expect(graph.nodes.some(n=>n.id===edge.target&&n.ports.includes(edge.target_port))).toBe(true);
    }
-   const result=simulateFlow(graph,{event:{type:preset.event}});
+   const result=simulateFlow(graph,{eventType:preset.event,context:{}});
    expect(result.dryRun).toBe(true);
   });
  }
