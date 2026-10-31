@@ -174,28 +174,43 @@ jobs:
           END $qa$;
           SQL
 
-      - name: Reexecutar migrações efetivamente aplicadas em produção em PostgreSQL descartável
+      - name: Reexecutar migrações hospedadas preservando o estado sintético preexistente
         run: |
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031214032_oryneo_commercial_shadow_ownership_foundation_disabled.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031214115_oryneo_disabled_recovery_semantic_and_crm_adapters.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031214650_oryneo_sdr_release_fk_indexes.sql
           psql -v ON_ERROR_STOP=1 <<'SQL'
+          -- A previous isolated QA intentionally commits a synthetic channel cutover;
+          -- migration replay must preserve that state instead of resetting it.
+          CREATE TEMP TABLE qa_owner_before AS
+            SELECT channel,owner,legacy_dispatch_paused_at,release_approved_at,release_id
+            FROM public.automation_channel_ownership;
+          CREATE TEMP TABLE qa_outbox_before AS
+            SELECT id,state FROM public.automation_action_outbox;
+          \i supabase/migrations/20261031214032_oryneo_commercial_shadow_ownership_foundation_disabled.sql
+          \i supabase/migrations/20261031214115_oryneo_disabled_recovery_semantic_and_crm_adapters.sql
+          \i supabase/migrations/20261031214650_oryneo_sdr_release_fk_indexes.sql
           DO $qa$
-          DECLARE owners integer;
-                  attest integer;
-                  sdr_disabled integer;
-                  queued integer;
           BEGIN
-            SELECT count(*) INTO owners FROM public.automation_channel_ownership WHERE owner='legacy';
-            SELECT count(*) INTO attest FROM public.automation_channel_ownership WHERE release_approved_at IS NOT NULL;
-            SELECT count(*) INTO sdr_disabled FROM public.automation_sdr_active_release WHERE enabled IS FALSE;
-            SELECT count(*) INTO queued FROM public.automation_action_outbox WHERE state IN ('queued','leased');
-            RAISE NOTICE 'Hosted replay verification owners=% attest=% sdr_disabled=% queued=%',owners,attest,sdr_disabled,queued;
-            -- Synthetic terminal sent receipts are allowed from the disposable QA, not live providers.
-            IF owners<>5 THEN RAISE EXCEPTION 'HOSTED_REPLAY_OWNER_DRIFT'; END IF;
-            IF attest<>0 THEN RAISE EXCEPTION 'HOSTED_REPLAY_FALSE_RELEASE_APPROVAL'; END IF;
-            IF sdr_disabled<1 THEN RAISE EXCEPTION 'HOSTED_REPLAY_SDR_UNSAFE'; END IF;
-            IF queued<>0 THEN RAISE EXCEPTION 'HOSTED_REPLAY_OUTBOX_UNSAFE'; END IF;
+            IF (SELECT count(*) FROM public.automation_channel_ownership)<>5
+               OR EXISTS (
+                 (SELECT channel,owner,legacy_dispatch_paused_at,release_approved_at,release_id
+                    FROM public.automation_channel_ownership
+                  EXCEPT SELECT * FROM qa_owner_before)
+                 UNION ALL
+                 (SELECT * FROM qa_owner_before
+                  EXCEPT SELECT channel,owner,legacy_dispatch_paused_at,release_approved_at,release_id
+                    FROM public.automation_channel_ownership)
+               )
+            THEN RAISE EXCEPTION 'HOSTED_REPLAY_CHANGED_CHANNEL_OWNERSHIP'; END IF;
+            IF EXISTS (
+              (SELECT id,state FROM public.automation_action_outbox
+               EXCEPT SELECT id,state FROM qa_outbox_before)
+              UNION ALL
+              (SELECT id,state FROM qa_outbox_before
+               EXCEPT SELECT id,state FROM public.automation_action_outbox)
+            ) THEN RAISE EXCEPTION 'HOSTED_REPLAY_CHANGED_OUTBOX'; END IF;
+            IF NOT EXISTS(SELECT 1 FROM public.automation_sdr_active_release WHERE enabled IS FALSE)
+            THEN RAISE EXCEPTION 'HOSTED_REPLAY_SDR_UNSAFE'; END IF;
+            IF EXISTS(SELECT 1 FROM public.automation_action_outbox WHERE state IN ('queued','leased'))
+            THEN RAISE EXCEPTION 'HOSTED_REPLAY_LIVE_QUEUE_UNSAFE'; END IF;
           END $qa$;
           SQL
 
