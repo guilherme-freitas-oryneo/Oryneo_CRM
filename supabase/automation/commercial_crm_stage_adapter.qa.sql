@@ -1,7 +1,7 @@
 -- ORYNEO Stage3 CRM adapter: PostgreSQL 17 disposable ONLY.
 \set ON_ERROR_STOP on
 CREATE TABLE IF NOT EXISTS public.crm_history(
- id uuid PRIMARY KEY DEFAULT gen_random_uuid(),actor uuid,record_id uuid,
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),actor uuid NOT NULL,record_id uuid,
  before_data jsonb,before_deleted boolean,after_revision bigint,
  undone boolean NOT NULL DEFAULT false,created_at timestamptz NOT NULL DEFAULT now());
 -- Match the existing production UUID default; the disposable CRM fixture omitted it.
@@ -41,7 +41,7 @@ INSERT INTO public.automation_flow_versions(
  'd1000000-0000-4000-8000-000000000001',1,'1.0.0',
  '{"nodes":[{"id":"d1000000-0000-4000-8000-000000000006",
   "type":"crm_stage_change","config":{"target_stage_id":"f883a26d-d813-4d09-b807-fa1eb44396f4"}}],"edges":[]}'::jsonb,
- repeat('b',64),'published','d1000000-0000-4000-8000-000000000009',clock_timestamp());
+ repeat('b',64),'published','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',clock_timestamp());
 UPDATE public.automation_flows SET published_version_id='d1000000-0000-4000-8000-000000000002',
  enabled=true WHERE id='d1000000-0000-4000-8000-000000000001';
 INSERT INTO public.automation_event_inbox(
