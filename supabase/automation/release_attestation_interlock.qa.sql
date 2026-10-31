@@ -70,9 +70,13 @@ BEGIN
    WHERE workspace_id=w AND channel='email';
  EXCEPTION WHEN insufficient_privilege THEN blocked:=true; END;
  IF NOT blocked THEN RAISE EXCEPTION 'CROSS_CHANNEL_APPROVAL_BYPASS'; END IF;
- UPDATE public.automation_runtime_settings SET mode='disabled',emergency_stop=true WHERE workspace_id=w;
+ UPDATE public.automation_workspaces SET active=true WHERE id=w;
  UPDATE public.automation_release_attestations
  SET revoked_at=clock_timestamp() WHERE workspace_id=w AND scope='global' AND gate='legal';
+ IF (SELECT mode FROM public.automation_runtime_settings WHERE workspace_id=w)<>'disabled'
+ OR (SELECT emergency_stop FROM public.automation_runtime_settings WHERE workspace_id=w) IS DISTINCT FROM true
+ OR (SELECT active FROM public.automation_workspaces WHERE id=w) IS DISTINCT FROM false
+ THEN RAISE EXCEPTION 'REVOCATION_DID_NOT_STOP_RUNTIME_AND_WORKSPACE'; END IF;
  blocked:=false;
  BEGIN
   UPDATE public.automation_runtime_settings SET mode='live',emergency_stop=false WHERE workspace_id=w;
