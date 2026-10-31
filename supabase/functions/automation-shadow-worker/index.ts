@@ -98,6 +98,17 @@ Deno.serve(async request=>{
       });
       if(candidates.length>20)throw new Error('SHADOW_FLOW_LIMIT');
       const context=await loadShadowCanonicalContext(db,event.event_type,event.context_refs);
+      // New canonical inbound activity cancels older shadow waits immediately.
+      // The database independently verifies an actual inbound journal entry,
+      // rejecting fabricated event text, reactions or client-provided claims.
+      if(event.event_type==='conversation.inbound'){
+        const id=event.context_refs.conversation_id;
+        if(typeof id!=='string'||!UUID.test(id))throw new Error('WAIT_CONVERSATION_REQUIRED');
+        const cancelled=await db.rpc('automation_wait_shadow_cancel_reply',{
+          p_workspace_id:workspaceId,p_conversation_id:id,
+        });
+        if(cancelled.error)throw new Error('WAIT_CANCEL_UNAVAILABLE');
+      }
       const plans=[];
       for(const version of candidates){
         const decision=await planServerShadow(version.graph_json,{
@@ -121,8 +132,17 @@ Deno.serve(async request=>{
       unresolved++;
     }
   }
+  // Mark due timers for diagnostics only. There is NO live continuation,
+  // outbound adapter, scheduled retry or implicit branch execution here.
+  const due=await db.rpc('automation_wait_shadow_poll',{
+    p_workspace_id:workspaceId,p_limit:10,
+  });
+  if(due.error||!Array.isArray(due.data))
+    return json({error:'Shadow timer reconciliation unavailable',processed,unresolved},503);
   return json({
     ok:true,shadowOnly:true,dispatchAuthorized:false,
+    timersDue:due.data.filter((x:{result_state:string})=>x.result_state==='due').length,
+    timersCancelled:due.data.filter((x:{result_state:string})=>x.result_state==='cancelled').length,
     processed,unresolved,recovered:recovered.data||0,
     crmScanned:Number(ingested.data?.scanned||0),crmInserted:Number(ingested.data?.inserted||0),
     waScanned:Number(ingestedWa.data?.scanned||0),waInserted:Number(ingestedWa.data?.inserted||0),
