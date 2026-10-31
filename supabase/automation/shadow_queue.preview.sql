@@ -25,7 +25,7 @@ BEGIN
       'opportunity.created','opportunity.updated','opportunity.stage_changed',
       'lead.intake_received','checkout.started','checkout.expired',
       'billing.paid_verified','billing.failed','conversation.inbound',
-      'conversation.human_takeover','meeting.scheduled','proposal.sent')
+      'conversation.human_takeover','meeting.scheduled','proposal.sent','onboarding.started')
     OR p_context_refs IS NULL OR jsonb_typeof(p_context_refs)<>'object'
     OR octet_length(p_context_refs::text)>4096
     OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_context_refs) AS k(key)
