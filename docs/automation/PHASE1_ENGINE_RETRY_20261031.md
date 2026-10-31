@@ -1,35 +1,40 @@
-# ORYNEO — Etapa 1 / motor de automações: checkpoint auditável — 31/10/2026
+# ORYNEO — Macroetapa 1 | motor de automações — checkpoint técnico (31/10/2026)
 
-## Origem e isolamento
-- Especificação: `ORYNEO_CODEX_AUTOMACOES_SDR_PIPELINE_2026-10-28(3).zip`.
-- Branch originada do commit `b30f9aea970c3332f57b2e2660038a77ad1f0a23` do PR #72 (draft).
-- Este incremento está no PR #74 (draft), com **base no PR #72**, não em `main`.
-- Nenhum arquivo do SDR legado, WhatsApp operacional, Stripe, pipeline comercial ou landing page foi modificado.
+## Escopo e limites
+- Origem: ZIP `ORYNEO_CODEX_AUTOMACOES_SDR_PIPELINE_2026-10-28(3).zip`.
+- PR #72: fundação da engine, versão de base `b30f9aea970c3332f57b2e2660038a77ad1f0a23`.
+- PR #74: implementação complementar isolada sobre a branch do PR #72, **não sobre main**.
+- Preservados: SDR IA e WhatsApp existentes, mail, checkout, Stripe, pipeline, site, Playbook.
+- Sem merge para main, migração de produção, cron novo, envio de WhatsApp/e-mail, cobrança ou ativação do runtime.
 
-## Verificado antes de alterar
-A base anterior já continha graph guard server-side, snapshots publicados imutáveis porém inativos, inbox com deduplicação e lease, shadow planner, timers, outbox com bloqueio, protocolo de reconciliação e API autenticada de rascunhos.
+## Componentes que já existiam no PR #72
+- Esquema com isolamento por workspace e RLS, drafts com CAS e versões imutáveis congeladas.
+- Event inbox com deduplicação e leases, worker espelho, event adapters CRM e WhatsApp, prevenção de side effects.
+- Outbox bloqueada, fences e reconhecimento de recibo externo preparado, sem dispatcher live.
+- Timers persistentes e cancelamento por mensagem canônica ou takeover humano.
+- Guard de tipos/portas e regras do grafo, catálogo de referências e simulação não emissora.
 
-**Lacuna identificada:** o worker capturava exceções por evento sem registrar a causa; aguardava expiração do lease, reduzindo a observabilidade e atrasando a recuperação.
+## Trabalho concluído neste PR #74
+1. **Recuperação com causa:** RPC `automation_shadow_fail` com token de lease, falha codificada/sem PII, backoff 30s/2min/5min/15min, quarentena na quinta tentativa. Worker registra a falha sem reconhecer trabalho quando o RPC não responde.
+2. **Compilador determinístico:** `executionKernel.ts` valida somente snapshots publicados e referências do backend, cria representação de portas/arestas com hash estável e percorre condições com lógica trivalente. Nenhum plano autoriza dispatch.
+3. **Executor por segmentos:** retoma a partir do nó/porta de suspensão, percorre o caminho congelado, suporta `waiting`, `completed`, resultado pendente e bloqueios. Rejeita eventos falsificados, regras desconhecidas, opt-out e atendimento humano.
+4. **Worker integrado:** processamento não emissor passa pelo compilador compartilhado; as rotas antigas têm teste de equivalência de trace/hash de ativação.
+5. **Continuação de timers:** `automation_wait_shadow_resume` em SQL de QA, com verificação da aresta do grafo, conclusão atômica da rastreabilidade e persistência de efeitos apenas como `blocked`. `automation_wait_shadow_resume_fail` registra backoff e quarentena; worker lê timers `due` não retomados e usa contexto canônico.
+6. **Rollback:** `automation_rollback_disabled` troca apenas o ponteiro de versão publicada, sem mutar snapshots, com CAS, papel publicador/admin, audit log e exigência de runtime desativado com parada de emergência.
+7. **API:** `publish-disabled` exige compilação server-side; `rollback-disabled` exige papel adequado e validação de revisão; observabilidade expõe apenas contagens sanitizadas por workspace.
 
-## Mudanças deste incremento
-1. `supabase/automation/shadow_failure.preview.sql`: função `automation_shadow_fail` no **SQL de QA isolado**, estritamente `SECURITY INVOKER` e `service_role`, com verificação de token de lease, estado e tentativa. Recebe apenas códigos fixos não pessoais.
-2. Retentativas com backoff 30 s, 2 min, 5 min e 15 min; na quinta falha, quarentena imediata. O próximo `claim` sempre usa a mesma inbox idempotente.
-3. `supabase/functions/automation-shadow-worker/failurePolicy.ts`: classificação fail-closed; exceções arbitrárias (incluindo mensagens de provedor ou PII) viram `SHADOW_UNEXPECTED_FAILURE`.
-4. `supabase/functions/automation-shadow-worker/index.ts`: notifica o RPC em caso de falha, preservando a recuperação antiga se o próprio RPC não responder.
-5. `supabase/functions/automation-api/index.ts`: observabilidade de quantidades de eventos falhos, execuções falhas e ações falhas/dead-letter por workspace autenticado, sem payloads.
-6. Testes Deno e PostgreSQL 17 descartável na CI. O teste SQL verifica token falso, tentativa dupla, backoff, limite de tentativas, permissões e ausência de envio.
+## Evidências e gates
+- CI do commit `67d0e6f28d121424e38c02a8346bcb9d3ddcc912`: https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41226627608 — **2/2 jobs aprovados**.
+- `schema-isolation`: PostgreSQL 17 descartável, verificações de RLS, publicação, queues, wait atomic, timer continuation, retry, quarantina, rollback e ausência de envio.
+- `failure-policy`: Deno typecheck API e worker; testes do compilador, paridade das rotas, erros sanitizados.
+- Supabase de produção verificado em leitura: `mode=disabled`, `emergency_stop=true`, workspace inativo; zero fluxos publicados/ativos e zero novas ações.
 
-## Não executado e não autorizado neste incremento
-- Nenhuma migração deste PR foi aplicada ao Supabase real.
-- Nenhum deploy de Edge Function, cron, webhook, alteração de modo, publicação de fluxo, disparo Meta/e-mail, cobrança ou merge.
-- Não houve alteração no runtime do SDR atual.
-- O frontend da engine e o executor live continuam fora de produção.
+## Limite objetivo da macroetapa
+O motor de cálculo, persistência e recuperação **em modo não emissor** está implementado e seus contratos isolados foram testados. Não existe autorização para declarar o runtime live ou os action adapters de produção homologados. Ações reais via Meta, e-mail, CRM, Stripe e cutover do executor antigo pertencem à Macroetapa 3 e à homologação/deploy posteriores. Os 47 casos de aceite integral do ZIP ainda pertencem à Macroetapa 5.
 
-## Resultado para a macroetapa 1
-**Incremento de confiabilidade implementado e submetido a QA.** Não equivale a finalizar toda a Etapa 1. Ainda faltam compiler/executor live com policy gates por adaptador, roteamento e continuação de timers, integração total e homologação controlada.
-
-## Regras para eventual integração posterior
-- Validar o estado da branch base do PR #72 antes de integrar; proibir force push.
-- Aplicar migração versionada apenas após validação isolada do SQL, confirmação do estado de produção e autorização específica.
-- Em falha, manter `mode=disabled` e `emergency_stop=true`; nunca compensar erro acionando o worker ou autorizando envios.
-- Em rollback antes de deploy, abandonar o PR #74 preserva produção intacta.
+## Auditoria de segurança / integração futura
+- Aplicar SQL novo somente via migração controlada, jamais executar arquivos *.preview.sql diretamente em produção.
+- Para deploy do worker, publicar primeiro as RPCs e colunas correspondentes, validar grants, depois verificar funções e smoke sob `disabled`; manter `emergency_stop=true`.
+- Nunca ligar `mode=live` antes dos action adapters, controle de único executor, consentimento, templates em tempo real e teste end-to-end autenticado.
+- Em caso de conflito, revalidar o head do PR #72 e usar merge normal; sem force push e sem sobrescrever a branch aprovada.
+- Rollback antes de deploy: abandonar/reverter o PR #74; produção permanece intacta.
