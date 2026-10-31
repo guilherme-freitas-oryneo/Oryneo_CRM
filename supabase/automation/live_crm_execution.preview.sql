@@ -137,12 +137,24 @@ BEGIN
   decision:=plan->'decision';
   IF decision IS NULL OR jsonb_typeof(decision)<>'object'
    OR decision->>'dispatchAuthorized'<>'false'
-   OR decision->>'state' NOT IN ('completed','blocked','waiting','awaiting_server_outcome')
+   OR decision->>'state' NOT IN ('completed','awaiting_server_outcome')
    OR jsonb_typeof(decision->'trace')<>'array'
    OR jsonb_array_length(decision->'trace') NOT BETWEEN 1 AND 200
    OR jsonb_typeof(decision->'plannedActions')<>'array'
    OR jsonb_array_length(decision->'plannedActions')>1
   THEN RAISE EXCEPTION 'LIVE_CRM_DECISION_INVALID' USING ERRCODE='22023'; END IF;
+  -- A suspended wait has no durable live scheduler yet: reject it, do not
+  -- acknowledge and silently lose the continuation. Unsupported AI, Meta
+  -- and e-mail nodes cannot impersonate the finished CRM-only segment.
+  IF (decision->>'state'='awaiting_server_outcome' AND
+       (jsonb_array_length(decision->'plannedActions')<>1
+        OR decision->'trace'->-1->>'status'<>'requires_server_result'
+        OR decision->'trace'->-1->>'type' NOT IN ('crm_stage_change','crm_task')))
+    OR (decision->>'state'='completed' AND
+       (jsonb_array_length(decision->'plannedActions')<>0
+        OR decision->'trace'->-1->>'type' NOT IN ('end','stop')
+        OR decision->'trace'->-1->>'status'<>'completed'))
+  THEN RAISE EXCEPTION 'LIVE_CRM_TERMINAL_STATE_INVALID' USING ERRCODE='42501'; END IF;
   v_activation:=encode(sha256(convert_to(
     array_to_json(ARRAY[p_workspace_id::text,v.id::text,i.source,i.event_id])::text,'UTF8')),'hex');
   IF decision->>'activationKey' IS DISTINCT FROM v_activation
