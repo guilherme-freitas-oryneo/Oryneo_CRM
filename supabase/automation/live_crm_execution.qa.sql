@@ -1,6 +1,7 @@
 -- Macro 6 disposable PostgreSQL 17 live CRM pipeline QA, no provider effects.
 \set ON_ERROR_STOP on
 \i supabase/automation/live_crm_execution.preview.sql
+\i supabase/automation/live_crm_cursor.preview.sql
 DO $acl$
 BEGIN
  IF has_function_privilege('anon','public.automation_live_crm_ingest(uuid,uuid)','EXECUTE')
