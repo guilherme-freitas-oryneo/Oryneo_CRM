@@ -132,6 +132,72 @@ BEGIN
  r.phone_number_id,r.whatsapp_account_id,r.messaging_account_id
  FROM leased l JOIN ready r ON r.id=l.id;
 END $fn$;
+-- Recheck after external Meta approval and immediately before POST. A
+-- revoked marketing opt-in, expired token, takeover or ownership drift blocks
+-- the call. The sender never accepts a cached approval as sufficient.
+CREATE OR REPLACE FUNCTION public.automation_whatsapp_pre_send(
+ p_workspace_id uuid,p_action_id uuid,p_claim_token uuid,
+ p_conversation_id uuid,p_template_registry_id uuid,p_phone_number_id text
+) RETURNS boolean
+LANGUAGE sql SECURITY INVOKER SET search_path=''
+AS $guard$
+ SELECT EXISTS(
+  SELECT 1
+  FROM public.automation_action_outbox action
+  JOIN public.automation_executions ex ON ex.id=action.execution_id
+   AND ex.workspace_id=action.workspace_id AND ex.state='running'
+  JOIN public.automation_event_inbox inbox ON inbox.id=ex.inbox_id
+   AND inbox.workspace_id=ex.workspace_id AND inbox.state='processed'
+  JOIN public.automation_flow_versions v ON v.id=ex.flow_version_id
+   AND v.workspace_id=ex.workspace_id AND v.status='published'
+  JOIN public.automation_flows flow ON flow.id=v.flow_id
+   AND flow.workspace_id=v.workspace_id AND flow.enabled
+   AND flow.published_version_id=v.id
+  JOIN public.automation_workspaces w ON w.id=action.workspace_id AND w.active
+   AND w.slug='oryneo-crm'
+  JOIN public.automation_runtime_settings settings ON settings.workspace_id=w.id
+   AND settings.mode='live' AND NOT settings.emergency_stop
+  JOIN public.automation_channel_ownership owner ON owner.workspace_id=w.id
+   AND owner.channel='whatsapp' AND owner.owner='new_engine'
+   AND owner.legacy_dispatch_paused_at IS NOT NULL
+   AND owner.release_approved_at IS NOT NULL AND owner.release_id IS NOT NULL
+  JOIN public.crm_wa_conversations conv ON conv.id=p_conversation_id
+   AND conv.mode='sdr_active' AND conv.opted_out IS FALSE
+   AND conv.consent_granted IS TRUE
+  JOIN public.crm_wa_channels ch ON ch.id=conv.channel_id AND ch.enabled
+  JOIN public.automation_whatsapp_provider_bindings binding
+   ON binding.workspace_id=w.id AND binding.crm_channel_id=ch.id
+   AND binding.enabled AND binding.phone_number_id=p_phone_number_id
+   AND binding.phone_number_id=ch.phone_number_id
+   AND binding.messaging_account_id=ch.messaging_account_id
+  JOIN public.automation_template_registry t ON t.id=p_template_registry_id
+   AND t.workspace_id=w.id AND t.provider_status='APPROVED'
+   AND t.language='pt_BR' AND t.category IN('UTILITY','MARKETING')
+   AND t.provider_account_id=binding.messaging_account_id
+   AND t.parameter_schema->>'components_verified'='true'
+  WHERE action.workspace_id=p_workspace_id AND action.id=p_action_id
+    AND action.state='leased' AND action.action_type='whatsapp_template'
+    AND action.claim_token=p_claim_token
+    AND action.lease_until>clock_timestamp()
+    AND (inbox.context_refs->>'conversation_id')=conv.id::text
+    AND (conv.last_inbound_at IS NULL OR conv.last_inbound_at<inbox.received_at)
+    AND (t.category='UTILITY' OR EXISTS(
+      SELECT 1 FROM public.automation_whatsapp_marketing_consents consent
+      WHERE consent.workspace_id=w.id AND consent.conversation_id=conv.id
+       AND consent.purpose='commercial_followup'
+       AND consent.revoked_at IS NULL
+       AND consent.verified_at>=consent.granted_at
+    ))
+    AND EXISTS(SELECT 1 FROM jsonb_array_elements(v.graph_json->'nodes') n
+      WHERE n->>'id'=action.node_id AND n->>'type'='whatsapp_template'
+        AND n->'config'->>'template_registry_id'=t.id::text)
+ );
+$guard$;
+REVOKE ALL ON FUNCTION public.automation_whatsapp_pre_send(uuid,uuid,uuid,uuid,uuid,text)
+ FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.automation_whatsapp_pre_send(uuid,uuid,uuid,uuid,uuid,text)
+ TO service_role;
+
 REVOKE ALL ON FUNCTION public.automation_whatsapp_claim_template(uuid,integer)
  FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.automation_whatsapp_claim_template(uuid,integer)
