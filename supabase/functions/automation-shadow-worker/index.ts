@@ -9,23 +9,16 @@ import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { planServerShadow } from '../automation-api/shadowEngine.ts';
 import { loadTrustedReferences } from '../automation-api/trustedReferences.ts';
 import { loadShadowCanonicalContext } from '../automation-api/shadowContext.ts';
+import { isCanonicalUuid, validWorkerToken, workerIsConfigured } from './workerGuards.ts';
 
 const projectUrl=Deno.env.get('SUPABASE_URL')||'';
 const serviceRole=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
 const workspaceId=Deno.env.get('AUTOMATION_SHADOW_WORKSPACE_ID')||'';
 const workerSecret=Deno.env.get('AUTOMATION_SHADOW_WORKER_SECRET')||'';
 const enabled=Deno.env.get('AUTOMATION_SHADOW_WORKER_ENABLED')==='true';
-const db=createClient(projectUrl,serviceRole,{auth:{persistSession:false,autoRefreshToken:false}});
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{
   status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'},
 });
-function validToken(supplied:string,expected:string):boolean{
-  if(expected.length<32||supplied.length!==expected.length)return false;
-  let delta=0;
-  for(let i=0;i<expected.length;i++)delta|=expected.charCodeAt(i)^supplied.charCodeAt(i);
-  return delta===0;
-}
 type Claimed={
   inbox_id:string;source:string;event_id:string;event_type:string;
   context_refs:Record<string,unknown>;lease_token:string;attempt:number;
@@ -35,11 +28,16 @@ type VersionRow={id:string;graph_json:unknown;status:string};
 
 Deno.serve(async request=>{
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
-  if(!enabled||!projectUrl||!serviceRole||!UUID.test(workspaceId)||workerSecret.length<32)
+  if(!workerIsConfigured({enabled,projectUrl,serviceRole,workspaceId,workerSecret}))
     return json({error:'Shadow worker disabled'},503);
-  if(!validToken(request.headers.get('x-oryneo-shadow-secret')||'',workerSecret))
+  if(!validWorkerToken(request.headers.get('x-oryneo-shadow-secret')||'',workerSecret))
     return json({error:'Access denied'},401);
 
+  // Client creation happens ONLY after all configuration/secret gates pass.
+  // Missing hosted secrets cannot crash the module at import time.
+  const db=createClient(projectUrl,serviceRole,{
+    auth:{persistSession:false,autoRefreshToken:false},
+  });
   const settings=await db.from('automation_runtime_settings')
     .select('mode,emergency_stop').eq('workspace_id',workspaceId).maybeSingle();
   if(settings.error||settings.data?.mode!=='shadow'||settings.data.emergency_stop!==false)
@@ -103,7 +101,7 @@ Deno.serve(async request=>{
       // rejecting fabricated event text, reactions or client-provided claims.
       if(event.event_type==='conversation.inbound'){
         const id=event.context_refs.conversation_id;
-        if(typeof id!=='string'||!UUID.test(id))throw new Error('WAIT_CONVERSATION_REQUIRED');
+        if(!isCanonicalUuid(id))throw new Error('WAIT_CONVERSATION_REQUIRED');
         const cancelled=await db.rpc('automation_wait_shadow_cancel_reply',{
           p_workspace_id:workspaceId,p_conversation_id:id,
         });
