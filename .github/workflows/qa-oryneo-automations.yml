@@ -121,6 +121,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_resume.preview.sql
       - name: Testar continuação, idempotência, ramo do grafo e quarentena
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_resume.qa.sql
+      - name: Instalar rollback imutável com runtime desligado somente no PostgreSQL de testes
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/rollback_disabled.preview.sql
+      - name: Provar versionamento, revisão otimista, papel e zero ações no rollback
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/rollback_disabled.qa.sql
       - name: Verificar migração idempotente, runtime desligado e outbox intacto
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
