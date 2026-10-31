@@ -186,8 +186,9 @@ test('Stage5 E03/E10: canvas context menu inserts orphan without enabling public
  await page.getByRole('button',{name:'Salvar rascunho'}).click();
  await expect(page.getByText('Cópia de segurança salva neste navegador.')).toBeVisible();
 });
-test('Stage5 E09: 390px touch controls, focusable keyboard navigation and reduced-motion mode',async({page})=>{
- await page.setViewportSize({width:390,height:844});
+test('Stage5 E09: 390px touch controls, focusable keyboard navigation and reduced-motion mode',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true});
+ const page=await context.newPage();
  await page.emulateMedia({reducedMotion:'reduce'});
  await page.goto('/qa/automation-editor/index.html');
  const tab=page.getByRole('button',{name:'Fluxos do SDR'});
