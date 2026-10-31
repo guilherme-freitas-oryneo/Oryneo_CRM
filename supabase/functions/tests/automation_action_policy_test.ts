@@ -50,6 +50,9 @@ Deno.test('no worker lease, uncertain provider result or already sent requires r
 });
 Deno.test('financial stage change cannot trust a customer claim',()=>{
  const x=base();x.channel='crm_stage_change';delete x.conversation;
+ x.stage={targetId:'11111111-1111-4111-8111-111111111111',targetVerified:true,outcome:'won'};
+ assert(review(x).issues.includes('PAYMENT_NOT_CANONICALLY_VERIFIED'),
+   'absent billing context bypassed paid stage gate');
  x.billing={status:'paid',verifiedWebhook:false};
  assert(review(x).issues.includes('PAYMENT_NOT_CANONICALLY_VERIFIED'),
    'unverified paid claim advanced stage');
@@ -62,4 +65,29 @@ Deno.test('runtime emergency stop takes precedence over all provider success',()
  assert(review(x).issues.includes('RUNTIME_STOPPED'),'emergency stop ignored');
  x.workspace.emergencyStop=false;x.workspace.mode='shadow';
  assert(review(x).issues.includes('RUNTIME_STOPPED'),'shadow mode sent a message');
+});
+
+Deno.test('automation never changes to an unverified or unreviewed loss stage',()=>{
+ const x=base();x.channel='crm_stage_change';
+ x.stage={targetId:'22222222-2222-4222-8222-222222222222',
+   targetVerified:false,outcome:'open'};
+ assert(review(x).issues.includes('STAGE_NOT_CANONICALLY_VERIFIED'),
+   'untrusted stage was accepted');
+ x.stage.targetVerified=true;x.stage.outcome='lost';
+ assert(review(x).issues.includes('HUMAN_APPROVAL_FOR_LOSS_REQUIRED'),
+   'automation silently marked deal lost');
+ x.stage.outcome='open';
+ assert(review(x).canPrepareAction,'canonical open stage should pass policy preflight');
+});
+Deno.test('email requires verified recipient, approved template and explicit consent',()=>{
+ const x=base();x.channel='email';delete x.conversation;
+ assert(review(x).issues.includes('EMAIL_RECIPIENT_UNVERIFIED'),'unknown recipient silently accepted');
+ assert(review(x).issues.includes('EMAIL_TEMPLATE_NOT_APPROVED'),'missing email template allowed');
+ assert(review(x).issues.includes('EMAIL_CONSENT_OR_OPTOUT'),'missing consent ignored');
+ x.email={verifiedRecipient:true,templateApproved:true,
+   consentGranted:true,optedOut:false,sourceVerified:true};
+ assert(review(x).canPrepareAction,'verified email context should pass preflight');
+ x.email.optedOut=true;
+ assert(review(x).issues.includes('EMAIL_CONSENT_OR_OPTOUT'),'email opt out ignored');
+ assert(review(x).dispatchAuthorized===false,'email policy never authorizes send');
 });
