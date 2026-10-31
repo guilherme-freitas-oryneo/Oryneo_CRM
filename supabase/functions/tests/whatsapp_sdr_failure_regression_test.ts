@@ -16,7 +16,7 @@ const json=(status:number,payload:unknown)=>async()=>new Response(JSON.stringify
 async function expectCode(run:()=>Promise<unknown>,code:string,retryable:boolean){
  try{await run();throw Error('EXPECTED_ERROR_MISSING');}
  catch(e){
-   check(e instanceof AiProviderError, 'Unclassified provider exception '+String(e));
+   if (!(e instanceof AiProviderError)) throw Error('Unclassified provider exception '+String(e));
    check(e.code===code, 'Expected '+code+', received '+e.code);
    check(e.retryable===retryable, 'Retry policy mismatch for '+code);
  }
