@@ -85,7 +85,7 @@ WITH (security_invoker=true) AS
  WHERE h.conversation_id IS NOT NULL
    AND h.from_mode='sdr_active' AND h.to_mode IN ('human_locked','review')
  UNION ALL
- SELECT 'delivery',d.created_at,d.order_id::text,'crm',
+ SELECT 'delivery',greatest(d.created_at,o.paid_at),d.order_id::text,'crm',
    'onboarding:'||d.order_id::text,'onboarding.started',
    jsonb_build_object('order_id',d.order_id::text,'opportunity_id',o.deal_id::text)
  FROM public.crm_delivery_projects d
