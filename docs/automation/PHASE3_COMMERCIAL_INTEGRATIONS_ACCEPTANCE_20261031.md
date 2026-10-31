@@ -14,17 +14,17 @@ A presente macroetapa é o equivalente de integração comercial à Fase 4 do ZI
 | Canal/evento | Origem canônica | Contrato e proteção |
 |---|---|---|
 | Nova oportunidade / mudança de etapa | `crm_events`, `crm_records` | Adaptador CRM pré-existente, cursor idempotente por evento |
-| WhatsApp inbound / takeover | `crm_wa_messages` / `crm_wa_conversations` | Adaptador pré-existente, deduplicação + limites de consentimento/mode |
+| WhatsApp inbound / takeover | `crm_wa_messages` / `crm_wa_conversations` / `crm_wa_automation_events` | Adaptadores com cursor; `conversation.human_takeover` só na transição canônica `sdr_active → review/human_locked` |
 | Intake | `crm_intake_requests` | `lead.intake_received`, sem corpo, e-mail ou telefone |
 | Checkout | `crm_billing_orders` | `checkout.started` só com sessão live canônica |
 | Pagamento validado | `crm_billing_orders` + `crm_stripe_events` | `billing.paid_verified` exige live, paid_at, sessão e webhook assinado reconciliado |
 | Falha / expiração | Mesma reconciliação Stripe | `billing.failed` / `checkout.expired`, sem inferir quitação |
-| E-mail | `crm_events` do tipo `email_sent` | `opportunity.updated` sem simular texto enviado |
+| E-mail | `crm_events` do tipo `email_sent` | `mail.sent` (gatilho isolado) sem texto enviado, evitando loop de `opportunity.updated` |
 | Proposta | `crm_proposals` | `proposal.sent` somente status sent e snapshot SHA-256 hexadecimal |
 | Reunião | `crm_events` do tipo `meeting_scheduled` | `meeting.scheduled` somente após evento estruturado efetivamente escrito pelo CRM |
 | Pós-venda | `crm_delivery_projects` + ordem paga | `onboarding.started` sem criar 2º e-mail de implantação |
 
-`commercial_sources.preview.sql` cria a view `security_invoker`, cursores de sete fontes, deduplicação transacional e ingestão bounded em shadow; `commercial_sources.qa.sql` simula eventos tardios, históricos, provedores inválidos, sandbox Stripe, duplicações e interdição por emergency stop.
+`commercial_sources.preview.sql` cria a view `security_invoker`, cursores de **oito** fontes, deduplicação transacional e ingestão bounded em shadow; `commercial_sources.qa.sql` simula eventos tardios, históricos, proveniência Stripe, resposta humana, sandbox, duplicações e parada de emergência. A emissão de checkout usa a hora da associação canônica da sessão (não a criação anterior da ordem) e o onboarding usa o maior instante entre criação do projeto e confirmação financeira, impedindo perda de eventos por ordem de chegada.
 
 ### Isolamento e executor único
 
@@ -38,6 +38,7 @@ A presente macroetapa é o equivalente de integração comercial à Fase 4 do ZI
 
 - `commercial_crm_stage_adapter.preview.sql`: mudança de etapa por RPC service-role, com controle de versão publicada, target stage resolvido no snapshot congelado, oportunidade canônica, CAS por revisão, `crm_history`, `crm_events`, idempotência por `action_key` e confirmação no outbox em **uma única transação**. Faz locks de linha contra cutover e parada de emergência.
 - `commercial_crm_task_adapter.preview.sql`: cria a **próxima ação** no modelo canônico existente `next_action`, respeitando tarefa humana inacabada, prazo UTC, CAS, auditoria e idempotência. Não cria uma tabela de tarefas alternativa.
+- `commercial_data_grants.preview.sql`: reconcilia ACLs reais de produção em arquivo **não aplicado**. A inspeção constatou ausência de SELECT por `service_role` em `crm_intake_requests`, `crm_events` e `crm_delivery_projects`, além de falta de permissões para a escrita canônica de CRM. O manifesto libera somente SELECT de fontes, INSERT nas trilhas de auditoria e UPDATE das colunas `data`, `revision`, `updated_at` de `crm_records`. Testes garantem que `deleted`/`kind` não receberam autorização de UPDATE e que `anon` não ganhou acessos.
 - `graphGuard.ts`: valida `crm_task` apenas com título e prazo tipados; continua rejeitando ações não homologadas e não concede permissão de envio a rascunhos.
 - `commercialActionPolicy.ts` + `commercialAdapterPlanner.ts`: políticas puras, sem transportes, para WhatsApp, e-mail, CRM e billing somente leitura; roteamento por referências UUID, deduplicação estável, opt-out, consentimento, janela WA, aprovação do template e proprietário exclusivo. Todo plano retorna `dispatchAuthorized:false`.
 
@@ -71,4 +72,4 @@ Não alegar que e-mail ou Meta já foram disparados pelo novo motor. Não alegar
 - Nenhuma rotina cancela envios legados ou libera cobrança. Não há envio duplo porque nenhum transporte da nova engine é habilitado e o claim de ações exige exclusividade comprovada.
 - Se um gate falhar, a nova engine fica bloqueada e o sistema legado continua responsável.
 
-**Estado de aceite:** validar somente após última CI 4/4 verde. Desenvolvimento de fontes, ownership e ações CRM foi isolado da produção. Os transportes de mensagens permanecem bloqueados até a liberação das etapas posteriores.
+**Estado de aceite:** critérios técnicos de integração validados em CI isolada; consultar a execução final indicada neste documento e no PR #76. Desenvolvimento de fontes, ownership e ações CRM foi isolado da produção. Os transportes de mensagens permanecem bloqueados até a liberação das etapas posteriores.
