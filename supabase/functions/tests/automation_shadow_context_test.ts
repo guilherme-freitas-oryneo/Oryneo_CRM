@@ -45,7 +45,7 @@ Deno.test('shadow hydration reads authoritative stage, source and bounded quote,
 Deno.test('WhatsApp human mode, opt-out, consent read from canonical conversation',async()=>{
  const ctx=await loadShadowCanonicalContext(db(),'conversation.inbound',{conversation_id:WA});
  assert(ctx.conversation?.mode==='human_locked','operator mode was lost');
- assert(ctx.conversation.opted_out===true&&ctx.conversation.consent_granted===false,
+ assert(ctx.conversation?.opted_out===true&&ctx.conversation?.consent_granted===false,
   'human messaging gates defaulted to permissive state');
  assert(ctx.opportunity?.stage_id===STAGE,'linked opportunity was not resolved');
  assert(!JSON.stringify(ctx).includes('5521'),'WhatsApp number leaked');
@@ -54,7 +54,7 @@ Deno.test('financial claims are never converted to payment verified from status 
  const ctx=await loadShadowCanonicalContext(db(),'billing.paid_verified',
  {order_id:ORDER,opportunity_id:OPP});
  assert(ctx.billing?.status==='paid','status not read');
- assert(!Object.hasOwn(ctx.billing,'paid_verified'),'status implies webhook verification');
+ assert(!Object.hasOwn(ctx.billing||{},'paid_verified'),'status implies webhook verification');
 });
 Deno.test('foreign conversation->deal link and foreign order cannot cross scopes',async()=>{
  const other='55555555-5555-4555-8555-555555555555';
