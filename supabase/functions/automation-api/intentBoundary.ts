@@ -6,7 +6,7 @@
  */
 type Obj=Record<string,unknown>;
 const obj=(x:unknown):x is Obj=>x!==null&&typeof x==='object'&&!Array.isArray(x);
-const str=(x:unknown,max:number)=>typeof x==='string'&&x.trim().length>0&&x.length<=max;
+const str=(x:unknown,max:number):x is string=>typeof x==='string'&&x.trim().length>0&&x.length<=max;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ID=/^[a-z][a-z0-9_]{2,63}$/;
 const SHA=/^[0-9a-f]{64}$/i;
