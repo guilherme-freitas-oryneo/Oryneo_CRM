@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBra
 import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
-import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
 import { ConditionRuleEditor } from './ConditionRuleEditor';
 import './automations-workspace.css';
 
@@ -43,7 +43,7 @@ const defaultConfig = (type: NodeKind, kind: FlowKind): Record<string, unknown> 
 const makeDraft = (kind: FlowKind): FlowDefinition => {
   const id = crypto.randomUUID();
   return {
-    schema_version: '0.1-concept', id, name: kind === 'sdr' ? 'Novo fluxo SDR' : 'Novo fluxo do pipeline',
+    schema_version: '1.0.0', id, name: kind === 'sdr' ? 'Novo fluxo SDR' : 'Novo fluxo do pipeline',
     kind, status: 'draft', version: 1,
     nodes: [
       { id: crypto.randomUUID(), type: 'trigger', label: 'Gatilho inicial', position: { x: 100, y: 150 },
@@ -114,6 +114,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [metaTemplates, setMetaTemplates] = useState<AutomationTemplate[]>([]);
   const [remoteExecutions, setRemoteExecutions] = useState<AutomationExecution[]>([]);
   const [remoteRevision, setRemoteRevision] = useState<Record<string, number>>({});
+  const [lastRemoteJson, setLastRemoteJson] = useState<Record<string,string>>({});
   const [syncError, setSyncError] = useState('');
   const [syncBusy, setSyncBusy] = useState(false);
   useEffect(() => {
@@ -171,13 +172,19 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     setSyncBusy(true);
     try {
       const result = await loadRemoteAutomationFlow(workspace.id, flowId);
-      if (!result.version?.graph_json || result.version.graph_json.status !== 'draft') {
-        setNotice('A versão publicada é somente leitura. Crie um novo rascunho para alterações.');
+      if (!result.version?.graph_json) {
+        setNotice('Ainda não existe versão do fluxo.');
         return;
       }
-      open(result.version.graph_json);
+      // Published snapshots stay immutable; editing starts a NEW draft via CAS.
+      const isPublished=result.version.status==='published';
+      const draft:FlowDefinition=isPublished
+        ? {...result.version.graph_json,status:'draft',version:result.version.version+1}
+        : result.version.graph_json;
+      open(draft);
       setRemoteRevision(revisions => ({ ...revisions, [flowId]: result.flow.revision }));
-      setNotice('Rascunho carregado do workspace ORYNEO, sem disparos.');
+      if (!isPublished) setLastRemoteJson(previous=>({...previous,[flowId]:JSON.stringify(draft)}));
+      setNotice(isPublished?'Versão publicada preservada. Edite e salve para criar um novo rascunho.':'Rascunho carregado do workspace ORYNEO, sem disparos.');
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : 'Não foi possível abrir o fluxo.');
     } finally { setSyncBusy(false); }
@@ -196,6 +203,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     try {
       const result = await saveRemoteAutomationDraft(workspace.id, current, remoteRevision[current.id]);
       setRemoteRevision(revisions => ({ ...revisions, [current.id]: result.revision }));
+      setLastRemoteJson(previous=>({...previous,[current.id]:JSON.stringify(current)}));
       const saved = await listRemoteAutomationFlows(workspace.id);
       setRemoteFlows(saved);
       setNotice('Rascunho salvo no workspace ORYNEO com revisão ' + result.revision + '. Nenhum disparo executado.');
@@ -203,6 +211,27 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       setNotice('Cópia local preservada. Sincronização não concluída: ' +
         (reason instanceof Error ? reason.message : 'servidor indisponível'));
     } finally { setSyncBusy(false); }
+  };
+  const freezeCanonicalVersion=async()=>{
+    if (!workspace||!current||syncBusy||remoteRevision[current.id]===undefined
+      || JSON.stringify(current)!==lastRemoteJson[current.id]) {
+      setNotice('Salve o rascunho remoto antes de congelar a versão.');
+      return;
+    }
+    if (!['admin','publisher'].includes(workspace.role)) {
+      setNotice('É necessário o papel de publicador.');return;
+    }
+    setSyncBusy(true);
+    try {
+      const result=await freezeRemoteAutomationVersion(workspace.id,current.id,remoteRevision[current.id]);
+      setRemoteRevision(prev=>({...prev,[current.id]:result.revision}));
+      setLastRemoteJson(prev=>{const copy={...prev};delete copy[current.id];return copy;});
+      setRemoteFlows(await listRemoteAutomationFlows(workspace.id));
+      setNotice('Versão congelada sem ativar o runtime, nem enviar mensagens.');
+      setOpenId(null);setHistory(null);
+    } catch(reason) {
+      setNotice('Publicação desativada não concluída: '+(reason instanceof Error?reason.message:'falha desconhecida'));
+    } finally {setSyncBusy(false);}
   };
   const validateWithServer = async () => {
     if (!current) return;
@@ -368,7 +397,10 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             }}><CirclePlay size={16}/>Simular</button>
             <button title="Exportar rascunho em JSON" onClick={exportDraft}><FileJson size={16}/></button>
             <button className="ory-auto-primary" disabled={syncBusy} onClick={()=>void saveDraft()}>{syncBusy?'Salvando…':'Salvar rascunho'}</button>
-            <button title="Publicação disponível após engine homologada" disabled>Publicar <LockKeyhole size={13}/></button>
+            {workspace&&['admin','publisher'].includes(workspace.role)&&<button
+              title="Congelar versão homologada sem ativar automações" disabled={syncBusy||!current||remoteRevision[current.id]===undefined||JSON.stringify(current)!==lastRemoteJson[current.id]}
+              onClick={()=>void freezeCanonicalVersion()}><ShieldCheck size={14}/>Congelar versão</button>}
+            <button title="Publicação disponível após engine homologada" disabled>Ativar <LockKeyhole size={13}/></button>
           </div>
         </div>
         <div className="ory-auto-editor-main">
