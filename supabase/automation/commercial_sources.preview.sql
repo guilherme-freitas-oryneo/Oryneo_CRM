@@ -27,7 +27,7 @@ WITH (security_invoker=true) AS
    jsonb_build_object('opportunity_id',r.deal_id::text) context_refs
  FROM public.crm_intake_requests r WHERE r.deal_id IS NOT NULL
  UNION ALL
- SELECT 'checkout',o.created_at,o.id::text,'crm',
+ SELECT 'checkout',o.updated_at,o.id::text,'crm',
    'checkout:'||o.id::text,'checkout.started',
    jsonb_build_object('order_id',o.id::text,'opportunity_id',o.deal_id::text)
  FROM public.crm_billing_orders o
