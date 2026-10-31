@@ -236,6 +236,7 @@ jobs:
           deno check --min-dep-age=0 supabase/functions/automation-api/executionKernel.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-commercial-crm-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-live-crm-plan-worker/index.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/whatsapp-ai-worker/index.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_meta_stage4_test.ts
