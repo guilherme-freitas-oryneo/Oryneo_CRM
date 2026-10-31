@@ -38,6 +38,7 @@ for (const c of cases) {
       if(input.action==='templates')return response({ok:true,templates:[]});
       if(input.action==='catalog')return response({ok:true,catalog:{stages:[],templates:[],knowledge:[],dictionaries:[]},readOnly:true});
       if(input.action==='executions')return response({ok:true,executions:[]});
+      if(input.action==='simulate')return response({ok:true,dryRun:true,simulationOnly:true,dispatchAuthorized:false,persisted:false,result:{shadowOnly:true,dispatchAuthorized:false,state:'completed',trace:[{nodeId:'77777777-7777-4777-8777-777777777777',type:'trigger',status:'evaluated'}],plannedActions:[],issues:[]}});
       if(input.action==='runtime')return response({ok:true,readOnly:true,runtime:{workspaceActive:false,mode:'disabled',emergencyStop:true,updatedAt:new Date().toISOString(),flows:0,publishedVersions:0,pendingEvents:0,executions:0,actionRows:0,waitingTimers:0,dueTimers:0,cancelledTimers:0,queuedActions:0,leasedActions:0,uncertainActions:0,sentActions:0,dispatchAuthorized:false}});
       if(input.action==='create')return response({ok:true,result:{id:input.graph.id,revision:1,versionId:'99999999-9999-4999-8999-999999999999'}},201);
       throw Error('Unexpected automation API action: '+input.action);
@@ -66,6 +67,8 @@ for (const c of cases) {
     await page.getByTitle('Organizar nós automaticamente').click();
     await page.getByTitle('Desfazer').click();
     await page.getByTitle('Refazer').click();
+    await page.getByTitle('Simular no servidor sem enviar').click();
+    await page.getByText(/Simulação do servidor — nenhum envio/i).waitFor();
     await page.getByTitle('Simular sem efeitos externos').click();
     await page.getByText(/Simulação — não enviado/i).waitFor();
     if(!await page.getByTitle('Publicação disponível após engine homologada').isDisabled())throw Error('Unsafe activation enabled');
