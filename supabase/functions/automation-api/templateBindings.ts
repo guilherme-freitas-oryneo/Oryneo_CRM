@@ -5,7 +5,8 @@ export const canonicalTemplateFields = [
   'opportunity.source',
   'opportunity.plan',
   'opportunity.cycle',
-  'opportunity.next_action.title',
+  'opportunity.next_action.title','opportunity.priority',
+    'meeting.date','meeting.time','meeting.format',
   'billing.company',
 ] as const;
 const allowed = new Set<string>(canonicalTemplateFields);
