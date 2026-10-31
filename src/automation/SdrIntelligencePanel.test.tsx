@@ -10,7 +10,7 @@ const get=vi.fn(async()=>({
  role:'publisher' as const,
 }));
 vi.mock('./api.ts',()=>({
- listRemoteSemanticReleases:(...args:unknown[])=>get(...args),
+ listRemoteSemanticReleases:()=>get(),
  createRemoteSemanticDraft:vi.fn(),freezeRemoteSemanticPair:vi.fn(),
 }));
 describe('SDR versioned semantic workbench safe interactions',()=>{
