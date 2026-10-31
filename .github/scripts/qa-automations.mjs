@@ -67,6 +67,10 @@ for (const c of cases) {
     await page.getByTitle('Organizar nós automaticamente').click();
     await page.getByTitle('Desfazer').click();
     await page.getByTitle('Refazer').click();
+    await page.getByRole('combobox',{name:'Cenário de simulação hipotética'})
+      .selectOption('sdr_active');
+    if(await page.getByRole('combobox',{name:'Cenário de simulação hipotética'}).inputValue()!=='sdr_active')
+      throw Error('Hypothetical simulation scenario could not be selected');
     await page.getByTitle('Simular no servidor sem enviar').click();
     await page.getByText(/Simulação do servidor — nenhum envio/i).waitFor();
     await page.getByTitle('Simular sem efeitos externos').click();
