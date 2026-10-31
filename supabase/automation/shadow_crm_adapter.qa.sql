@@ -6,7 +6,7 @@ CREATE TABLE public.crm_events(
  event_type text NOT NULL,
  created_at timestamptz NOT NULL DEFAULT now()
 );
-GRANT SELECT ON public.crm_events TO service_role;
+GRANT SELECT,INSERT ON public.crm_events TO service_role; -- Fixture insertion only; production adapter reads CRM.
 INSERT INTO public.crm_events(id,deal_id,event_type,created_at) VALUES
 ('1b000000-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01',
  'received',now()-interval '1 day');
