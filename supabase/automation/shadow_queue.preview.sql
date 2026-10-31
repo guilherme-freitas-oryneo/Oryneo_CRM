@@ -31,7 +31,7 @@ BEGIN
     OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_context_refs) AS k(key)
       WHERE k.key NOT IN ('opportunity_id','conversation_id','order_id','lead_id'))
     OR EXISTS(SELECT 1 FROM jsonb_each_text(p_context_refs) AS kv(key,value)
-      WHERE kv.value IS NULL OR kv.value !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+      WHERE kv.value IS NULL OR kv.value !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
   THEN RAISE EXCEPTION 'SHADOW_ENVELOPE_REJECTED' USING ERRCODE='22023'; END IF;
   IF NOT EXISTS(SELECT 1 FROM public.automation_workspaces w
     JOIN public.automation_runtime_settings s ON s.workspace_id=w.id
