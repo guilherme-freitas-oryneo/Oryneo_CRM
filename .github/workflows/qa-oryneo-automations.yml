@@ -61,3 +61,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/publication.preview.sql
       - name: Verificar publicação imutável, CAS, papéis e estado desativado
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/publication.qa.sql
+      - name: Preparar inbox com leases apenas no banco descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_queue.preview.sql
+      - name: Testar deduplicação, fencing, recuperação e efeitos bloqueados
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/shadow_queue.qa.sql
