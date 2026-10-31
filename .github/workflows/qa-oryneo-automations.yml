@@ -123,6 +123,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_delivery_protocol.preview.sql
       - name: Provar ausência de envio duplicado, reconciliação de timeout e parada global
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_delivery_protocol.qa.sql
+      - name: Verificar adaptador transacional de etapas CRM sob ownership exclusivo
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_crm_stage_adapter.qa.sql
       - name: Validar oito jornadas de exemplo em banco descartável, desativadas
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/starter_drafts_seed.qa.sql
       - name: Validar índices de chaves estrangeiras da engine (isolado)
