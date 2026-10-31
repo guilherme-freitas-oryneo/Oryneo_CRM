@@ -158,3 +158,67 @@ for(const viewport of [{width:390,height:844},{width:768,height:1024},{width:144
   await page.screenshot({path:'qa/automation-editor/artifacts/sdr-intelligence-'+viewport.width+'.png',fullPage:true});
  });
 }
+
+test('Stage5 E02: real Chromium context-menu condition is connected, undoable and never published',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await page.goto('/qa/automation-editor/index.html');
+ await page.getByRole('button',{name:'Fluxos do pipeline'}).click();
+ await page.getByRole('button',{name:/Novo fluxo/}).first().click();
+ await page.getByRole('button',{name:'Editar nó Gatilho inicial'}).click({button:'right'});
+ await page.getByRole('button',{name:'Criar condição conectada'}).click();
+ await expect(page.getByRole('button',{name:'Editar nó Condição'})).toBeVisible();
+ await expect(page.locator('.ory-auto-edge-add')).toHaveCount(2);
+ await page.getByTitle('Desfazer').click();
+ await expect(page.locator('.ory-auto-edge-add')).toHaveCount(1);
+ await page.getByTitle('Refazer').click();
+ await expect(page.locator('.ory-auto-edge-add')).toHaveCount(2);
+ await expect(page.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
+});
+test('Stage5 E03/E10: canvas context menu inserts orphan without enabling publication',async({page})=>{
+ await page.goto('/qa/automation-editor/index.html');
+ await page.getByRole('button',{name:'Fluxos do pipeline'}).click();
+ await page.getByRole('button',{name:/Novo fluxo/}).first().click();
+ await page.locator('.ory-auto-canvas-scroll').click({button:'right',position:{x:190,y:260}});
+ await page.getByRole('button',{name:'Adicionar: Condição'}).click();
+ await expect(page.getByRole('button',{name:'Editar nó Condição'})).toBeVisible();
+ await expect(page.locator('.ory-auto-edge-add')).toHaveCount(1);
+ await expect(page.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
+ await page.getByRole('button',{name:'Salvar rascunho'}).click();
+ await expect(page.getByText('Cópia de segurança salva neste navegador.')).toBeVisible();
+});
+test('Stage5 E09: 390px touch controls, focusable keyboard navigation and reduced-motion mode',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.goto('/qa/automation-editor/index.html');
+ const tab=page.getByRole('button',{name:'Fluxos do SDR'});
+ const b=await tab.boundingBox();
+ if(!b)throw Error('SDR navigation missing at 390px');
+ await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);
+ await expect(page.getByText('Fluxos conversacionais SDR')).toBeVisible();
+ await page.keyboard.press('Tab');
+ const focus=await page.evaluate(()=>document.activeElement?.tagName||'');
+ expect(['BUTTON','INPUT','TEXTAREA','SELECT','A']).toContain(focus);
+ await page.getByRole('button',{name:/Novo fluxo/}).first().click();
+ await expect(page.getByRole('region',{name:'Canvas visual do SDR'})).toBeVisible();
+ await expect(page.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
+ const dimensions=await page.evaluate(()=>({
+  width:document.documentElement.scrollWidth,screen:innerWidth,
+  reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches}));
+ expect(dimensions.reducedMotion).toBeTruthy();
+ expect(dimensions.width).toBeLessThanOrEqual(dimensions.screen+5);
+ await page.screenshot({path:'qa/automation-editor/artifacts/stage5-touch-keyboard-390.png',fullPage:true});
+});
+test('Stage5 E11/E12: unpublished editor preview triggers zero outbound provider HTTP calls',async({page})=>{
+ const outbound:string[]=[];
+ page.on('request',r=>{if(/graph\.facebook\.com|api\.stripe\.com|api\.openai\.com/.test(r.url()))
+  outbound.push(r.url().replace(/[?#].*$/,''));});
+ await page.goto('/qa/automation-editor/index.html');
+ await page.getByRole('button',{name:'Fluxos do SDR'}).click();
+ await page.getByRole('button',{name:/Novo fluxo/}).first().click();
+ await page.getByTitle('Simular sem efeitos externos').click();
+ await expect(page.getByText(/Simulação — não enviado/)).toBeVisible();
+ await page.getByRole('button',{name:'Inteligência SDR'}).click();
+ await page.getByRole('textbox',{name:'Mensagem de teste'}).fill('Quanto custa o Growth anual com landing page?');
+ await expect(page.getByRole('region',{name:'Inteligência e intenções do SDR'})).toBeVisible();
+ expect(outbound).toEqual([]);
+});
