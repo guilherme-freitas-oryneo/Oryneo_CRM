@@ -1,4 +1,4 @@
-import { evaluateRule, validateRule } from './conditionRules';
+import { evaluateRule, validateRule } from './conditionRules.ts';
 /**
  * Pure, isolated automation graph contract.
  * This module has no network, storage or provider imports.
