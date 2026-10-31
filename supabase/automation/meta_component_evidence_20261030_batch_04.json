@@ -1,0 +1,152 @@
+{
+  "source": "Meta WhatsApp Business Tools",
+  "status": "snapshot_only",
+  "account_id": "28794700556857948",
+  "templates": [
+    {
+      "template_name": "oryneo_growth_conversar_lp_v3",
+      "provider_template_id": "1316812380498503",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebemos seu interesse pelo Growth na modalidade {{2}}, com landing page. Sua prioridade registrada foi: {{3}}.\n\nQuando um contato chega por formulário, quem assume o atendimento e como o próximo passo é registrado?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_growth_conversar_trafego_v3",
+      "provider_template_id": "1743939827732699",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nVi seu interesse pelo Growth na modalidade {{2}}, com gestão de tráfego. Você indicou esta prioridade: {{3}}.\n\nHoje vocês conseguem acompanhar o resultado dos anúncios além da geração de contatos, identificando quais oportunidades avançam?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_scale_contratar_base_v3",
+      "provider_template_id": "1160106549755095",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebemos sua solicitação para contratar o Scale na modalidade {{2}}. No cadastro, você apontou esta prioridade: {{3}}.\n\nComo vocês organizam atualmente os responsáveis, os pipelines e o acompanhamento das negociações?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_scale_contratar_lp_trafego_v3",
+      "provider_template_id": "3649480355213551",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebemos sua solicitação para o Scale na modalidade {{2}}, com landing page e tráfego pago. Sua prioridade indicada foi: {{3}}.\n\nComo o fluxo entre aquisição, atendimento e gestão está organizado hoje?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    },
+    {
+      "template_name": "oryneo_scale_contratar_lp_v3",
+      "provider_template_id": "3685095011652838",
+      "language": "pt_BR",
+      "category": "MARKETING",
+      "status": "APPROVED",
+      "parameter_format": "POSITIONAL",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Oi, {{1}}! Aqui é da ORYNEO.\n\nRecebi sua solicitação para o Scale na modalidade {{2}}, incluindo landing page. Você destacou esta prioridade: {{3}}.\n\nComo a empresa distribui os contatos captados e acompanha o trabalho de cada responsável comercial?",
+          "example": {
+            "body_text": [
+              [
+                "Mariana",
+                "anual",
+                "Organizar contatos e negociações no CRM"
+              ]
+            ]
+          }
+        }
+      ],
+      "variable_numbers": [
+        "1",
+        "2",
+        "3"
+      ],
+      "components_verified": true
+    }
+  ]
+}
