@@ -718,7 +718,14 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               </>}
               {selected.type!=='trigger'&&<button className="ory-auto-danger" onClick={()=>{commit(removeNode(current,selected.id));setSelectedId(null);setSelectedIds([])}}>Remover bloco</button>}
               <p className="ory-auto-aside-hint">Alterações locais exigem validação e publicação por servidor antes de produzir efeitos.</p>
-            </> : activeEdge ? <><p>Conexão selecionada. Escolha um bloco na biblioteca à esquerda para inseri-lo entre os nós.</p><button onClick={()=>{setReconnecting(activeEdge);setNotice('Selecione o novo nó de destino no canvas.')}}>Reconectar destino</button><button onClick={()=>setActiveEdge(null)}>Desmarcar conexão</button></> :
+            </> : activeEdge ? <><p>Conexão selecionada. O rótulo não altera a porta lógica da condição.</p>
+                <label>Rótulo visual da conexão<input aria-label="Rótulo da conexão"
+                  value={current.edges.find(e=>e.id===activeEdge)?.label||''}
+                  maxLength={90} onChange={e=>commit({ok:true,graph:{...current,edges:current.edges.map(item=>
+                    item.id===activeEdge?{...item,label:e.target.value}:item)}})}/></label>
+                <button onClick={()=>{setReconnecting(activeEdge);setNotice('Selecione o novo nó de destino no canvas.')}}>Reconectar destino</button>
+                <button className="ory-auto-danger" onClick={()=>{commit(removeEdgeById(current,activeEdge));setActiveEdge(null);}}>Excluir conexão</button>
+                <button onClick={()=>setActiveEdge(null)}>Desmarcar conexão</button></> :
               <div className="ory-auto-empty-inspector"><GitBranch size={26}/><strong>Selecione um bloco</strong><p>Clique em um nó para editar. Use os botões + nas linhas para inserir etapas.</p></div>}
             <div className="ory-auto-check"><h4>Integridade do fluxo</h4><span className={validation?.ok?'valid':'invalid'}>{validation?.ok?'Estrutura conectada':(validation?.issues.length||0)+' observações'}</span>
               {(validation?.issues||[]).slice(0,4).map((issue,i)=><p key={i}>{issue.code} · {issue.path}</p>)}</div>
@@ -748,8 +755,23 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
         </div> : tab==='executions' ? <div className="ory-auto-catalog">
           <div className="ory-auto-catalog-heading"><div><strong>Execuções registradas</strong><p>Consulta autorizada aos registros da nova engine. Sem disparos ativos.</p></div><span>{remoteExecutions.length} registros</span></div>
           {remoteExecutions.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Execução</th><th>Estado</th><th>Início</th></tr></thead><tbody>
-            {remoteExecutions.map(item=><tr key={item.id}><td>{item.id.slice(0,12)}…</td><td>{item.state}</td><td>{new Date(item.started_at).toLocaleString('pt-BR')}</td></tr>)}
+            {remoteExecutions.map(item=><tr key={item.id}><td><button className="ory-auto-execution-link"
+               type="button" onClick={()=>void inspectExecution(item)}
+               title="Abrir percurso sanitizado desta execução">{item.id.slice(0,12)}…</button></td>
+              <td>{item.state}</td><td>{new Date(item.started_at).toLocaleString('pt-BR')}</td></tr>)}
           </tbody></table></div> : <div className="ory-auto-no-data"><History size={26}/><p>Nenhuma execução registrada na nova engine. O SDR atual continua no processamento original.</p></div>}
+          {detailLoading&&<p className="ory-auto-execution-detail" role="status">Carregando o percurso autorizado…</p>}
+          {executionDetail&&<section className="ory-auto-execution-detail" aria-label="Percurso sanitizado da execução">
+            <h3>Inspeção por nó — {executionDetail.execution.id.slice(0,12)}…</h3>
+            <p>Estado: {executionDetail.execution.state} · {executionDetail.nodes.length} nós ·
+               {executionDetail.actions.length} ações registradas · {executionDetail.timers.length} esperas</p>
+            <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Nó</th><th>Estado</th><th>Código</th><th>Horário</th></tr></thead><tbody>
+              {executionDetail.nodes.map(n=><tr key={n.id}><td>{n.node_id.slice(0,12)}…</td><td>{n.state}</td>
+                <td>{n.result_code||'—'}</td><td>{new Date(n.created_at).toLocaleString('pt-BR')}</td></tr>)}
+            </tbody></table></div>
+            <p>Dados de mensagens, clientes, prompts e resultados de provedores não são exibidos.</p>
+            <button type="button" className="ory-auto-execution-link" onClick={()=>setExecutionDetail(null)}>Fechar diagnóstico</button>
+          </section>}
         </div> : <div className="ory-auto-panel">
           <ShieldCheck size={26}/><h3>Condições e eventos canônicos</h3>
           <p>O editor aceita condições estruturadas e não executa JavaScript ou SQL arbitrário. Configurações precisam ser validadas pelo backend antes da publicação.</p>
