@@ -6,7 +6,7 @@
  * It acknowledges plans as metadata with all action outbox rows blocked.
  */
 import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
-import { planServerShadow } from '../automation-api/shadowEngine.ts';
+import { planServerShadowCompiled } from '../automation-api/shadowEngine.ts';
 import { loadTrustedReferences } from '../automation-api/trustedReferences.ts';
 import { loadShadowCanonicalContext } from '../automation-api/shadowContext.ts';
 import { isCanonicalUuid, validWorkerToken, workerIsConfigured } from './workerGuards.ts';
@@ -111,7 +111,7 @@ Deno.serve(async request=>{
       }
       const plans=[];
       for(const version of candidates){
-        const decision=await planServerShadow(version.graph_json,{
+        const decision=await planServerShadowCompiled(version.graph_json,{
           workspaceId,flowVersionId:version.id,
           source:event.source,eventId:event.event_id,
           eventType:event.event_type,
