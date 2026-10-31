@@ -61,8 +61,9 @@ BEGIN
  SELECT * INTO first_claim FROM public.automation_delivery_claim(w,1);
  IF NOT FOUND OR first_claim.action_id IS DISTINCT FROM a OR first_claim.attempt<>1
  THEN RAISE EXCEPTION 'First queue item was not leased with one attempt'; END IF;
- IF EXISTS(SELECT 1 FROM public.automation_delivery_claim(w,10) WHERE action_id=a)
- THEN RAISE EXCEPTION 'Two workers claimed the same provider action'; END IF;
+ SELECT * INTO second_claim FROM public.automation_delivery_claim(w,1);
+ IF NOT FOUND OR second_claim.action_id IS DISTINCT FROM b
+ THEN RAISE EXCEPTION 'Second worker did not claim the other action'; END IF;
  denied:=false;
  BEGIN
    PERFORM public.automation_delivery_finish(w,a,
@@ -83,9 +84,7 @@ BEGIN
  IF EXISTS(SELECT 1 FROM public.automation_delivery_claim(w,10) WHERE action_id=a)
  THEN RAISE EXCEPTION 'Already sent action was claimed again'; END IF;
  -- Remaining action enters leased state and then suffers unknown provider result.
- SELECT * INTO second_claim FROM public.automation_delivery_claim(w,1);
- IF NOT FOUND OR second_claim.action_id IS DISTINCT FROM b
- THEN RAISE EXCEPTION 'Second action never acquired a lease'; END IF;
+ -- Second claim was independently acquired above; never lease it again.
  UPDATE public.automation_action_outbox SET lease_until=now()-interval '1 second'
    WHERE id=b;
  IF public.automation_delivery_expire_uncertain(w,10)<>1
