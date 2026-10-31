@@ -212,3 +212,45 @@ export async function loadRemoteCommercialReadiness(workspaceId:string):Promise<
   throw new Error('Integração sem garantias de leitura.'); 
  return {channels:result.channels||[],runtime:result.runtime};
 }
+
+/** Stage 4 semantic editor: read, create draft, freeze disabled. Never send. */
+export type SemanticDraftEntry={
+ id:string;label:string;positive:string[];negative:string[];synonyms:string[];
+ risk:'normal'|'human_review';
+};
+export type SemanticDraft={
+ releaseVersion:number;language:'pt_BR';entries:SemanticDraftEntry[];
+};
+export type SemanticSnapshot={
+ knowledge:{id:string;release_version:number;status:string;approved_by:string|null;content_sha256:string|null}[];
+ dictionaries:{id:string;version:number;status:string;approved:boolean;
+  contentHash:string|null;dictionary:SemanticDraft|null}[];
+ selected:{knowledge_release_id:string|null;dictionary_release_id:string|null;
+   revision:number;enabled:boolean}|null;
+ role:WorkspaceGrant['role'];
+};
+export async function listRemoteSemanticReleases(workspaceId:string):Promise<SemanticSnapshot>{
+ const r=await invoke<{ok:true;readOnly:true;dispatchAuthorized:false}&SemanticSnapshot>({
+  action:'sdr-semantic-list',workspaceId});
+ if(r.dispatchAuthorized!==false||!r.readOnly)throw Error('Resposta do catálogo sem garantia de leitura.');
+ return {knowledge:r.knowledge,dictionaries:r.dictionaries,selected:r.selected,role:r.role};
+}
+export async function createRemoteSemanticDraft(workspaceId:string,
+ dictionary:SemanticDraft,expectedLatestVersion:number
+):Promise<{id:string;release_version:number;status:string}>{
+ const r=await invoke<{ok:true;created:{id:string;release_version:number;status:string};
+  published:false;dispatchAuthorized:false}>({
+  action:'sdr-dictionary-create',workspaceId,dictionary,expectedLatestVersion});
+ if(r.published!==false||r.dispatchAuthorized!==false)throw Error('Rascunho retornou estado inseguro.');
+ return r.created;
+}
+export async function freezeRemoteSemanticPair(workspaceId:string,
+ knowledgeId:string,dictionaryId:string,expectedRevision:number,
+):Promise<{revision:number;dispatchAuthorized:false}>{
+ const r=await invoke<{ok:true;result:{revision:number;dispatchAuthorized:false};
+  publishedDisabled:true;dispatchAuthorized:false}>({
+  action:'sdr-publish-disabled',workspaceId,knowledgeId,dictionaryId,expectedRevision});
+ if(!r.publishedDisabled||r.dispatchAuthorized!==false||
+   r.result.dispatchAuthorized!==false)throw Error('Publicação não permaneceu inativa.');
+ return r.result;
+}
