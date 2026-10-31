@@ -181,13 +181,21 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031214650_oryneo_sdr_release_fk_indexes.sql
           psql -v ON_ERROR_STOP=1 <<'SQL'
           DO $qa$
+          DECLARE owners integer;
+                  attest integer;
+                  sdr_disabled integer;
+                  queued integer;
           BEGIN
-            -- Test fixtures can have a synthetic terminal 'sent' receipt; no provider is called.
-            IF (SELECT count(*) FROM public.automation_channel_ownership WHERE owner='legacy')<>5
-               OR EXISTS(SELECT 1 FROM public.automation_channel_ownership WHERE release_approved_at IS NOT NULL)
-               OR NOT EXISTS(SELECT 1 FROM public.automation_sdr_active_release WHERE enabled IS FALSE)
-               OR EXISTS(SELECT 1 FROM public.automation_action_outbox WHERE state IN ('queued','leased'))
-            THEN RAISE EXCEPTION 'Replaying hosted migrations left unsafe dispatch state'; END IF;
+            SELECT count(*) INTO owners FROM public.automation_channel_ownership WHERE owner='legacy';
+            SELECT count(*) INTO attest FROM public.automation_channel_ownership WHERE release_approved_at IS NOT NULL;
+            SELECT count(*) INTO sdr_disabled FROM public.automation_sdr_active_release WHERE enabled IS FALSE;
+            SELECT count(*) INTO queued FROM public.automation_action_outbox WHERE state IN ('queued','leased');
+            RAISE NOTICE 'Hosted replay verification owners=% attest=% sdr_disabled=% queued=%',owners,attest,sdr_disabled,queued;
+            -- Synthetic terminal sent receipts are allowed from the disposable QA, not live providers.
+            IF owners<>5 THEN RAISE EXCEPTION 'HOSTED_REPLAY_OWNER_DRIFT'; END IF;
+            IF attest<>0 THEN RAISE EXCEPTION 'HOSTED_REPLAY_FALSE_RELEASE_APPROVAL'; END IF;
+            IF sdr_disabled<1 THEN RAISE EXCEPTION 'HOSTED_REPLAY_SDR_UNSAFE'; END IF;
+            IF queued<>0 THEN RAISE EXCEPTION 'HOSTED_REPLAY_OUTBOX_UNSAFE'; END IF;
           END $qa$;
           SQL
 
