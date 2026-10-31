@@ -293,7 +293,7 @@ Deno.serve(async request => {
           &&t.parameter_schema&&typeof t.parameter_schema==='object'
           &&!Array.isArray(t.parameter_schema)
           &&t.parameter_schema.components_verified===true)
-        .map(t=>({id:t.id,name:t.template_name})),
+        .map(t=>({id:t.id,name:t.template_name,variable_numbers: t.parameter_schema.variable_numbers})),
       knowledge:(knowledge.data||[]).map(x=>({id:x.id,name:'Conhecimento v'+x.release_version})),
       dictionaries:(dictionaries.data||[]).map(x=>({id:x.id,name:'Intenções v'+x.release_version})),
     },readOnly:true});
