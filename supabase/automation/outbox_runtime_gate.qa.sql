@@ -64,7 +64,7 @@ BEGIN
  -- This synthetic sent row belongs ONLY to this fixture. Do not contaminate
  -- subsequent isolated Meta QA, which requires every action to remain blocked.
  DELETE FROM public.automation_action_outbox WHERE id=action;
- IF FOUND IS FALSE THEN RAISE EXCEPTION 'QA action cleanup failed'; END IF;
+ IF NOT FOUND THEN RAISE EXCEPTION 'QA action cleanup failed'; END IF;
 END; $qa$;
 RESET ROLE;
 DO $permissions$
