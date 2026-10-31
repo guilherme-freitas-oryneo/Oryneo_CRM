@@ -4,8 +4,9 @@ import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBra
 import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
-import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, loadRemoteNodeCatalog, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
 import { ConditionRuleEditor } from './ConditionRuleEditor';
+import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import './automations-workspace.css';
 
 type Tab = 'overview' | 'pipeline' | 'sdr' | 'triggers' | 'templates' | 'executions';
@@ -112,6 +113,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [workspace, setWorkspace] = useState<WorkspaceGrant | null>(null);
   const [remoteFlows, setRemoteFlows] = useState<RemoteFlow[]>([]);
   const [metaTemplates, setMetaTemplates] = useState<AutomationTemplate[]>([]);
+  const [nodeCatalog, setNodeCatalog] = useState<NodeReferenceCatalog | null>(null);
   const [remoteExecutions, setRemoteExecutions] = useState<AutomationExecution[]>([]);
   const [remoteRevision, setRemoteRevision] = useState<Record<string, number>>({});
   const [lastRemoteJson, setLastRemoteJson] = useState<Record<string,string>>({});
@@ -127,12 +129,14 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       setWorkspace(first);
       const saved = await listRemoteAutomationFlows(first.id);
       if (!cancelled) { setRemoteFlows(saved); setRemoteRevision(Object.fromEntries(saved.map(flow => [flow.id, flow.revision]))); }
-      const [registry, executions] = await Promise.allSettled([
+      const [registry, executions, catalog] = await Promise.allSettled([
         listRemoteAutomationTemplates(first.id), listRemoteAutomationExecutions(first.id),
+        loadRemoteNodeCatalog(first.id),
       ]);
       if (cancelled) return;
       if (registry.status === 'fulfilled') setMetaTemplates(registry.value);
       if (executions.status === 'fulfilled') setRemoteExecutions(executions.value);
+      if (catalog.status === 'fulfilled') setNodeCatalog(catalog.value);
     }).catch(() => { if (!cancelled) setSyncError('Serviço de rascunhos indisponível. Use a cópia local.'); });
     return () => { cancelled = true; };
   }, [userId]);
@@ -464,7 +468,12 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               {selected.type==='condition' ? <ConditionRuleEditor value={selected.config.rule} onChange={rule=>commit({ok:true,graph:{
                 ...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,config:{rule}}:n),
               }})}/> : <>
-                <label>Configuração JSON<textarea aria-label="Configuração JSON do nó" spellCheck={false} rows={9} value={jsonConfig} onChange={e=>setJsonConfig(e.target.value)}/></label>
+                <TypedNodeConfigEditor node={selected} catalog={nodeCatalog} onChange={config=>{
+                  commit({ok:true,graph:{...current,nodes:current.nodes.map(n=>n.id===selected.id?{...n,config}:n)}});
+                  setJsonConfig(JSON.stringify(config,null,2));
+                }}/>
+                <p className="ory-auto-inspector-advanced">Configuração avançada · JSON</p>
+                <label>Configuração JSON<textarea aria-label="Configuração JSON do nó" spellCheck={false} rows={7} value={jsonConfig} onChange={e=>setJsonConfig(e.target.value)}/></label>
                 <button onClick={applyJsonConfig}>Aplicar configuração</button>
               </>}
               {selected.type!=='trigger'&&<button className="ory-auto-danger" onClick={()=>{commit(removeNode(current,selected.id));setSelectedId(null)}}>Remover bloco</button>}
