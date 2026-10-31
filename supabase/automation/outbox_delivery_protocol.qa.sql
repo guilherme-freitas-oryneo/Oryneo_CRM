@@ -84,9 +84,30 @@ BEGIN
  IF EXISTS(SELECT 1 FROM public.automation_delivery_claim(w,10) WHERE action_id=a)
  THEN RAISE EXCEPTION 'Already sent action was claimed again'; END IF;
  -- Remaining action enters leased state and then suffers unknown provider result.
- -- Second claim was independently acquired above; never lease it again.
- UPDATE public.automation_action_outbox SET lease_until=now()-interval '1 second'
-   WHERE id=b;
+ -- A production worker must NEVER shorten its own lease; in this disposable
+ -- fixture we backdate the clock field with the trigger temporarily disabled.
+END; $qa$;
+RESET ROLE;
+BEGIN;
+ALTER TABLE public.automation_action_outbox DISABLE TRIGGER automation_outbox_runtime_gate;
+UPDATE public.automation_action_outbox
+ SET lease_until=clock_timestamp()-interval '1 second'
+ WHERE id='b1000000-0000-4000-8000-000000000008';
+ALTER TABLE public.automation_action_outbox ENABLE TRIGGER automation_outbox_runtime_gate;
+COMMIT;
+SET ROLE service_role;
+DO $qa_late$
+DECLARE
+ w uuid:='b1000000-0000-4000-8000-000000000001';
+ a uuid:='b1000000-0000-4000-8000-000000000007';
+ b uuid:='b1000000-0000-4000-8000-000000000008';
+ first_claim record; second_claim record;
+ denied boolean:=false;
+BEGIN
+ SELECT claim_token INTO first_claim FROM public.automation_action_outbox WHERE id=a;
+ SELECT claim_token INTO second_claim FROM public.automation_action_outbox WHERE id=b;
+ IF first_claim.claim_token IS NULL OR second_claim.claim_token IS NULL
+ THEN RAISE EXCEPTION 'Fixture lost claimed tokens'; END IF;
  IF public.automation_delivery_expire_uncertain(w,10)<>1
  THEN RAISE EXCEPTION 'Expired outbound lease did not become uncertain'; END IF;
  IF (SELECT state FROM public.automation_action_outbox WHERE id=b)<>'uncertain'
@@ -131,7 +152,7 @@ BEGIN
  -- Reconcile existing already-sent result is still possible during emergency.
  IF public.automation_delivery_reconcile_receipt(w,a,first_claim.claim_token,'wamid:qa')<>'sent'
  THEN RAISE EXCEPTION 'Emergency stop erased a previously confirmed receipt'; END IF;
-END; $qa$;
+END; $qa_late$;
 RESET ROLE;
 DO $permissions$
 BEGIN
