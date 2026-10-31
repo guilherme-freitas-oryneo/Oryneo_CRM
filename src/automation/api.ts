@@ -10,7 +10,7 @@ export type WorkspaceGrant = {
   role: 'viewer' | 'editor' | 'publisher' | 'admin';
 };
 export type RemoteFlow = {
-  id: string; name: string; kind: FlowKind;
+  id: string; name: string; kind: FlowKind; slug?: string;
   revision: number; enabled: boolean; published_version_id: string | null; updated_at: string;
 };
 export type RemoteVersion = {
