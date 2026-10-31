@@ -173,7 +173,7 @@ Deno.serve(async request => {
     if(!['publisher','admin'].includes(member.role))
       return reply({error:'Publicação restrita ao publicador ou administrador.'},403);
     if(!validUuid(body.knowledgeId)||!validUuid(body.dictionaryId)
-       ||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<1)
+       ||typeof body.expectedRevision!=='number'||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<1)
       return reply({error:'Referências de release ou revisão inválidas.'},400);
     const [k,d]=await Promise.all([
       db.from('automation_knowledge_release')
