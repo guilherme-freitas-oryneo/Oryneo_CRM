@@ -9,7 +9,7 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
 AS $fn$
 DECLARE
  t public.automation_wait_timers%ROWTYPE;
- c public.crm_wa_conversations%ROWTYPE;
+ c record;
  v_reason text;
 BEGIN
  IF p_workspace_id IS NULL OR p_wait_id IS NULL
@@ -26,7 +26,7 @@ BEGIN
  IF t.conversation_id IS NULL THEN RETURN 'ready'; END IF;
  -- Lock conversation state during this SQL transaction. A second, DB-enforced
  -- resume trigger repeats the check just before acknowledging the trace.
- SELECT * INTO c FROM public.crm_wa_conversations
+ SELECT mode,opted_out,consent_granted INTO c FROM public.crm_wa_conversations
   WHERE id=t.conversation_id FOR SHARE;
  IF NOT FOUND THEN v_reason:='CONVERSATION_NOT_FOUND';
  ELSIF c.opted_out IS TRUE THEN v_reason:='OPTED_OUT';
@@ -54,7 +54,7 @@ RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
 AS $fn$
 DECLARE
- c public.crm_wa_conversations%ROWTYPE;
+ c record;
 BEGIN
  IF OLD.resumed_at IS NOT NULL OR NEW.resumed_at IS NULL
  THEN RETURN NEW; END IF;
@@ -65,7 +65,7 @@ BEGIN
        AND NOT s.emergency_stop)
  THEN RAISE EXCEPTION 'SHADOW_RESUME_RUNTIME_GUARD_DENIED' USING ERRCODE='42501'; END IF;
  IF OLD.conversation_id IS NOT NULL THEN
-  SELECT * INTO c FROM public.crm_wa_conversations
+  SELECT mode,opted_out,consent_granted INTO c FROM public.crm_wa_conversations
   WHERE id=OLD.conversation_id FOR SHARE;
   IF NOT FOUND OR c.mode IS DISTINCT FROM 'sdr_active'
     OR c.opted_out IS TRUE OR c.consent_granted IS DISTINCT FROM TRUE
