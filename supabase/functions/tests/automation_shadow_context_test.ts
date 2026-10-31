@@ -43,7 +43,7 @@ function db(rows:Tables=model(),fails?:string){
      },
    };
    return chain;
- }}};
+ }})};
 }
 async function rejected(run:()=>Promise<unknown>,expected:string){
  try{await run();throw Error('Expected rejection '+expected);}
