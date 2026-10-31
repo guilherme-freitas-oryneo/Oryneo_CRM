@@ -20,7 +20,7 @@ Deno.test('simulation denies invented event, PII and wrong types',()=>{
   [{event:{type:'billing.paid_verified'}},'conversation.inbound'],
   [{conversation:{mode:'sdr_active',message_body:'private'}},'conversation.inbound'],
   [{conversation:{mode:'sdr_active\nDROP TABLE'}},'conversation.inbound'],
-  [{__proto__:{mode:'sdr_active'}},'conversation.inbound'],
+  [JSON.parse('{"__proto__":{"mode":"sdr_active"}}'),'conversation.inbound'],
   [[], 'conversation.inbound'],
  ];
  for(const [sample,event] of bad){
