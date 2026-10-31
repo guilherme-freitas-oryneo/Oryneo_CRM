@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'supabase/automation/**'
+      - 'src/automation/**'
+      - 'qa/automation-editor*'
+      - 'qa/automation-editor/**'
       - 'supabase/functions/automation-api/**'
       - 'supabase/functions/automation-shadow-worker/**'
       - 'supabase/functions/tests/automation_*'
