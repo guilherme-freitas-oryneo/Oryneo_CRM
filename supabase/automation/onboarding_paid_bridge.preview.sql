@@ -11,6 +11,13 @@ DECLARE
  v_deal_id uuid;
  v_rows integer := 0;
 BEGIN
+  -- A distinct, explicit release gate prevents a second e-mail owner during
+  -- migration. Disabled/shadow and emergency-stop modes NEVER queue here.
+  IF NOT EXISTS(SELECT 1 FROM public.automation_workspaces w
+    JOIN public.automation_runtime_settings st ON st.workspace_id=w.id
+    WHERE w.slug='oryneo-crm' AND w.active
+      AND st.mode='live' AND st.emergency_stop=false)
+  THEN RETURN NEW; END IF;
   -- A sandbox payment, unpaid order or missing paid_at NEVER queues an email.
   SELECT o.deal_id INTO v_deal_id
     FROM public.crm_billing_orders o
