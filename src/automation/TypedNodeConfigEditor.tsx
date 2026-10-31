@@ -102,7 +102,7 @@ export function TypedNodeConfigEditor({node,catalog,onChange}:Props){
     </div>;
     case 'crm_task':return <div className="ory-auto-typed-config">
       {input('title','Título da tarefa',160)}
-      {integer('due_offset_minutes','Prazo após o evento (minutos)',0,43200,60)}
+      {integer('due_offset_minutes','Prazo após o evento (minutos)',1,43200,60)}
     </div>;
     case 'crm_update':return <div className="ory-auto-typed-config">
       {choice('allowed_field','Campo autorizado',['next_action.title','due_date','notes'])}
