@@ -67,3 +67,30 @@ O SDR WhatsApp **legado** permanece preservado; o histórico da fila própria do
 - Preservar `main`, `gh-pages`, PRs originais e histórico. Não rodar migração destrutiva sem autorização específica e backup conferido.
 
 **Decisão técnica nesta auditoria: NO-GO para merge e dispatch live.** Isso não invalida os testes já aprovados; impede apenas confundir sua aprovação com homologação do sistema publicado. 
+
+## Execução incremental efetiva — 31/10/2026 (snapshot posterior)
+
+Esta seção substitui, **apenas para os componentes abaixo**, as observações anteriores sobre SQL ausente e código hospedado divergente. Os fatos históricos e o gate de autorização de canais acima são mantidos.
+
+### Banco hospedado — executado e lido de volta
+
+- Migração Supabase `20261031214032_oryneo_commercial_shadow_ownership_foundation_disabled`: tabela de ownership (cinco canais), cursor/feed comercial e três RPCs. Todas as cinco linhas permanecem `owner=legacy`, sem aprovação de cutover.
+- Migração `20261031214115_oryneo_disabled_recovery_semantic_and_crm_adapters`: nove RPCs centrais verificadas para timers, rollback, release semântico, claim e ações CRM; nova tabela `automation_sdr_active_release`, que proíbe ativação por `CHECK(enabled=false)`.
+- Migração `20261031214650_oryneo_sdr_release_fk_indexes`: dois índices de referência do seletor SDR. Advisors passaram de 15 para 13 FKs sem índice, removendo apenas os dois avisos introduzidos por este módulo.
+- As três migrações estão registradas em `supabase/migrations/`, com as versões efetivas retornadas pelo servidor. Uma etapa do CI reaplica as três sobre os scripts de preview em banco descartável para conferir idempotência/paridade.
+- Feed comercial consultado somente em agregados: `intake=34`, `checkout=21`, `billing=21`, `mail=6`, `proposal=1` registros; nenhum evento migrou para a inbox da nova engine.
+- Auditoria SQL: novas tabelas RLS=ON, `anon`/`authenticated` sem `SELECT`; novas RPCs `SECURITY INVOKER` sem `EXECUTE` público; cutover preflight `eligible=false`/`dispatchAuthorized=false` para os cinco canais.
+
+### Edge Functions — deploy versionado, com gate desligado
+
+- `automation-api` atualizada de v6 para **v7**, `verify_jwt=true`, readback positivo. Código alinhado com o entrypoint do PR de release.
+- `automation-shadow-worker` atualizada de v3 para **v4**, `verify_jwt=true`, readback positivo; nenhuma flag do worker habilitada por esta mudança.
+- `automation-commercial-crm-worker` implantada **v1** com `verify_jwt=true`, guard de segredo e `AUTOMATION_COMMERCIAL_CRM_ENABLED` (default off).
+- Para teste de pacote sem substituir URLs existentes, também foram implantadas `automation-api-rc` v1 e `automation-shadow-worker-rc` v1, protegidas por JWT. Nenhuma delas foi agendada nem integrou o frontend público.
+- O readback de bundle e status ACTIVE não substitui teste de sessão autenticada ou prova de comportamento de canal live. A interface na `main` permanece anterior ao PR de automações.
+
+### Meta e preservação de operação
+
+- Consulta somente leitura à conta oficial de mensagens ORYNEO: **44/44 templates APPROVED**, 44/44 registrados no Supabase com componentes verificados, **zero divergências** de template ID, nome, categoria, idioma, conta ou status na consulta. Nenhum template ou mensagem foi modificado.
+- Banco pós-implantação: `mode=disabled`, `emergency_stop=true`, `workspace.active=false`, `enabled_flows=0`, `automation_executions=0`, `automation_action_outbox=0`, ownership legado 5/5. O WhatsApp/SDR operacional anterior não foi substituído.
+- Faltam autorizações/comprovação de contratos e condições jurídicas, publicação canária autenticada, dispatch real por canal, medição de provedores, e cutover atômico com rollback. **Release ainda NO-GO para ativar novas ações e mesclar na main.**
