@@ -139,7 +139,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Executar evento real em PostgreSQL descartável pelo compilador Deno
-        run: deno run --allow-run=psql supabase/automation/engine_db_bridge.qa.ts
+        run: deno run --min-dep-age=0 --allow-run=psql supabase/automation/engine_db_bridge.qa.ts
       - name: Verificar migração idempotente, runtime desligado e outbox intacto
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -167,19 +167,19 @@ jobs:
           deno-version: v2.x
       - name: Typecheck do worker e sanitização dos erros
         run: |
-          deno check --node-modules-dir=auto supabase/functions/automation-api/index.ts
-          deno check supabase/functions/automation-api/executionKernel.ts
-          deno check --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
-          deno test supabase/functions/tests/automation_execution_kernel_test.ts
-          deno test supabase/functions/tests/automation_compiled_shadow_test.ts
-          deno test supabase/functions/tests/automation_shadow_failure_test.ts
-          deno test supabase/functions/tests/automation_graph_guard_test.ts
-          deno test supabase/functions/tests/automation_shadow_engine_test.ts
-          deno test supabase/functions/tests/automation_action_policy_test.ts
-          deno test supabase/functions/tests/automation_worker_guards_test.ts
-          deno test supabase/functions/tests/automation_shadow_context_test.ts
-          deno test supabase/functions/tests/automation_simulation_boundary_test.ts
-          deno test supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-api/index.ts
+          deno check --min-dep-age=0 supabase/functions/automation-api/executionKernel.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-shadow-worker/index.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_execution_kernel_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_compiled_shadow_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_failure_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_graph_guard_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_engine_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_action_policy_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_worker_guards_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_context_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_simulation_boundary_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts
 
   crm-regression:
     runs-on: ubuntu-latest
