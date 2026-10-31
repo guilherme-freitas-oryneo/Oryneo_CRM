@@ -12,6 +12,10 @@ CREATE INDEX IF NOT EXISTS automation_action_claim_ready_idx
 CREATE INDEX IF NOT EXISTS automation_action_uncertain_idx
  ON public.automation_action_outbox(workspace_id,created_at,id)
  WHERE state='uncertain';
+-- The same provider acknowledgement must not be attributed to two actions.
+CREATE UNIQUE INDEX IF NOT EXISTS automation_provider_receipt_unique_idx
+ ON public.automation_action_outbox(workspace_id,provider_result_id)
+ WHERE state='sent' AND provider_result_id IS NOT NULL;
 
 CREATE OR REPLACE FUNCTION public.automation_delivery_claim(
  p_workspace_id uuid,p_limit integer DEFAULT 5)
