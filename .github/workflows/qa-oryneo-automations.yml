@@ -109,6 +109,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/outbox_runtime_gate.qa.sql
       - name: Testar ponte para o onboarding existente, sem envios (isolado)
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/onboarding_paid_bridge.qa.sql
+      - name: Homologar fontes comerciais canônicas em PostgreSQL descartável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/commercial_sources.qa.sql
       - name: Sincronizar 33 componentes Meta oficiais com auditoria (isolado)
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/meta_components_sync.qa.sql
       - name: Reaplicar DDL consolidado de automação sem perder os dados anteriores
