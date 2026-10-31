@@ -6,7 +6,7 @@ Esta é a evidência consolidada **posterior à publicação**. Substitui os est
 - PR #80 integrado à release #79; PR #79 mesclado à `main` no commit `dcbc2ec685eddf50f297256488b3524380cefc26`.
 - O GitHub Actions `41252123749` publicou a interface na `gh-pages` no commit `610676b3328b1c5650a00b8b6cc68e3ebb8d8fb2`, com resultado **success**.
 - Verificados `CNAME` original, `index.html` na raiz e espelho `Oryneo_CRM/index.html`, `assets/AutomationsWorkspace-*.js/css`, área `qa/pr-46` e conteúdo jurídico de homologação pré-existente.
-- Smoke público Chromium/WebKit: workflow `41252213375` acionado após a publicação; **seu resultado exige consulta ao Actions**. Não declarar sucesso apenas por ter sido iniciado.
+- Smoke público HTTP **aprovado** no workflow `41252646512`; smoke de navegador Chrome real em 390 px e 1440 px **aprovado** no workflow `41253065975`, com login visível, sem overflow horizontal, screenshots e sem efeitos externos. O smoke Chromium/WebKit separado `41252213375` ainda exige acompanhamento de status, não é substituído pela prova Chrome.
 - Smoke HTTP real do domínio `crm.oryneo.com.br`: workflow `41252646512` **success**; confirmou HTML, JavaScript compilado, logo, rotas de contratação/pagamento e espelho de compatibilidade sem lead/cobrança.
 - No HEAD de release `e88787d1f84450c7d08abbe23faa8598ddd7452b`, os seis workflows de PR terminaram em **success**, inclusive a homologação de interface CRM v2.1 e o replay SQL das sete migrações.
 - Backups preservados ANTES do release: `backup/oryneo-main-pre-automacoes-20261031` SHA `9fb514e7e3f831dee8861176ba7435ba23ba91d4` e `backup/oryneo-gh-pages-pre-automacoes-20261031` SHA `90cb5b58b7acb5081fd0e70410a18a00911454ae`. Rollback executado/testado: **não**.
@@ -49,3 +49,12 @@ A publicação do frontend, banco e Edge **não** ativou automações de produç
 - Release/página: https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41252123749
 - CI: https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41251684978
 - Smoke público: https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41252213375
+
+## Verificação final de integridade do pacote original
+Arquivo local anexado: `ORYNEO_CODEX_AUTOMACOES_SDR_PIPELINE_2026-10-28(4).zip`, com **18 arquivos**. Foi reexecutado `sha256sum -c MANIFEST_SHA256.txt` na extração local e **todas as 16 entradas verificáveis** foram aprovadas. O arquivo `qa/matriz_aceite.csv` possui **47 IDs únicos**: 3 baseline, 13 SDR, 10 pipeline, 12 editor, 6 policies, 3 knowledge; 37 casos rotulados `automated`, 9 `ui`, 1 `integration`. A cobertura documental e isolada é rastreável; essas classificações não comprovam execução operacional com serviços reais.
+
+## Resultado e limites do aceite
+**Macroetapa 6:** fechamento de código, testes isolados, merge e documentação comprovados. 
+**Macroetapa 7 — release técnica:** UI publicada e smoke HTTP/Chrome concluídos; backend e banco hospedados com interlocks. **Ativação operacional de WhatsApp, SDR, e-mail e cobrança NÃO homologada e NÃO executada** por ausência dos gates de consentimento, aprovação de conhecimento, agendamento/cutover e canário real. Não atribuir 100% operacional ao ZIP enquanto esses requisitos estiverem pendentes.
+
+A validação de Chrome teve uma primeira tentativa interrompida por erro interno `npm` no runner; a correção usou o ChromeDriver oficial pré-instalado sem dependência adicional. O workflow sucessor `41253065975` passou em ambas as resoluções e preservou capturas.
