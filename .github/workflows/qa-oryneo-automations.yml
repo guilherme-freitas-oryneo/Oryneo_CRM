@@ -203,6 +203,7 @@ jobs:
           deno test --min-dep-age=0 supabase/functions/tests/automation_simulation_boundary_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/whatsapp_sdr_failure_regression_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_stage5_sdr_recovery_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_stage5_local_perf_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/financial_qa_webhook_policy_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/checkout_settlement_policy_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/stripe_orphan_checkout_policy_test.ts
