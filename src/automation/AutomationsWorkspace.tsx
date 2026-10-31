@@ -28,6 +28,22 @@ const NAMES: Record<NodeFamily, string> = {
   trigger: 'Gatilhos', logic: 'Condições', intelligence: 'Inteligência',
   communication: 'Comunicação', crm: 'CRM', control: 'Controle',
 };
+const releaseGateLabels:Record<string,string>={
+  legal:'Termos, contratação e privacidade homologados',
+  playbook:'Conhecimento comercial e regras do SDR aprovados',
+  rollback:'Retorno ao executor anterior testado',
+  security:'Permissões e controles de segurança homologados',
+  authenticated_e2e:'Jornada autenticada ponta a ponta aprovada',
+  provider_verified:'Conta e provedor verificados',
+  consent_policy:'Consentimento e descadastro comprovados',
+  single_owner:'Um único executor autorizado para o canal',
+  mailbox_verified:'Caixa corporativa e remetente conferidos',
+  financial_webhook:'Eventos financeiros autenticados e conciliados',
+  terms_accepted:'Versão contratual e aceite vinculados ao pedido',
+};
+const friendlyReleaseGate=(item:string):string=>
+  releaseGateLabels[item.split(':').slice(-1)[0]]||item;
+
 const defaultConfig = (type: NodeKind, kind: FlowKind): Record<string, unknown> => {
   switch (type) {
     case 'trigger': return { event_type: kind === 'sdr' ? 'conversation.inbound' : 'opportunity.created' };
@@ -776,7 +792,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                 ? 'Critérios documentais registrados; ativação continua sujeita a canário e autorização.'
                 : 'Ativação bloqueada — critérios documentais ainda pendentes.'}</p>
               <p>Critérios gerais pendentes: {releaseGates.global.length
-                ? releaseGates.global.join(' · ') : 'nenhum'}</p>
+                ? releaseGates.global.map(friendlyReleaseGate).join(' · ') : 'nenhum'}</p>
               <div className="ory-auto-catalog-scroll">
                 <table><thead><tr><th>Canal</th><th>Critérios pendentes</th></tr></thead><tbody>
                   {(['crm','email','whatsapp','onboarding','billing'] as const).map(channel=>
@@ -784,7 +800,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                       <td>{({crm:'CRM e pipeline',email:'E-mail',whatsapp:'WhatsApp',
                         onboarding:'Implantação',billing:'Faturamento'} as const)[channel]}</td>
                       <td>{releaseGates.channels[channel]?.length
-                        ?releaseGates.channels[channel].join(' · ')
+                        ?releaseGates.channels[channel].map(friendlyReleaseGate).join(' · ')
                         :'Sem pendência documental registrada'}</td>
                     </tr>)}
                 </tbody></table>
