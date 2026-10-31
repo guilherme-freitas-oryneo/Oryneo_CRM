@@ -1,16 +1,12 @@
 -- Disposable PostgreSQL 17 test. Executes no e-mail, webhook or external action.
 \set ON_ERROR_STOP on
--- Isolated automation release gate, never contact production Meta/e-mail.
-CREATE TABLE public.automation_workspaces (
- id uuid PRIMARY KEY,slug text NOT NULL,active boolean NOT NULL
-);
-CREATE TABLE public.automation_runtime_settings (
- workspace_id uuid PRIMARY KEY,mode text NOT NULL,emergency_stop boolean NOT NULL
-);
-INSERT INTO public.automation_workspaces VALUES
- ('11111111-1111-4111-8111-111111111111','oryneo-crm',true);
-INSERT INTO public.automation_runtime_settings VALUES
- ('11111111-1111-4111-8111-111111111111','live',false);
+-- Use the existing automation fixture: this QA file executes after schema.qa
+-- and shadow adapter QA in the same disposable PostgreSQL database.
+UPDATE public.automation_workspaces SET active=true
+ WHERE id='11111111-1111-4111-8111-111111111111';
+UPDATE public.automation_runtime_settings
+ SET mode='live',emergency_stop=false
+ WHERE workspace_id='11111111-1111-4111-8111-111111111111';
 CREATE TABLE public.crm_billing_orders (
  id uuid PRIMARY KEY,
  deal_id uuid NOT NULL,
