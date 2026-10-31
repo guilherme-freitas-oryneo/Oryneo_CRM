@@ -1,4 +1,5 @@
 import {reviewCommercialAction,type CommercialEvidence} from '../automation-api/commercialActionPolicy.ts';
+import type {CommercialCrmWorkerReport} from '../automation-commercial-crm-worker/index.ts';
 function assert(condition:unknown,message:string):asserts condition{
  if(!condition)throw Error(message);
 }
@@ -66,4 +67,13 @@ Deno.test('Stage3: undefined/unknown action type is denied',()=>{
   ...base,actionType:'execute_stripe_charge' as CommercialEvidence['actionType'],
  });
  assert(result.code==='INVALID_ACTION'&&!result.eligibleForControlledQueue,'Unknown action allowed');
+});
+
+Deno.test('Stage3 CRM worker response is typed as non-emitting',()=>{
+ const report:CommercialCrmWorkerReport={
+  ok:true,processed:0,unresolved:0,channel:'crm',
+  externalMessagesSent:0,paymentsCreated:0,
+ };
+ assert(report.externalMessagesSent===0&&report.paymentsCreated===0,
+  'CRM worker must never emit external effects');
 });
