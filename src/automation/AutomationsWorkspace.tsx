@@ -11,6 +11,7 @@ import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
 import { SIMULATION_CASES, buildSimulationCase, type SimulationCaseId } from './simulationCases';
 import './automations-workspace.css';
+import './commercial-readiness.css';
 
 type Tab = 'overview' | 'pipeline' | 'sdr' | 'triggers' | 'templates' | 'executions';
 const TABS: { key: Tab; label: string; icon: typeof Workflow }[] = [
