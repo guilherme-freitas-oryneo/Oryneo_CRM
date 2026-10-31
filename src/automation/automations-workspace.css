@@ -177,3 +177,10 @@
 .ory-auto-simulation-bar span{font-size:10px;line-height:1.5;flex:1;min-width:180px;color:#62788d}
 .ory-auto-simulation-bar small{font-size:9px;color:#768a9a;max-width:220px;line-height:1.5}
 @media(max-width:620px){.ory-auto-simulation-bar{padding:10px 14px;align-items:stretch}.ory-auto-simulation-bar label{flex-basis:100%}.ory-auto-simulation-bar select{max-width:none;flex:1;min-width:0}.ory-auto-simulation-bar span,.ory-auto-simulation-bar small{flex-basis:100%;max-width:none}}
+
+
+/* Trace highlighting is a passive representation of a dry-run, not live execution. */
+.ory-auto-node.traced .ory-auto-node-body{border-color:#5496a5;border-left-color:#327f89;box-shadow:0 0 0 2px #75b1bb2b,0 7px 23px #1d385817}
+.ory-auto-canvas-scroll svg path.trace-path{stroke:#327f89;stroke-width:2.8}
+.ory-auto-edge-add.traced{border-color:#629bab;color:#327f89;background:#edf8f8;opacity:1}
+@media(prefers-reduced-motion:reduce){.ory-auto-node.traced .ory-auto-node-body,.ory-auto-canvas-scroll svg path.trace-path{transition:none}}
