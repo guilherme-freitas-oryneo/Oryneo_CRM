@@ -5,7 +5,7 @@
 BEGIN;
 CREATE TABLE IF NOT EXISTS public.automation_ingest_cursors(
  workspace_id uuid NOT NULL REFERENCES public.automation_workspaces(id) ON DELETE RESTRICT,
- source text NOT NULL CHECK(source IN ('crm')),
+ source text NOT NULL CHECK(source IN ('crm','whatsapp')),
  last_occurred_at timestamptz NOT NULL,
  last_event_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
  initialized_by uuid,
