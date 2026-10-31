@@ -105,12 +105,14 @@ Deno.serve(async request=>{
     throw Error('LIVE_COMMIT_UNAVAILABLE');
    processed++;
   }catch(error){
-   const fail=await db.rpc('automation_live_crm_fail',{
-    p_workspace_id:workspaceId,p_inbox_id:event.inbox_id,
-    p_lease_token:event.lease_token,p_code:failureCode(error),
-   }).catch(()=>({error:true,data:null}));
-   if(fail.error)unresolved++;
-   else if(fail.data==='quarantined')quarantined++;
+   try{
+    const fail=await db.rpc('automation_live_crm_fail',{
+     p_workspace_id:workspaceId,p_inbox_id:event.inbox_id,
+     p_lease_token:event.lease_token,p_code:failureCode(error),
+    });
+    if(fail.error)unresolved++;
+    else if(fail.data==='quarantined')quarantined++;
+   }catch{unresolved++;}
   }
  }
  return response({ok:true,source:'canonical_crm',processed,unresolved,
