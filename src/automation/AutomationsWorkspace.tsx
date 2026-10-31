@@ -7,6 +7,7 @@ import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type Fl
 import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, loadRemoteNodeCatalog, loadRemoteAutomationRuntime, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution } from './api';
 import { ConditionRuleEditor } from './ConditionRuleEditor';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
+import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
 import './automations-workspace.css';
 
 type Tab = 'overview' | 'pipeline' | 'sdr' | 'triggers' | 'templates' | 'executions';
@@ -177,6 +178,10 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     setNotice('Editor isolado: nenhum fluxo está conectado a disparos reais.');
   };
   const create = (kind: FlowKind) => open(connectedDraft(kind));
+  const createFromStarter = (starterId: Parameters<typeof buildStarterFlow>[0]) => {
+    open(buildStarterFlow(starterId));
+    setNotice('Modelo editável, sem disparos. Revise consentimento e integrações antes de publicar.');
+  };
   const openRemote = async (flowId: string) => {
     if (!workspace) return;
     setSyncBusy(true);
@@ -390,6 +395,14 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             <span><strong>{flow.name}</strong><small>{flow.nodes.length} nós · {flow.edges.length} conexões · rascunho local</small></span><ArrowRight size={17}/>
           </button>)}
           <button className="ory-auto-flow-card ory-auto-create-card" onClick={()=>create(tab)}><Plus size={21}/><span><strong>Criar fluxo</strong><small>Começar com gatilho e conclusão conectados</small></span></button>
+          {STARTER_FLOWS.filter(starter=>starter.kind===tab).map(starter=>(
+            <button className="ory-auto-flow-card" key={'starter-'+starter.id}
+              title={starter.note} onClick={()=>createFromStarter(starter.id)}>
+              <span className="ory-auto-flow-icon"><GitBranch size={20}/></span>
+              <span><strong>{starter.name}</strong><small>Modelo editável · sem envio · aprovação necessária</small></span>
+              <ArrowRight size={17}/>
+            </button>
+          ))}
         </div>
       </div>}
       {displayBuilder && <div className="ory-auto-editor">
