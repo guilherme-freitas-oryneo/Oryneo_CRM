@@ -130,8 +130,48 @@ BEGIN
  RETURN jsonb_build_object('ok',true,'continued',true,
   'complete',p_decision->>'state'='completed','dispatchAuthorized',false);
 END $fn$;
+-- Read-only recovery discovery. A crash after the canonical CRM mutation
+-- leaves its receipt in state=sent and this function will re-offer it.
+-- Execution remains protected by the unique continuation receipt.
+CREATE OR REPLACE FUNCTION public.automation_live_crm_pending_continuations(
+ p_workspace_id uuid,p_limit integer DEFAULT 5
+) RETURNS TABLE(action_id uuid,execution_id uuid,node_id text)
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
+AS $fn$
+BEGIN
+ IF p_workspace_id IS NULL OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 20
+ THEN RAISE EXCEPTION 'CONTINUATION_POLL_INPUT_INVALID' USING ERRCODE='22023'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.automation_workspaces w
+ JOIN public.automation_runtime_settings s ON s.workspace_id=w.id
+ JOIN public.automation_channel_ownership own ON own.workspace_id=w.id
+ WHERE w.id=p_workspace_id AND w.slug='oryneo-crm' AND w.active
+ AND s.mode='live' AND NOT s.emergency_stop AND own.channel='crm'
+ AND own.owner='new_engine' AND own.legacy_dispatch_paused_at IS NOT NULL
+ AND own.release_approved_at IS NOT NULL)
+ THEN RETURN; END IF;
+ RETURN QUERY
+ SELECT a.id,a.execution_id,a.node_id
+ FROM public.automation_action_outbox a
+ JOIN public.automation_executions e ON e.id=a.execution_id
+   AND e.workspace_id=a.workspace_id AND e.state='running'
+ JOIN public.automation_flow_versions v ON v.id=e.flow_version_id
+   AND v.workspace_id=e.workspace_id AND v.status='published'
+ JOIN public.automation_flows f ON f.id=v.flow_id
+   AND f.workspace_id=v.workspace_id AND f.enabled
+   AND f.published_version_id=v.id
+ WHERE a.workspace_id=p_workspace_id AND a.state='sent'
+   AND a.action_type IN('crm_task','crm_stage_change')
+   AND a.provider_result_id='crm:'||a.action_key
+   AND NOT EXISTS(SELECT 1 FROM public.automation_live_crm_continuations c
+     WHERE c.execution_id=e.id AND c.previous_action_id=a.id)
+ ORDER BY a.created_at,a.id LIMIT p_limit;
+END $fn$;
 REVOKE ALL ON FUNCTION public.automation_live_crm_continue(uuid,uuid,uuid,jsonb)
  FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.automation_live_crm_continue(uuid,uuid,uuid,jsonb)
+ TO service_role;
+REVOKE ALL ON FUNCTION public.automation_live_crm_pending_continuations(uuid,integer)
+ FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.automation_live_crm_pending_continuations(uuid,integer)
  TO service_role;
 COMMIT;
