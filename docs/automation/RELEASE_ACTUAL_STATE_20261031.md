@@ -7,6 +7,8 @@ Esta é a evidência consolidada **posterior à publicação**. Substitui os est
 - O GitHub Actions `41252123749` publicou a interface na `gh-pages` no commit `610676b3328b1c5650a00b8b6cc68e3ebb8d8fb2`, com resultado **success**.
 - Verificados `CNAME` original, `index.html` na raiz e espelho `Oryneo_CRM/index.html`, `assets/AutomationsWorkspace-*.js/css`, área `qa/pr-46` e conteúdo jurídico de homologação pré-existente.
 - Smoke público Chromium/WebKit: workflow `41252213375` acionado após a publicação; **seu resultado exige consulta ao Actions**. Não declarar sucesso apenas por ter sido iniciado.
+- Smoke HTTP real do domínio `crm.oryneo.com.br`: workflow `41252646512` **success**; confirmou HTML, JavaScript compilado, logo, rotas de contratação/pagamento e espelho de compatibilidade sem lead/cobrança.
+- No HEAD de release `e88787d1f84450c7d08abbe23faa8598ddd7452b`, os seis workflows de PR terminaram em **success**, inclusive a homologação de interface CRM v2.1 e o replay SQL das sete migrações.
 - Backups preservados ANTES do release: `backup/oryneo-main-pre-automacoes-20261031` SHA `9fb514e7e3f831dee8861176ba7435ba23ba91d4` e `backup/oryneo-gh-pages-pre-automacoes-20261031` SHA `90cb5b58b7acb5081fd0e70410a18a00911454ae`. Rollback executado/testado: **não**.
 
 ## Supabase — migrações efetivamente aplicadas
