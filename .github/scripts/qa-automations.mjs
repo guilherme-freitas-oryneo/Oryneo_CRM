@@ -50,6 +50,7 @@ for (const c of cases) {
     await page.getByRole('button',{name:'Automações',exact:true}).waitFor({timeout:15000});
     await page.getByRole('button',{name:'Automações',exact:true}).click();
     await page.getByRole('heading',{name:'Automações'}).waitFor({timeout:10000});
+    await page.getByText('Motor em parada de emergência',{exact:true}).waitFor({timeout:10000});
     await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Fluxos do pipeline/}).click();
     await page.getByRole('button',{name:/Novo fluxo/i}).click();
     await page.getByRole('textbox',{name:'Nome do fluxo'}).waitFor();
