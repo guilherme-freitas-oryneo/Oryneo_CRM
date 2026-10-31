@@ -180,7 +180,7 @@ Deno.serve(async request => {
        .select('id,release_version,status,approved_by,content_sha256,source_refs')
        .eq('workspace_id',workspaceId).eq('id',body.knowledgeId).maybeSingle(),
       db.from('automation_intent_dictionary')
-       .select('id,release_version,status,approved_by,content_sha256,examples,synonyms')
+       .select('id,release_version,language,status,approved_by,content_sha256,examples,synonyms')
        .eq('workspace_id',workspaceId).eq('id',body.dictionaryId).maybeSingle(),
     ]);
     if(k.error||d.error||!k.data||!d.data)
