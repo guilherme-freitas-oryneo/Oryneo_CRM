@@ -146,9 +146,9 @@ BEGIN
           AND EXISTS(SELECT 1 FROM jsonb_array_elements(v.graph_json->'nodes') n
             WHERE n->>'type'='trigger' AND n->'config'->>'event_type'=v_event.event_type))
     THEN RAISE EXCEPTION 'SHADOW_PLAN_UNAUTHORIZED' USING ERRCODE='22023'; END IF;
-    IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_plans) p
-      WHERE p->>'flowVersionId'=v_plan->>'flowVersionId'
-      GROUP BY p->>'flowVersionId' HAVING count(*)>1)
+    IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_plans) AS p(value)
+      WHERE p.value->>'flowVersionId'=v_plan->>'flowVersionId'
+      GROUP BY p.value->>'flowVersionId' HAVING count(*)>1)
     THEN RAISE EXCEPTION 'SHADOW_PLAN_DUPLICATED' USING ERRCODE='22023'; END IF;
     INSERT INTO public.automation_executions(workspace_id,flow_version_id,inbox_id,state,finished_at)
       VALUES(p_workspace_id,v_version_id,p_inbox_id,'shadow',now())
