@@ -120,9 +120,11 @@ BEGIN
   VALUES('c2000000-0000-4000-8000-000000000001',
    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01','email_sent',
     clock_timestamp()+interval '9 seconds');
+ -- Project may predate the payment; source event must be watermarked at
+ -- verified paid_at, not the historical project creation timestamp.
  INSERT INTO public.crm_delivery_projects(order_id,created_at)
  VALUES('c1000000-0000-4000-8000-000000000002',
-   clock_timestamp()+interval '10 seconds');
+   clock_timestamp()-interval '1 day');
  INSERT INTO public.crm_proposals(id,deal_id,status,snapshot_sha256,updated_at)
  VALUES
  ('c3000000-0000-4000-8000-000000000001',
