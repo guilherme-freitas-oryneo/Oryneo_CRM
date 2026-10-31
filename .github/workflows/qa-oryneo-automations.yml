@@ -187,15 +187,15 @@ jobs:
             FROM public.automation_channel_ownership;
           CREATE TEMP TABLE qa_outbox_before AS
             SELECT id,state FROM public.automation_action_outbox;
-          SELECT 'before' as checkpoint,channel,owner,release_id FROM qa_owner_before ORDER BY channel;
           \i supabase/migrations/20261031214032_oryneo_commercial_shadow_ownership_foundation_disabled.sql
           \i supabase/migrations/20261031214115_oryneo_disabled_recovery_semantic_and_crm_adapters.sql
           \i supabase/migrations/20261031214650_oryneo_sdr_release_fk_indexes.sql
-          SELECT 'after' as checkpoint,channel,owner,release_id FROM public.automation_channel_ownership ORDER BY channel;
-          SELECT (SELECT count(*) FROM qa_owner_before) as before_count,(SELECT count(*) FROM public.automation_channel_ownership) as after_count;
           DO $qa$
           BEGIN
-            IF (SELECT count(*) FROM public.automation_channel_ownership)<>5
+            IF (SELECT count(*) FROM public.automation_channel_ownership)<>(SELECT count(*) FROM qa_owner_before)
+               OR (SELECT count(*) FROM public.automation_channel_ownership o
+                    JOIN public.automation_workspaces w ON w.id=o.workspace_id
+                    WHERE w.slug='oryneo-crm' AND o.owner='legacy')<>5
                OR EXISTS (
                  (SELECT channel,owner,legacy_dispatch_paused_at,release_approved_at,release_id
                     FROM public.automation_channel_ownership
