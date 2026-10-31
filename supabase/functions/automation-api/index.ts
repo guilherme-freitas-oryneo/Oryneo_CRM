@@ -153,6 +153,44 @@ Deno.serve(async request => {
     },readOnly:true});
   }
 
+  // Member-scoped operational visibility; no payloads, customer data or secrets.
+  // Reading status does not start a worker, publish a version or change a gate.
+  if (action === 'runtime') {
+    const [settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
+      runningCounts, actionCounts] = await Promise.all([
+      db.from('automation_runtime_settings').select('mode,emergency_stop,updated_at')
+        .eq('workspace_id', workspaceId).maybeSingle(),
+      db.from('automation_workspaces').select('active')
+        .eq('id', workspaceId).maybeSingle(),
+      db.from('automation_flows').select('id', { head:true, count:'exact' })
+        .eq('workspace_id', workspaceId),
+      db.from('automation_flow_versions').select('id', { head:true, count:'exact' })
+        .eq('workspace_id', workspaceId).eq('status', 'published'),
+      db.from('automation_event_inbox').select('id', { head:true, count:'exact' })
+        .eq('workspace_id', workspaceId).eq('state','pending'),
+      db.from('automation_executions').select('id', { head:true, count:'exact' })
+        .eq('workspace_id', workspaceId),
+      db.from('automation_action_outbox').select('id', { head:true, count:'exact' })
+        .eq('workspace_id', workspaceId),
+    ]);
+    if ([settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
+      runningCounts, actionCounts].some(r => r.error) ||
+      !settings.data || !workspaceState.data)
+      return reply({error:'Estado do motor indisponível.'},503);
+    return reply({ok:true,readOnly:true,runtime:{
+      workspaceActive:workspaceState.data.active===true,
+      mode:settings.data.mode,
+      emergencyStop:settings.data.emergency_stop===true,
+      updatedAt:settings.data.updated_at,
+      flows:flowCounts.count||0,
+      publishedVersions:publishedCounts.count||0,
+      pendingEvents:inboxCounts.count||0,
+      executions:runningCounts.count||0,
+      actionRows:actionCounts.count||0,
+      dispatchAuthorized:false,
+    }});
+  }
+
   if (action === 'executions') {
     const { data, error } = await db.from('automation_executions')
       .select('id,flow_version_id,state,started_at,finished_at,correlation_id')
