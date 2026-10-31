@@ -131,6 +131,14 @@ Deno.serve(async request=>{
    const again=await loadMetaCanonicalContext(db,item.conversation_id);
    if(again.recipient!==canonical.recipient||
      again.channelId!==canonical.channelId)throw Error('META_CONTEXT_DRIFT');
+   const presend=await db.rpc('automation_whatsapp_pre_send',{
+    p_workspace_id:workspaceId,p_action_id:item.action_id,
+    p_claim_token:item.claim_token,p_conversation_id:item.conversation_id,
+    p_template_registry_id:item.template_registry_id,
+    p_phone_number_id:item.phone_number_id,
+   });
+   if(presend.error||presend.data!==true)
+    throw Error('META_PRESEND_POLICY_REVOKED');
    // Final provider-side effect. NO automatic retry at this boundary.
    didPost=true;
    const out=await sendVerifiedTemplate(fetch,metaToken,item.phone_number_id,{
