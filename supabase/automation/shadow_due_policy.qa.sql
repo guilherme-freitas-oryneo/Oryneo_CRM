@@ -29,7 +29,7 @@ BEGIN
   'state','completed','trace',
   jsonb_build_array(jsonb_build_object('nodeId',terminal_node,'type','end','status','completed')),
   'plannedActions','[]'::jsonb);
- FOR k IN 1..4 LOOP
+ FOR k IN 1..7 LOOP
    e:=public.automation_shadow_ingest(w,'whatsapp','qa.due.policy.'||k,
     'conversation.inbound',jsonb_build_object('conversation_id',c));
    SELECT * INTO claimed FROM public.automation_shadow_claim(w,1);
@@ -95,6 +95,37 @@ BEGIN
      guard_result:=public.automation_wait_shadow_due_policy(w,t);
      IF guard_result<>'cancelled' THEN RAISE EXCEPTION 'Opt-out not cancelled'; END IF;
      UPDATE public.crm_wa_conversations SET opted_out=false WHERE id=c;
+   ELSIF k=5 THEN
+     UPDATE public.crm_wa_conversations SET consent_granted=false WHERE id=c;
+     guard_result:=public.automation_wait_shadow_due_policy(w,t);
+     IF guard_result<>'cancelled' OR NOT EXISTS(SELECT 1
+       FROM public.automation_wait_timers WHERE id=t AND state='cancelled'
+       AND reason_code='CONSENT_NOT_VERIFIED')
+     THEN RAISE EXCEPTION 'Missing consent did not cancel due timer'; END IF;
+     UPDATE public.crm_wa_conversations SET consent_granted=true WHERE id=c;
+   ELSIF k=6 THEN
+     UPDATE public.automation_wait_timers SET
+       conversation_id='bf000000-0000-4000-8000-000000000099'
+     WHERE id=t;
+     guard_result:=public.automation_wait_shadow_due_policy(w,t);
+     IF guard_result<>'cancelled' OR NOT EXISTS(SELECT 1
+       FROM public.automation_wait_timers WHERE id=t AND state='cancelled'
+       AND reason_code='CONVERSATION_NOT_FOUND')
+     THEN RAISE EXCEPTION 'Missing canonical conversation not cancelled'; END IF;
+   ELSIF k=7 THEN
+     UPDATE public.automation_runtime_settings
+       SET mode='disabled',emergency_stop=true WHERE workspace_id=w;
+     guard_result:=public.automation_wait_shadow_due_policy(w,t);
+     IF guard_result<>'runtime_stopped'
+     THEN RAISE EXCEPTION 'Emergency stop did not stop due timer'; END IF;
+     denied:=false;
+     BEGIN
+       PERFORM public.automation_wait_shadow_resume(w,t,resume_plan);
+     EXCEPTION WHEN insufficient_privilege THEN denied:=true;
+     END;
+     IF NOT denied THEN RAISE EXCEPTION 'Emergency stop allowed resume'; END IF;
+     UPDATE public.automation_runtime_settings
+       SET mode='shadow',emergency_stop=false WHERE workspace_id=w;
    END IF;
  END LOOP;
  IF EXISTS(SELECT 1 FROM public.automation_action_outbox
