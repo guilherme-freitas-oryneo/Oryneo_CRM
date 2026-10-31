@@ -690,7 +690,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               {menu.edgeId&&<button onClick={()=>{setActiveEdge(menu.edgeId);setMenu(null)}}>Inserir nó nesta conexão</button>}
               {menu.edgeId&&<button onClick={()=>{setReconnecting(menu.edgeId);setMenu(null);setNotice('Clique no nó de destino para reconectar.')}}>Reconectar destino</button>}
               {menu.edgeId&&<button onClick={()=>{if(current)commit(removeEdgeById(current,menu.edgeId!));setActiveEdge(null);setMenu(null);}}>Remover conexão</button>}
-              {menu.nodeId&&<button onClick={()=>{setSelectedId(menu.nodeId);setSelectedIds([menu.nodeId]);const id=crypto.randomUUID();const edit=duplicateDraftNode(current,menu.nodeId,id);commit(edit);if(edit.ok){setSelectedId(id);setSelectedIds([id]);}setMenu(null);}}>Duplicar nó</button>}
+              {menu.nodeId&&<button onClick={()=>{setSelectedId(menu.nodeId!);setSelectedIds([menu.nodeId!]);const id=crypto.randomUUID();const edit=duplicateDraftNode(current,menu.nodeId!,id);commit(edit);if(edit.ok){setSelectedId(id);setSelectedIds([id]);}setMenu(null);}}>Duplicar nó</button>}
               {menu.nodeId&&current.nodes.find(n=>n.id===menu.nodeId)?.type!=='trigger'&&
                 <button onClick={toggleDisabled}>{current.nodes.find(n=>n.id===menu.nodeId)?.disabled?'Reativar bloco':'Desativar bloco'}</button>}
               {menu.nodeId&&current.nodes.find(n=>n.id===menu.nodeId)?.type!=='trigger'&&
