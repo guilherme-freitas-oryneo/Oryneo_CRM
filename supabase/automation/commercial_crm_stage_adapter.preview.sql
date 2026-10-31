@@ -51,6 +51,10 @@ BEGIN
  IF v_version.id IS NULL OR v_flow.id IS NULL OR
  v_flow.published_version_id IS DISTINCT FROM v_version.id
  THEN RAISE EXCEPTION 'CRM_ACTION_VERSION_NOT_CURRENT' USING ERRCODE='42501'; END IF;
+ IF v_version.published_by IS NULL OR NOT EXISTS(
+    SELECT 1 FROM public.crm_members m WHERE m.user_id=v_version.published_by)
+ THEN RAISE EXCEPTION 'CRM_ACTION_PUBLISHER_MEMBERSHIP_MISSING'
+   USING ERRCODE='42501'; END IF;
  SELECT n INTO v_node FROM jsonb_array_elements(v_version.graph_json->'nodes') n
  WHERE n->>'id'=a.node_id AND n->>'type'='crm_stage_change';
  IF v_node IS NULL OR
@@ -81,9 +85,9 @@ BEGIN
      WHERE id=v_deal.id AND revision=p_expected_revision;
    IF NOT FOUND THEN RAISE EXCEPTION 'CRM_ACTION_REVISION_CONFLICT' USING ERRCODE='40001'; END IF;
    INSERT INTO public.crm_history(actor,record_id,before_data,before_deleted,after_revision)
-      VALUES(NULL,v_deal.id,v_deal.data,v_deal.deleted,v_deal.revision+1);
+      VALUES(v_version.published_by,v_deal.id,v_deal.data,v_deal.deleted,v_deal.revision+1);
    INSERT INTO public.crm_events(deal_id,event_type,actor,actor_label,detail)
-      VALUES(v_deal.id,'stage_changed',NULL,'ORYNEO Automações',
+      VALUES(v_deal.id,'stage_changed',v_version.published_by,'ORYNEO Automações',
        jsonb_build_object('from',v_deal.data->>'stage_id',
          'to',v_stage_id::text,'automation_action_key',a.action_key));
  END IF;
