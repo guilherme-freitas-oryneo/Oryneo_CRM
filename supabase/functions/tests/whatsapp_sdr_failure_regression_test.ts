@@ -118,3 +118,18 @@ Deno.test('SDR: service window boundary blocks unattended generation',async()=>{
  const result=await processAiJob(job,deps);
  check(result.state==='cancelled'&&!generated,'outside-window reply attempted');
 });
+
+Deno.test('SDR: Responses status failed/cancelled cannot release even nonempty output_text',async()=>{
+ for(const status of ['failed','cancelled','queued']){
+   await expectCode(()=>requestAiReply(input,json(200,{
+     id:'resp_not_completed',status,output_text:'Unsafe partial answer',
+     output:[{type:'message',content:[{type:'output_text',text:'Do not send'}]}],
+   })),'AI_PROVIDER_INVALID_RESPONSE',true);
+ }
+});
+Deno.test('SDR: only output_text blocks from a completed assistant are customer-visible',async()=>{
+ await expectCode(()=>requestAiReply(input,json(200,{
+   id:'resp_reasoning_only',status:'completed',
+   output:[{type:'reasoning',content:[{type:'reasoning_text',text:'Private internal text'}]}],
+ })),'AI_EMPTY_RESPONSE',true);
+});
