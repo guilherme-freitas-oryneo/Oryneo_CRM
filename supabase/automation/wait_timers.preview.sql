@@ -38,7 +38,8 @@ DECLARE v_id uuid;v_current public.automation_wait_timers%ROWTYPE;
 BEGIN
  IF p_workspace_id IS NULL OR p_execution_id IS NULL
    OR p_node_id IS NULL OR p_node_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-   OR p_due_at IS NULL OR p_due_at<=now() OR p_due_at>now()+interval '30 days'
+   OR p_due_at IS NULL OR p_due_at<=clock_timestamp()
+   OR p_due_at>clock_timestamp()+interval '30 days 1 minute'
    OR p_cancel_on_reply IS NULL OR (p_cancel_on_reply AND p_conversation_id IS NULL)
  THEN RAISE EXCEPTION 'WAIT_INPUT_INVALID' USING ERRCODE='22023'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.automation_workspaces w
