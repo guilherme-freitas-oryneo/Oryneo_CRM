@@ -106,6 +106,12 @@ BEGIN
  IF (SELECT count(*) FROM public.automation_action_outbox
      WHERE workspace_id=w AND state='sent')<>2
  THEN RAISE EXCEPTION 'Fenced delivery receipts not recorded exactly once'; END IF;
+ denied:=false;
+ BEGIN
+   UPDATE public.automation_action_outbox SET provider_result_id='wamid:qa' WHERE id=b;
+ EXCEPTION WHEN unique_violation THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'Provider receipt was reused across distinct actions'; END IF;
  -- A disabled flow blocks claiming even when the global live flag is on.
  UPDATE public.automation_flows SET enabled=false
   WHERE id='b1000000-0000-4000-8000-000000000002';
