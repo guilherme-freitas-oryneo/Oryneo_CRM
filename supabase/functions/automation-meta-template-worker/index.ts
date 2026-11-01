@@ -39,7 +39,7 @@ type Registry={id:string;provider_account_id:string;provider_template_id:string;
  meta_components?:Array<{text?:string;type?:string}>}};
 const parseKeys=(schema:Registry['parameter_schema']):string[]=>{
  const arr=schema?.variable_numbers;
- if(!Array.isArray(arr)||!arr.length||arr.length>20
+ if(!Array.isArray(arr)||arr.length>20
    ||arr.some(x=>typeof x!=='string'||!/^[1-9][0-9]?$/.test(x))
    ||new Set(arr).size!==arr.length)throw Error('META_COMPONENTS_UNVERIFIED');
  return arr as string[];

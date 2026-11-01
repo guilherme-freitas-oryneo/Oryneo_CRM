@@ -58,3 +58,18 @@ Deno.test('structured HTTP 400 is definitive but not retried automatically',asyn
  const r=await sendVerifiedTemplate(declined,'fake-token','123456789123456',config);
  check(r.kind==='definitive_rejection'&&calls===1,'definitive refusal not held');
 });
+Deno.test('static template transport sends exact no-variable payload once',async()=>{
+ let calls=0;
+ const send:Requester=async(_url,init)=>{
+  calls++;
+  const body=JSON.parse(String(init?.body));
+  check(body.template.name==='oryneo_contato_estatico_v1','wrong static template');
+  check(!('components' in body.template),'empty body components sent');
+  return new Response(JSON.stringify({messages:[{id:'wamid.synthetic.static'}]}),{status:200});
+ };
+ const result=await sendVerifiedTemplate(send,'fake-token','123456789123456',{
+  recipient:'5521999887766',name:'oryneo_contato_estatico_v1',
+  locale:'pt_BR',values:[],expectedCount:0,
+ });
+ check(result.kind==='accepted'&&calls===1,'static template send was not accepted once');
+});

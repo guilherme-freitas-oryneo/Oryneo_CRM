@@ -9,9 +9,9 @@ Deno.test('Meta template payload preserves exact ordinal body components',()=>{
   locale:'pt_BR',values:['Cliente Exemplo','Growth'],expectedCount:2,
  });
  assert(msg.type==='template'&&msg.messaging_product==='whatsapp','bad provider contract');
- assert(msg.template.components.length===1,'unsupported component');
- assert(msg.template.components[0].parameters[0].text==='Cliente Exemplo','wrong var order');
- assert(msg.template.components[0].parameters[1].text==='Growth','wrong second var');
+ assert(msg.template.components?.length===1,'unsupported component');
+ assert(msg.template.components?.[0].parameters[0].text==='Cliente Exemplo','wrong var order');
+ assert(msg.template.components?.[0].parameters[1].text==='Growth','wrong second var');
  assert(msg.template.language.code==='pt_BR','bad locale');
 });
 Deno.test('Meta template builder refuses guesses and unsafe values',()=>{
@@ -25,4 +25,16 @@ Deno.test('Meta template builder refuses guesses and unsafe values',()=>{
  assert(rejected(()=>buildMetaTemplateRequest({...base,locale:'en_US'})),'unverified locale');
  assert(rejected(()=>buildMetaTemplateRequest({...base,values:['']})),'empty placeholder');
  assert(rejected(()=>buildMetaTemplateRequest({...base,values:['hello'+String.fromCharCode(10)+'world']})),'multiline placeholder');
+});
+Deno.test('Meta static template omits body parameters entirely',()=>{
+ const msg=buildMetaTemplateRequest({
+  recipient:'5521999999999',name:'oryneo_contato_estatico_v1',
+  locale:'pt_BR',values:[],expectedCount:0,
+ });
+ assert(!('components' in msg.template),'static template must not include empty components');
+ assert(msg.template.name==='oryneo_contato_estatico_v1','template identity changed');
+ assert(rejected(()=>buildMetaTemplateRequest({
+  recipient:'5521999999999',name:'oryneo_contato_estatico_v1',
+  locale:'pt_BR',values:['invented'],expectedCount:0,
+ })),'unexpected parameter accepted');
 });
