@@ -9,6 +9,8 @@ import { ConditionRuleEditor } from './ConditionRuleEditor';
 import { duplicateDraftNode,fitGraphView,importDraftJson,moveSelectedNodes,removeEdgeById,removeSelectedNodes,routeBranchLabel,viewportToGraph } from './editorCommands';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
+import { buildCrmReviewStarter } from './safeStarterActionPlans';
+import { explainRuntimeCapability } from './runtimeReadiness';
 import { SIMULATION_CASES, buildSimulationCase, type SimulationCaseId } from './simulationCases';
 import './automations-workspace.css';
 import './commercial-readiness.css';
@@ -222,9 +224,11 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     setNotice('Editor isolado: nenhum fluxo está conectado a disparos reais.');
   };
   const create = (kind: FlowKind) => open(connectedDraft(kind));
-  const createFromStarter = (starterId: Parameters<typeof buildStarterFlow>[0]) => {
-    open(buildStarterFlow(starterId));
-    setNotice('Modelo editável, sem disparos. Revise consentimento e integrações antes de publicar.');
+  const createFromStarter = (starterId: Parameters<typeof buildStarterFlow>[0], reviewTask=false) => {
+    open(reviewTask ? buildCrmReviewStarter(starterId) : buildStarterFlow(starterId));
+    setNotice(reviewTask
+      ? 'Modelo de revisão CRM: tarefa interna em rascunho. Nenhum envio ou alteração comercial foi autorizado.'
+      : 'Modelo editável, sem disparos. Revise consentimento e integrações antes de publicar.');
   };
   const openRemote = async (flowId: string) => {
     if (!workspace) return;
@@ -606,6 +610,15 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               <ArrowRight size={17}/>
             </button>
           ))}
+          {STARTER_FLOWS.filter(starter=>starter.kind===tab).map(starter=>(
+            <button className="ory-auto-flow-card" key={'review-'+starter.id}
+              title={'Criar variante com tarefa CRM interna, sem mensagens: '+starter.name}
+              onClick={()=>createFromStarter(starter.id,true)}>
+              <span className="ory-auto-flow-icon"><ShieldCheck size={20}/></span>
+              <span><strong>{starter.name}</strong><small>Revisão CRM · rascunho · nenhuma mensagem</small></span>
+              <ArrowRight size={17}/>
+            </button>
+          ))}
         </div>
       </div>}
       {displayBuilder && <div className="ory-auto-editor">
@@ -765,6 +778,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                 <label>Configuração JSON<textarea aria-label="Configuração JSON do nó" spellCheck={false} rows={7} value={jsonConfig} onChange={e=>setJsonConfig(e.target.value)}/></label>
                 <button onClick={applyJsonConfig}>Aplicar configuração</button>
               </>}
+              <p className="ory-auto-aside-hint" role="note">{explainRuntimeCapability(selected.type)}</p>
               {selected.type!=='trigger'&&<button className="ory-auto-danger" onClick={()=>{commit(removeNode(current,selected.id));setSelectedId(null);setSelectedIds([])}}>Remover bloco</button>}
               <p className="ory-auto-aside-hint">Alterações locais exigem validação e publicação por servidor antes de produzir efeitos.</p>
             </> : activeEdge ? <><p>Conexão selecionada. O rótulo não altera a porta lógica da condição.</p>

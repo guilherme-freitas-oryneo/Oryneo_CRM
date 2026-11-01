@@ -1,0 +1,492 @@
+{
+  "schema_version": "1.0",
+  "source_zip": "ORYNEO_CODEX_AUTOMACOES_SDR_PIPELINE_2026-10-28(5).zip",
+  "baseline_date": "2026-10-31",
+  "method": "seven equal phases, ten fixed checks, evidence score 0 / 0.5 / 1",
+  "baseline_commit": "870d14ae07c0e52e13272721a753a6d1dc653601",
+  "total": 70,
+  "points": 54.5,
+  "percentage": 77.86,
+  "live_release_authorized": false,
+  "phases": [
+    {
+      "id": "F0",
+      "title": "Diagnóstico e reconciliação",
+      "checks": [
+        {
+          "number": 1,
+          "criterion": "Inventário do ZIP e dos 47 critérios",
+          "score": 1,
+          "evidence": "ZIP original auditado; matriz com 47 IDs."
+        },
+        {
+          "number": 2,
+          "criterion": "HEAD e repositório canônico identificados",
+          "score": 1,
+          "evidence": "GitHub main 870d14ae07c0e52e13272721a753a6d1dc653601."
+        },
+        {
+          "number": 3,
+          "criterion": "PRs e sequência de integração reconciliados",
+          "score": 1,
+          "evidence": "PRs #79, #80 e #81 mesclados; PRs drafts preservados."
+        },
+        {
+          "number": 4,
+          "criterion": "CI/CD e publicação técnica inventariados",
+          "score": 1,
+          "evidence": "Workflows de QA, Pages e smoke verificados."
+        },
+        {
+          "number": 5,
+          "criterion": "Estado atual do Supabase lido",
+          "score": 1,
+          "evidence": "Projeto Oryneo-CRM e migrações inspecionados."
+        },
+        {
+          "number": 6,
+          "criterion": "Edge Functions da nova engine identificadas",
+          "score": 1,
+          "evidence": "automation-api v9 e workers hospedados."
+        },
+        {
+          "number": 7,
+          "criterion": "Operação legada do WhatsApp diferenciada da engine nova",
+          "score": 1,
+          "evidence": "SDR legado em auto; engine nova disabled."
+        },
+        {
+          "number": 8,
+          "criterion": "Catálogo Meta reconciliado",
+          "score": 1,
+          "evidence": "44 templates aprovados, conforme auditoria do conector."
+        },
+        {
+          "number": 9,
+          "criterion": "Playbook e catálogo comercial identificados",
+          "score": 1,
+          "evidence": "Fontes versionadas identificadas; aprovação de uso nova continua na F5."
+        },
+        {
+          "number": 10,
+          "criterion": "Riscos, backups e gates de release documentados",
+          "score": 1,
+          "evidence": "RELEASE_ACTUAL_STATE_20261031.md; rollback não ensaiado, avaliado na F6."
+        }
+      ]
+    },
+    {
+      "id": "F1",
+      "title": "Continuidade e confiabilidade do SDR WhatsApp",
+      "checks": [
+        {
+          "number": 1,
+          "criterion": "Webhook e inbound persistidos",
+          "score": 1,
+          "evidence": "Implementação legada com testes de persistência."
+        },
+        {
+          "number": 2,
+          "criterion": "Jobs de IA duráveis",
+          "score": 1,
+          "evidence": "crm_wa_ai_jobs e testes de regressão."
+        },
+        {
+          "number": 3,
+          "criterion": "Outbox separada e rastreável",
+          "score": 1,
+          "evidence": "crm_wa_ai_outbox; um envio legado confirmado no banco."
+        },
+        {
+          "number": 4,
+          "criterion": "Tratamento AI_EMPTY_RESPONSE",
+          "score": 1,
+          "evidence": "Regressão automatizada do cenário S05."
+        },
+        {
+          "number": 5,
+          "criterion": "Tratamento incomplete, 429, 5xx e timeout",
+          "score": 1,
+          "evidence": "Regressão automatizada S04/S06."
+        },
+        {
+          "number": 6,
+          "criterion": "Idempotência de mensagens repetidas",
+          "score": 1,
+          "evidence": "PersistEvent e deduplicação testados."
+        },
+        {
+          "number": 7,
+          "criterion": "Ordenação e supersession de jobs",
+          "score": 1,
+          "evidence": "aiJobProcessor e S08 testados."
+        },
+        {
+          "number": 8,
+          "criterion": "Takeover humano cancela automação incompatível",
+          "score": 1,
+          "evidence": "Políticas S09 e handoff testados isoladamente."
+        },
+        {
+          "number": 9,
+          "criterion": "Modos review, resolved e opt-out protegidos",
+          "score": 1,
+          "evidence": "Políticas S10/S11 com testes."
+        },
+        {
+          "number": 10,
+          "criterion": "Homologação prolongada do comportamento real e recuperação de incidentes",
+          "score": 0,
+          "evidence": "Um envio legado não comprova toda a matriz operacional."
+        }
+      ]
+    },
+    {
+      "id": "F2",
+      "title": "Engine e DSL versionada de automações",
+      "checks": [
+        {
+          "number": 1,
+          "criterion": "Modelo persistido e versionado",
+          "score": 1,
+          "evidence": "Migrações e automations schemas hospedados."
+        },
+        {
+          "number": 2,
+          "criterion": "Validação e compilação do grafo",
+          "score": 1,
+          "evidence": "executionKernel.ts e graphGuard.ts testados."
+        },
+        {
+          "number": 3,
+          "criterion": "Snapshots e semântica de publicação",
+          "score": 1,
+          "evidence": "Preflight/publication e testes SQL isolados."
+        },
+        {
+          "number": 4,
+          "criterion": "Fila e processamento idempotente",
+          "score": 1,
+          "evidence": "Ingest/claim e isolamento de entrega testados."
+        },
+        {
+          "number": 5,
+          "criterion": "Lease, retry e recovery com fencing",
+          "score": 1,
+          "evidence": "PR #80 e QA descartável."
+        },
+        {
+          "number": 6,
+          "criterion": "Kill switch e controle de acesso",
+          "score": 1,
+          "evidence": "Runtime disabled, emergency_stop e grants restritivos."
+        },
+        {
+          "number": 7,
+          "criterion": "Simulador sem efeitos externos",
+          "score": 1,
+          "evidence": "Bridge Deno/PostgreSQL e traces isolados."
+        },
+        {
+          "number": 8,
+          "criterion": "Adaptadores de todos os eventos e ações efetivas",
+          "score": 0.5,
+          "evidence": "Planejador CRM e Meta preparatório; canais de e-mail/SDR/wait incompletos."
+        },
+        {
+          "number": 9,
+          "criterion": "Execução de fluxo novo publicado completo",
+          "score": 0,
+          "evidence": "0 versões published, 0 execuções."
+        },
+        {
+          "number": 10,
+          "criterion": "Execução multicanal da nova engine em operação",
+          "score": 0,
+          "evidence": "0 canais new_engine, runtime disabled."
+        }
+      ]
+    },
+    {
+      "id": "F3",
+      "title": "Construtores visuais e menu Automações",
+      "checks": [
+        {
+          "number": 1,
+          "criterion": "Menu e ambiente de Automações integrados",
+          "score": 1,
+          "evidence": "AutomationsWorkspace no main e publicado."
+        },
+        {
+          "number": 2,
+          "criterion": "Canvas independentes de Pipeline e SDR",
+          "score": 1,
+          "evidence": "Dois ambientes e controles em src/automation."
+        },
+        {
+          "number": 3,
+          "criterion": "Nós, handles e conexões editáveis",
+          "score": 1,
+          "evidence": "Testes de componentes/graphEditing."
+        },
+        {
+          "number": 4,
+          "criterion": "Menu contextual e inserção de condições",
+          "score": 1,
+          "evidence": "QA do editor."
+        },
+        {
+          "number": 5,
+          "criterion": "Inserção/reconexão em arestas com validação",
+          "score": 1,
+          "evidence": "Testes do editor em Chromium isolado."
+        },
+        {
+          "number": 6,
+          "criterion": "Inspetor e parâmetros tipados",
+          "score": 1,
+          "evidence": "TypedNodeConfigEditor e testes."
+        },
+        {
+          "number": 7,
+          "criterion": "Undo/redo, reposicionamento e reordenação",
+          "score": 1,
+          "evidence": "editorCommands e testes."
+        },
+        {
+          "number": 8,
+          "criterion": "Persistência/abertura de grafos no ambiente de QA",
+          "score": 1,
+          "evidence": "Testes de API/CAS do editor."
+        },
+        {
+          "number": 9,
+          "criterion": "Mobile, teclado e responsividade em QA isolado",
+          "score": 1,
+          "evidence": "Playwright e smoke Chrome público 390/1440."
+        },
+        {
+          "number": 10,
+          "criterion": "Homologação autenticada de edição/publicação completa no ambiente publicado",
+          "score": 0,
+          "evidence": "Smoke público observou login, não jornada autenticada no editor."
+        }
+      ]
+    },
+    {
+      "id": "F4",
+      "title": "Pipeline e integrações comerciais",
+      "checks": [
+        {
+          "number": 1,
+          "criterion": "Adaptador de intake e dados canônicos",
+          "score": 1,
+          "evidence": "Fixtures e stage3 commercial source QA."
+        },
+        {
+          "number": 2,
+          "criterion": "Status financeiro proveniente de fonte canônica",
+          "score": 1,
+          "evidence": "Testes Stripe/order journal e políticas."
+        },
+        {
+          "number": 3,
+          "criterion": "Deduplicação e idempotência transacional isoladas",
+          "score": 1,
+          "evidence": "Stage5 cross-stream journey e QA PostgreSQL."
+        },
+        {
+          "number": 4,
+          "criterion": "Interlock de propriedade única por canal",
+          "score": 1,
+          "evidence": "Fencing e ownership registrados; legado mantém propriedade."
+        },
+        {
+          "number": 5,
+          "criterion": "Planner CRM de próxima tarefa com integração efetiva",
+          "score": 0.5,
+          "evidence": "Planner isolado e hospedado dormant; falta homologação live."
+        },
+        {
+          "number": 6,
+          "criterion": "Mudança de etapa e continuação CRM executadas pela nova engine",
+          "score": 0.5,
+          "evidence": "Código e testes isolados; 0 execuções reais."
+        },
+        {
+          "number": 7,
+          "criterion": "Implantação separada do funil comercial",
+          "score": 0,
+          "evidence": "Implantação e Ganha continuam outcome=won."
+        },
+        {
+          "number": 8,
+          "criterion": "Cutover de um executor por canal",
+          "score": 0,
+          "evidence": "5/5 canais ainda legacy."
+        },
+        {
+          "number": 9,
+          "criterion": "Executor live versionado de e-mail pela nova engine",
+          "score": 0,
+          "evidence": "Release atual declara caminho incompleto."
+        },
+        {
+          "number": 10,
+          "criterion": "Jornada completa de pipeline multicanal homologada",
+          "score": 0,
+          "evidence": "Sem eventos, ações ou canários novos validados."
+        }
+      ]
+    },
+    {
+      "id": "F5",
+      "title": "Playbook, conhecimento, semântica e Meta",
+      "checks": [
+        {
+          "number": 1,
+          "criterion": "Playbook oficial versionado disponível em código",
+          "score": 1,
+          "evidence": "src/playbook/content.ts, 64 capítulos."
+        },
+        {
+          "number": 2,
+          "criterion": "Catálogo comercial tratado como fonte canônica",
+          "score": 1,
+          "evidence": "buildBillingQuote e regras complementos com plano."
+        },
+        {
+          "number": 3,
+          "criterion": "Políticas de conhecimento com vínculos e hashes",
+          "score": 1,
+          "evidence": "knowledgePolicy/runtimeRelease e QA de drift."
+        },
+        {
+          "number": 4,
+          "criterion": "Sinônimos, exemplos negativos e guardas de intenção",
+          "score": 1,
+          "evidence": "18 intenções candidatas, testes semânticos."
+        },
+        {
+          "number": 5,
+          "criterion": "Templates Meta inventariados em registry",
+          "score": 1,
+          "evidence": "44 aprovados conforme a auditoria."
+        },
+        {
+          "number": 6,
+          "criterion": "Políticas de Meta e prevenção de envio indevido",
+          "score": 1,
+          "evidence": "Guardas, preview e QA de templates."
+        },
+        {
+          "number": 7,
+          "criterion": "Oito jornadas padrão com ações operacionais completas",
+          "score": 0.5,
+          "evidence": "8 variantes CRM de revisão em rascunho, com tarefas internas, acessíveis no editor; testes positivos/negativos e navegador 6/6 no SHA 8e146977. Ainda sem ações multicanal live."
+        },
+        {
+          "number": 8,
+          "criterion": "Playbook e dicionário publicados/ativados na engine nova",
+          "score": 0,
+          "evidence": "Ambos em draft, 0 published."
+        },
+        {
+          "number": 9,
+          "criterion": "Release SDR da nova engine homologada em operação",
+          "score": 0,
+          "evidence": "automation_sdr_active_release desabilitado."
+        },
+        {
+          "number": 10,
+          "criterion": "Consentimento, opt-out e cadência homologados ponta a ponta",
+          "score": 0,
+          "evidence": "Tabela de consentimento marketing vazia e novos envios off."
+        }
+      ],
+      "points": 6.5,
+      "percentage": 65
+    },
+    {
+      "id": "F6",
+      "title": "QA, CI, publicação e homologação",
+      "checks": [
+        {
+          "number": 1,
+          "criterion": "Suíte Vitest executada com sucesso",
+          "score": 1,
+          "evidence": "532 testes no checkpoint de release."
+        },
+        {
+          "number": 2,
+          "criterion": "Playwright isolado executado com sucesso",
+          "score": 1,
+          "evidence": "22 testes no checkpoint de release."
+        },
+        {
+          "number": 3,
+          "criterion": "PostgreSQL/RLS em ambiente descartável",
+          "score": 1,
+          "evidence": "QA Automações 5/5 jobs."
+        },
+        {
+          "number": 4,
+          "criterion": "Typecheck Deno e contratos de Edge testados",
+          "score": 1,
+          "evidence": "Registros de CI da release."
+        },
+        {
+          "number": 5,
+          "criterion": "Matriz de 47 casos vinculada a evidências existentes",
+          "score": 1,
+          "evidence": "47 IDs, todos liveValidated=false; testes podem ser reutilizados."
+        },
+        {
+          "number": 6,
+          "criterion": "Frontend publicado e acessível",
+          "score": 1,
+          "evidence": "GitHub Pages + smoke HTTP."
+        },
+        {
+          "number": 7,
+          "criterion": "Edge Functions e migrações implantadas em segurança",
+          "score": 1,
+          "evidence": "automation-api v9 e banco em NO-GO."
+        },
+        {
+          "number": 8,
+          "criterion": "Smoke de navegador completo nas resoluções e sessão autenticada",
+          "score": 0.5,
+          "evidence": "Chrome público 390/1440 passou; browser não autenticou e workflow CRM v2.1 teve falha."
+        },
+        {
+          "number": 9,
+          "criterion": "Teste E2E autenticado e aceite live da nova engine",
+          "score": 0,
+          "evidence": "0 execuções e 0 critérios live validados."
+        },
+        {
+          "number": 10,
+          "criterion": "Rollback operacional ensaiado de ponta a ponta",
+          "score": 0,
+          "evidence": "Backups existentes; rollback real ainda não testado."
+        }
+      ]
+    }
+  ],
+  "baseline_points": 54,
+  "baseline_percentage": 77.14,
+  "last_revalidated_sha": "8e1469775321f01feae630829f68375bf3b88626",
+  "changelog": [
+    {
+      "criterion": "F5.7",
+      "before": 0,
+      "after": 0.5,
+      "reason": "8 opt-in CRM review variants are now rendered in editor; E2E mocked browser + Vitest decision matrix validated on exact SHA; no multichannel live integration.",
+      "sha": "8e1469775321f01feae630829f68375bf3b88626",
+      "ci": "https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41263764954",
+      "browser_ci": "https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41263764960",
+      "live_validated": false
+    }
+  ]
+}

@@ -38,6 +38,19 @@ for (const c of cases) {
       if(input.action==='templates')return response({ok:true,templates:[]});
       if(input.action==='catalog')return response({ok:true,catalog:{stages:[],templates:[],knowledge:[],dictionaries:[]},readOnly:true});
       if(input.action==='executions')return response({ok:true,executions:[]});
+      // PR #81 introduced a strictly read-only release matrix.
+      // Model the real response contract, never claim ready or authorize send.
+      if(input.action==='release-gates')return response({
+        ok:true,readOnly:true,dispatchAuthorized:false,
+        global:['RUNTIME_DISABLED','EMERGENCY_STOP'],
+        channels:{
+          crm:['OWNER_LEGACY'],email:['OWNER_LEGACY'],
+          whatsapp:['OWNER_LEGACY'],onboarding:['OWNER_LEGACY'],
+          billing:['OWNER_LEGACY'],
+        },
+        releaseReady:false,
+        statement:'Aprovações documentais não ativam a engine nem autorizam envios.',
+      });
       if(input.action==='commercial-readiness')return response({ok:true,readOnly:true,dispatchAuthorized:false,channels:['whatsapp','email','crm','onboarding','billing'].map(channel=>({channel,owner:'legacy',legacyPaused:false,releaseAttested:false,eligibleForControlledQueue:false})),runtime:{mode:'disabled',emergencyStop:true,workspaceActive:false}});
       if(input.action==='release-gates')return response({ok:true,readOnly:true,dispatchAuthorized:false,releaseReady:false,global:['legal','playbook','rollback','security','authenticated_e2e'],channels:{crm:['single_owner'],email:['single_owner'],whatsapp:['consent_policy'],onboarding:['single_owner'],billing:['financial_webhook']}});
       if(input.action==='sdr-semantic-list')return response({ok:true,readOnly:true,dispatchAuthorized:false,knowledge:[],dictionaries:[],selected:null,role:'admin'});
@@ -56,7 +69,14 @@ for (const c of cases) {
     await page.getByRole('heading',{name:'Automações'}).waitFor({timeout:10000});
     await page.getByText('Motor em parada de emergência',{exact:true}).waitFor({timeout:10000});
     await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Fluxos do pipeline/}).click();
-    // The eight starter journeys are drafts only and cannot authorize sends.
+    // Review variants add a CRM task but must remain non-emitting drafts.
+    await page.getByRole('button',{name:/Nova oportunidade.*Revisão CRM/i}).click();
+    await page.getByRole('textbox',{name:'Nome do fluxo'}).waitFor();
+    await page.locator('.ory-auto-node').filter({hasText:'Tarefa interna de revisão'}).waitFor();
+    if(!await page.getByTitle('Publicação disponível após engine homologada').isDisabled())
+      throw Error('CRM review starter unexpectedly enabled publishing');
+    await page.getByRole('button',{name:'Voltar à lista'}).click();
+    // The original eight starter journeys remain unchanged zero-action drafts.
     await page.getByRole('button',{name:/Nova oportunidade.*Modelo editável/i}).click();
     const starterName=page.getByRole('textbox',{name:'Nome do fluxo'});
     await starterName.waitFor();
