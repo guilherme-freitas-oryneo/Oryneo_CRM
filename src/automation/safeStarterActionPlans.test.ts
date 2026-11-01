@@ -62,7 +62,7 @@ describe('opt-in CRM review starting points',()=>{
   expect(()=>buildCrmReviewStarter('new_opportunity',()=> '00000000-0000-4000-8000-000000000001')).toThrow();
   let n=0;
   expect(()=>buildCrmReviewStarter('new_opportunity',()=>{
-   n++;return n<8?`00000000-0000-4000-8000-${n.toString(16).padStart(12,'0')}`:
+   n++;return n<=8?`00000000-0000-4000-8000-${n.toString(16).padStart(12,'0')}`:
     '00000000-0000-4000-8000-000000000001';
   })).toThrow('INVALID_REVIEW_STARTER_ID');
  });
