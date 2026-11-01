@@ -18,12 +18,15 @@ describe('Separação comercial e pós-venda sem perda',()=>{
  it('preserva todo o pipeline quando flag não está ativa',()=>{
   expect(commercialStageList(original,[],false)).toEqual(original);
  });
+ it('nao oculta Implantação apenas com a flag de UI',()=>{
+  expect(commercialStageList(original,[],true)).toEqual(original);
+ });
  it('oculta exclusivamente a antiga coluna vazia depois da migração',()=>{
   expect(commercialStageList(original,[],true,true).map(x=>x.data.name)).toEqual(['Ganha','Perdida']);
  });
  it('reexibe a coluna legada quando existe oportunidade histórica',()=>{
   const d=deal('a',LEGACY_IMPLEMENTATION_STAGE_ID);
-  expect(commercialStageList(original,[d],true)).toEqual(original);
+  expect(commercialStageList(original,[d],true,true)).toEqual(original);
  });
  it('não altera stage_id, objetos de entrada nem resultados comerciais',()=>{
   const copy=structuredClone(original),d=deal('a','11111111-1111-4111-8111-111111111111');
