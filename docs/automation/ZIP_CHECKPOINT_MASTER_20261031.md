@@ -2,7 +2,7 @@
 
 **Linha de base:** 31/10/2026 (fuso São Paulo).  
 **Versão da régua:** 1.0 — congelada.  
-**Percentual global estimado:** **77.14%** (= 54 de 70 pontos).  
+**Percentual global estimado (revalidação 01/11/2026):** **77.86%** (= 54,5 de 70 pontos). Baseline original: **77,14%**, preservado.  
 **Fonte:** `ORYNEO_CODEX_AUTOMACOES_SDR_PIPELINE_2026-10-28(5).zip`, especialmente `docs/07_PLANO_DE_EXECUCAO_E_ENTREGA.md` e `qa/matriz_aceite.csv`.
 
 ## Regra obrigatória para auditorias futuras
@@ -35,9 +35,9 @@
 | F2 — Engine e DSL versionada de automações | 7.5 | 75% |
 | F3 — Construtores visuais e menu Automações | 9 | 90% |
 | F4 — Pipeline e integrações comerciais | 5 | 50% |
-| F5 — Playbook, conhecimento, semântica e Meta | 6 | 60% |
+| F5 — Playbook, conhecimento, semântica e Meta | 6,5 | 65% |
 | F6 — QA, CI, publicação e homologação | 7.5 | 75% |
-| **Total** | **54 / 70** | **77.14%** |
+| **Total** | **54,5 / 70** | **77.86%** |
 
 ## Registro granular — 70 verificações
 
@@ -136,12 +136,12 @@
 | 4 | Sinônimos, exemplos negativos e guardas de intenção | 1 | 18 intenções candidatas, testes semânticos. |
 | 5 | Templates Meta inventariados em registry | 1 | 44 aprovados conforme a auditoria. |
 | 6 | Políticas de Meta e prevenção de envio indevido | 1 | Guardas, preview e QA de templates. |
-| 7 | Oito jornadas padrão com ações operacionais completas | 0 | 8 drafts; nós limitados a trigger/condition/stop/end e wait. |
+| 7 | Oito jornadas padrão com ações operacionais completas | 0.5 | 8 variantes CRM de revisão em rascunho, com tarefas internas, acessíveis no editor; testes positivos/negativos e navegador 6/6 no SHA 8e146977. Ainda sem ações multicanal live. |
 | 8 | Playbook e dicionário publicados/ativados na engine nova | 0 | Ambos em draft, 0 published. |
 | 9 | Release SDR da nova engine homologada em operação | 0 | automation_sdr_active_release desabilitado. |
 | 10 | Consentimento, opt-out e cadência homologados ponta a ponta | 0 | Tabela de consentimento marketing vazia e novos envios off. |
 
-**Subtotal F5: 6/10.**
+**Subtotal F5: 6,5/10.**
 
 ### F6 — QA, CI, publicação e homologação
 
@@ -159,6 +159,11 @@
 | 10 | Rollback operacional ensaiado de ponta a ponta | 0 | Backups existentes; rollback real ainda não testado. |
 
 **Subtotal F6: 7.5/10.**
+
+## Histórico imutável de pontuação
+
+- **01/11/2026 — F5.7: 0 → 0,5 ponto.** Variantes opcionais dos oito fluxos com tarefas internas CRM, exibidas no editor e verificadas no [QA de automações](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41263764954) e [navegador](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41263764960) no SHA `8e1469775321f01feae630829f68375bf3b88626`. **Parcial:** canais externos, espera live, ativação e consentimento continuam NÃO homologados. Linha de base 77,14% mantida para reconciliação.
+- **Sem alteração** nos outros 69 critérios; não confundir esse 0,5 ponto com publicação ou canário real.
 
 ## Próximos avanços prioritários
 
