@@ -19,10 +19,12 @@ const TABS: { key: Tab; label: string; icon: typeof Workflow }[] = [
   { key: 'overview', label: 'Visão geral', icon: Layers3 },
   { key: 'pipeline', label: 'Fluxos do pipeline', icon: Workflow },
   { key: 'sdr', label: 'Fluxos do SDR', icon: GitBranch },
+  { key: 'executions', label: 'Execuções e diagnóstico', icon: History },
+];
+const MORE_TABS: { key: Tab; label: string; icon: typeof Workflow }[] = [
   { key: 'triggers', label: 'Gatilhos e condições', icon: Settings2 },
   { key: 'intelligence', label: 'Inteligência SDR', icon: BookOpen },
   { key: 'templates', label: 'Templates e canais', icon: BookOpen },
-  { key: 'executions', label: 'Execuções e diagnóstico', icon: History },
 ];
 const NAMES: Record<NodeFamily, string> = {
   trigger: 'Gatilhos', logic: 'Condições', intelligence: 'Inteligência',
@@ -131,6 +133,7 @@ function useDrafts(userId: string) {
 
 export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [tab, setTab] = useState<Tab>('overview');
+  const [moreOpen, setMoreOpen] = useState(false);
   const { drafts, save, dirtyError } = useDrafts(userId);
   const [workspace, setWorkspace] = useState<WorkspaceGrant | null>(null);
   const [remoteFlows, setRemoteFlows] = useState<RemoteFlow[]>([]);
@@ -565,8 +568,18 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       </div>
       <nav className="ory-auto-tabs" aria-label="Áreas de automações">
         {TABS.map(item => <button key={item.key} type="button" className={tab===item.key?'active':''} onClick={() => {
-          setTab(item.key); setMenu(null); setSourcePort(null); if (item.key !== 'pipeline' && item.key !== 'sdr') setOpenId(null);
+          setTab(item.key); setMoreOpen(false); setMenu(null); setSourcePort(null); if (item.key !== 'pipeline' && item.key !== 'sdr') setOpenId(null);
         }}><item.icon size={15}/>{item.label}</button>)}
+        <div className="ory-auto-more">
+          <button type="button" aria-expanded={moreOpen} aria-controls="ory-auto-more-menu"
+            className={MORE_TABS.some(item=>item.key===tab)?'active':''}
+            onClick={()=>setMoreOpen(open=>!open)}><Settings2 size={15}/>Mais opções</button>
+          {moreOpen&&<div id="ory-auto-more-menu" className="ory-auto-more-menu">
+            {MORE_TABS.map(item=><button key={item.key} type="button" className={tab===item.key?'active':''}
+              onClick={()=>{setTab(item.key);setMoreOpen(false);setMenu(null);setSourcePort(null);setOpenId(null);}}>
+              <item.icon size={15}/>{item.label}</button>)}
+          </div>}
+        </div>
       </nav>
       {dirtyError && <div role="alert" className="ory-auto-warning"><AlertCircle size={15}/>{dirtyError}</div>}
       {syncError && <div role="status" className="ory-auto-warning"><AlertCircle size={15}/>{syncError}</div>}
@@ -771,10 +784,15 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
       </div>}
       {tab!=='pipeline'&&tab!=='sdr'&&<div className="ory-auto-overview">
         <div className="ory-auto-section-heading"><div><span className="ory-auto-overline">CONTROLE E GOVERNANÇA</span><h2>{subviews[tab].title}</h2><p>{subviews[tab].description}</p></div></div>
-        {tab==='overview' ? <><div className="ory-auto-stat-grid">
-          <div><span>Rascunhos locais</span><strong>{drafts.length}</strong><small>Backups neste dispositivo</small></div>
+        {tab==='overview' ? <><div className="ory-auto-overview-intro">
+          <div><h3>Seus fluxos</h3><p>Crie e revise jornadas. A nova execução permanece bloqueada até a homologação.</p></div>
+          <div className="ory-auto-overview-actions"><button type="button" onClick={()=>setTab('pipeline')}><Workflow size={16}/>Pipeline</button><button type="button" onClick={()=>setTab('sdr')}><GitBranch size={16}/>SDR</button></div>
+        </div><div className="ory-auto-stat-grid ory-auto-stat-grid-primary">
           <div><span>Fluxos no workspace</span><strong>{runtimeStatus?.flows ?? remoteFlows.length}</strong><small>{runtimeStatus ? `${runtimeStatus.publishedVersions} versões congeladas · ${runtimeStatus.mode}` : 'Motor sem telemetria confirmada'}</small></div>
           <div><span>Templates Meta sincronizados</span><strong>{metaTemplates.length||'—'}</strong><small>Envios exigem status e consentimento válidos no momento do disparo</small></div>
+          <div><span>Execuções do novo motor</span><strong>{remoteExecutions.length}</strong><small>{runtimeStatus?.emergencyStop?'Ativação bloqueada':'Consulte os critérios de liberação'}</small></div>
+        </div><details className="ory-auto-technical"><summary>Indicadores técnicos e critérios de liberação</summary><div className="ory-auto-stat-grid">
+          <div><span>Rascunhos locais</span><strong>{drafts.length}</strong><small>Backups neste dispositivo</small></div>
           <div><span>Eventos pendentes</span><strong>{runtimeStatus?.pendingEvents ?? '—'}</strong><small>Observação autorizada do servidor</small></div>
           <div><span>Registros de ação</span><strong>{runtimeStatus?.actionRows ?? '—'}</strong><small>{runtimeStatus?.emergencyStop ? 'Bloqueados pela parada de emergência' : 'Consulte a política ativa'}</small></div>
           <div><span>Esperas em andamento</span><strong>{runtimeStatus?.waitingTimers ?? '—'}</strong><small>Canceladas por resposta: {runtimeStatus?.cancelledTimers ?? '—'}</small></div>
@@ -807,7 +825,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               </div>
             </>:<p role="status">Validação documental ainda indisponível. A ausência
               de dados não autoriza liberação de qualquer canal.</p>}
-          </section>
+          </section></details>
         </> : tab==='intelligence' ? <SdrIntelligencePanel workspaceId={workspace?.id||null} role={workspace?.role||null}/> : tab==='templates' ? <div className="ory-auto-catalog">
           <div className="ory-auto-catalog-heading"><div><strong>Catálogo oficial de templates</strong><p>Sincronização read-only da Meta. Status pode mudar; envio exige revalidação no servidor.</p></div><span>{metaTemplates.length} cadastrados</span></div>
           {metaTemplates.length ? <div className="ory-auto-catalog-scroll"><table><thead><tr><th>Nome do template</th><th>Categoria</th><th>Idioma</th><th>Status</th></tr></thead><tbody>

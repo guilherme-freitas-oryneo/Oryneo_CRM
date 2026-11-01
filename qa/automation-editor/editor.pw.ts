@@ -129,6 +129,7 @@ for(const width of [390,1440]){
   test('Stage3: integrações comerciais somente leitura em '+width+'px',async({page})=>{
     await page.setViewportSize({width,height:844});
     await page.goto('/qa/automation-editor/index.html');
+    await page.getByRole('button',{name:'Mais opções'}).click();
     await page.getByRole('button',{name:/Templates e canais/}).click();
     await expect(page.getByRole('region',{
       name:'Proprietários das integrações comerciais'
@@ -146,6 +147,7 @@ for(const viewport of [{width:390,height:844},{width:768,height:1024},{width:144
  test('SDR knowledge v1 candidate UI, negation and human review at '+viewport.width+'px',async({page})=>{
   await page.setViewportSize(viewport);
   await page.goto('/qa/automation-editor/index.html');
+  await page.getByRole('button',{name:'Mais opções'}).click();
   await page.getByRole('button',{name:'Inteligência SDR'}).click();
   await expect(page.getByRole('region',{name:'Inteligência e intenções do SDR'})).toBeVisible();
   await expect(page.getByRole('button',{name:/Salvar nova versão/})).toBeDisabled();
@@ -219,6 +221,7 @@ test('Stage5 E11/E12: unpublished editor preview triggers zero outbound provider
  await page.getByRole('button',{name:/Novo fluxo/}).first().click();
  await page.getByTitle('Simular sem efeitos externos').click();
  await expect(page.getByText(/Simulação — não enviado/)).toBeVisible();
+ await page.getByRole('button',{name:'Mais opções'}).click();
  await page.getByRole('button',{name:'Inteligência SDR'}).click();
  await page.getByRole('textbox',{name:'Mensagem de teste'}).fill('Quanto custa o Growth anual com landing page?');
  await expect(page.getByRole('region',{name:'Inteligência e intenções do SDR'})).toBeVisible();
