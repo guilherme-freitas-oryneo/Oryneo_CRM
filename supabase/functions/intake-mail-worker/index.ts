@@ -110,6 +110,13 @@ const confirmationDependencies: IntakeConfirmationDependencies = {
       jobType: parseAutomationEmailType(row.data._automation_job_type),
     }));
   },
+  async isImplementationStillPaid(dealId) {
+    const result = await client.from('crm_billing_orders').select('id')
+      .eq('deal_id', dealId).eq('status', 'paid')
+      .eq('billing_environment', 'live').not('paid_at', 'is', null).limit(1);
+    if (result.error) throw new Error('INTAKE_CONFIRMATION_DB');
+    return Boolean(result.data?.length);
+  },
   async send(input) {
     const compose: ComposeInput = { mailboxId: await activeMailboxId(), ...input };
     return await sendMail(sendDependencies, null, compose);

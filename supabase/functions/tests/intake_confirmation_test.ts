@@ -131,6 +131,7 @@ Deno.test('worker distingue automações na mesma fila sem alterar destinatário
  const captured: Array<{subject:string;to:unknown}>=[];
  const deps: IntakeConfirmationDependencies = {
    claimDue:()=>Promise.resolve([{...job,jobType:'implementation_started_email'}]),
+   isImplementationStillPaid:()=>Promise.resolve(true),
    send:(input)=>{captured.push({subject:input.subject,to:input.to});return Promise.resolve({internetMessageId:'<impl@oryneo.com.br>',alreadyAccepted:false})},
    markSent:()=>Promise.resolve(),
    markFailed:()=>Promise.reject(new Error('should not fail')),
@@ -138,4 +139,19 @@ Deno.test('worker distingue automações na mesma fila sem alterar destinatário
  assert.deepEqual(await processIntakeConfirmationJobs(deps),{claimed:1,sent:1,failed:0});
  assert.equal(captured[0].subject,'Implantação iniciada · ORYNEO');
  assert.deepEqual(captured[0].to,[{name:'Marina Souza',address:'marina@example.com'}]);
+});
+Deno.test('estorno entre claim e envio suprime e-mail de implantação',async()=>{
+ let transported=false;
+ const failures:string[]=[];
+ const deps: IntakeConfirmationDependencies={
+  claimDue:()=>Promise.resolve([{...job,jobType:'implementation_started_email'}]),
+  isImplementationStillPaid:()=>Promise.resolve(false),
+  send:()=>{transported=true;throw Error('UNEXPECTED_SEND');},
+  markSent:()=>Promise.reject(Error('UNEXPECTED_SENT')),
+  markFailed:(_id,code)=>{failures.push(code);return Promise.resolve();},
+ };
+ assert.deepEqual(await processIntakeConfirmationJobs(deps),{claimed:1,sent:0,failed:1});
+ assert.equal(transported,false);
+ assert.deepEqual(failures,['IMPLEMENTATION_PAYMENT_REVOKED']);
+ assert.equal(intakeConfirmationStateForError(failures[0]),'suppressed');
 });

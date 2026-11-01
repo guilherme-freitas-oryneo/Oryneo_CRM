@@ -18,6 +18,7 @@ export type IntakeConfirmationSendInput = {
 
 export type IntakeConfirmationDependencies = {
   claimDue(limit: number): Promise<IntakeConfirmationJob[]>;
+  isImplementationStillPaid?(dealId: string): Promise<boolean>;
   send(input: IntakeConfirmationSendInput): Promise<{ internetMessageId: string; alreadyAccepted: boolean }>;
   markSent(requestId: string, internetMessageId: string): Promise<void>;
   markFailed(requestId: string, errorCode: string): Promise<void>;
@@ -34,12 +35,14 @@ function errorCode(reason: unknown): string {
   const value = reason instanceof Error ? reason.message : '';
   if (value === 'MAIL_IN_PROGRESS') return value;
   if (value === 'INTAKE_CONFIRMATION_INVALID') return value;
+  if (value === 'IMPLEMENTATION_PAYMENT_REVOKED') return value;
   return 'INTAKE_CONFIRMATION_SEND';
 }
 
 export function intakeConfirmationStateForError(errorCode: string): 'failed' | 'reconciliation' | 'suppressed' {
   if (errorCode === 'MAIL_IN_PROGRESS') return 'reconciliation';
   if (errorCode === 'INTAKE_CONFIRMATION_INVALID') return 'suppressed';
+  if (errorCode === 'IMPLEMENTATION_PAYMENT_REVOKED') return 'suppressed';
   return 'failed';
 }
 
@@ -57,6 +60,13 @@ export async function processIntakeConfirmationJobs(
       const email = text(job.data.email).toLowerCase();
       if (!UUID.test(job.requestId) || !UUID.test(job.dealId) || !contact || !company || !EMAIL.test(email) || /[\r\n\0]/.test(email)) {
         throw new Error('INTAKE_CONFIRMATION_INVALID');
+      }
+      if (job.jobType === 'implementation_started_email') {
+        // Recheck after the database claim. Missing verifier fails closed.
+        if (!dependencies.isImplementationStillPaid ||
+          !await dependencies.isImplementationStillPaid(job.dealId)) {
+          throw new Error('IMPLEMENTATION_PAYMENT_REVOKED');
+        }
       }
       const rendered = renderAutomationEmail(job.jobType, { firstName: contact.split(/\s+/)[0], company });
       const result = await dependencies.send({
