@@ -5,8 +5,8 @@
   "method": "seven equal phases, ten fixed checks, evidence score 0 / 0.5 / 1",
   "baseline_commit": "870d14ae07c0e52e13272721a753a6d1dc653601",
   "total": 70,
-  "points": 54,
-  "percentage": 77.14,
+  "points": 54.5,
+  "percentage": 77.86,
   "live_release_authorized": false,
   "phases": [
     {
@@ -382,8 +382,8 @@
         {
           "number": 7,
           "criterion": "Oito jornadas padrão com ações operacionais completas",
-          "score": 0,
-          "evidence": "8 drafts; nós limitados a trigger/condition/stop/end e wait."
+          "score": 0.5,
+          "evidence": "8 variantes CRM de revisão em rascunho, com tarefas internas, acessíveis no editor; testes positivos/negativos e navegador 6/6 no SHA 8e146977. Ainda sem ações multicanal live."
         },
         {
           "number": 8,
@@ -403,7 +403,9 @@
           "score": 0,
           "evidence": "Tabela de consentimento marketing vazia e novos envios off."
         }
-      ]
+      ],
+      "points": 6.5,
+      "percentage": 65
     },
     {
       "id": "F6",
@@ -470,6 +472,21 @@
           "evidence": "Backups existentes; rollback real ainda não testado."
         }
       ]
+    }
+  ],
+  "baseline_points": 54,
+  "baseline_percentage": 77.14,
+  "last_revalidated_sha": "8e1469775321f01feae630829f68375bf3b88626",
+  "changelog": [
+    {
+      "criterion": "F5.7",
+      "before": 0,
+      "after": 0.5,
+      "reason": "8 opt-in CRM review variants are now rendered in editor; E2E mocked browser + Vitest decision matrix validated on exact SHA; no multichannel live integration.",
+      "sha": "8e1469775321f01feae630829f68375bf3b88626",
+      "ci": "https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41263764954",
+      "browser_ci": "https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41263764960",
+      "live_validated": false
     }
   ]
 }
