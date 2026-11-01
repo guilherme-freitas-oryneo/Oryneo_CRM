@@ -42,3 +42,4 @@ jobs:
             loginBytes:entry.body.length,bundleBytes:built.body.length,
             noLeadsSent:true,noPaymentCreated:true});
           JS
+# Automated read-only post-release validation: 2026-10-31, release gates UI.
