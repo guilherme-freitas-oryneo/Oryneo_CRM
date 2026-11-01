@@ -240,6 +240,11 @@ jobs:
           END $qa$;
           SQL
 
+      - name: Provar interlock de release, aprovação, revogação e isolamento de canal
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/release_attestation_interlock.qa.sql
+      - name: Confirmar que a migração versionada de release é reexecutável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031235900_oryneo_release_attestation_interlock_dormant.sql
+
   failure-policy:
     runs-on: ubuntu-latest
     timeout-minutes: 7

@@ -254,3 +254,20 @@ export async function freezeRemoteSemanticPair(workspaceId:string,
    r.result.dispatchAuthorized!==false)throw Error('Publicação não permaneceu inativa.');
  return r.result;
 }
+
+export type ReleaseGateStatus={
+  global:string[];
+  channels:Record<'crm'|'email'|'whatsapp'|'onboarding'|'billing',string[]>;
+  releaseReady:boolean;
+  readOnly:true;
+  dispatchAuthorized:false;
+};
+export async function loadRemoteReleaseGates(workspaceId:string):Promise<ReleaseGateStatus>{
+  const r=await invoke<ReleaseGateStatus&{ok:true}>({
+    action:'release-gates',workspaceId,
+  });
+  if(r.readOnly!==true||r.dispatchAuthorized!==false||!Array.isArray(r.global))
+    throw new Error('Integridade da auditoria de release não comprovada.');
+  return r;
+}
+

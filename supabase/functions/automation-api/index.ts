@@ -371,6 +371,28 @@ Deno.serve(async request => {
     }});
   }
 
+  // Read-only release attestation matrix. External proof and legal approval
+  // cannot be created or modified from this user-facing endpoint.
+  if (action === 'release-gates') {
+    const channels=['crm','email','whatsapp','onboarding','billing'] as const;
+    const pairs=await Promise.all([
+      db.rpc('automation_release_missing_gates',{
+        p_workspace_id:workspaceId,p_channel:null,
+      }),
+      ...channels.map(channel=>db.rpc('automation_release_missing_gates',{
+        p_workspace_id:workspaceId,p_channel:channel,
+      })),
+    ]);
+    if(pairs.some(p=>p.error||!Array.isArray(p.data)))
+      return reply({error:'Não foi possível comprovar os critérios de liberação.'},503);
+    const missing=Object.fromEntries(channels.map((channel,i)=>[channel,pairs[i+1].data]));
+    return reply({ok:true,readOnly:true,dispatchAuthorized:false,
+      global:pairs[0].data,channels:missing,
+      releaseReady:pairs.every(p=>(p.data as string[]).length===0),
+      statement:'Aprovações documentais não ativam a engine nem autorizam envios.',
+    });
+  }
+
   if (action === 'executions') {
     const { data, error } = await db.from('automation_executions')
       .select('id,flow_version_id,state,started_at,finished_at,correlation_id')
