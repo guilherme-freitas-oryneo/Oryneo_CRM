@@ -10,6 +10,7 @@ import { duplicateDraftNode,fitGraphView,importDraftJson,moveSelectedNodes,remov
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
 import { buildCrmReviewStarter } from './safeStarterActionPlans';
+import { explainRuntimeCapability } from './runtimeReadiness';
 import { SIMULATION_CASES, buildSimulationCase, type SimulationCaseId } from './simulationCases';
 import './automations-workspace.css';
 import './commercial-readiness.css';
@@ -764,6 +765,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
                 <label>Configuração JSON<textarea aria-label="Configuração JSON do nó" spellCheck={false} rows={7} value={jsonConfig} onChange={e=>setJsonConfig(e.target.value)}/></label>
                 <button onClick={applyJsonConfig}>Aplicar configuração</button>
               </>}
+              <p className="ory-auto-aside-hint" role="note">{explainRuntimeCapability(selected.type)}</p>
               {selected.type!=='trigger'&&<button className="ory-auto-danger" onClick={()=>{commit(removeNode(current,selected.id));setSelectedId(null);setSelectedIds([])}}>Remover bloco</button>}
               <p className="ory-auto-aside-hint">Alterações locais exigem validação e publicação por servidor antes de produzir efeitos.</p>
             </> : activeEdge ? <><p>Conexão selecionada. O rótulo não altera a porta lógica da condição.</p>
