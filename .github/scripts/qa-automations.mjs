@@ -52,6 +52,7 @@ for (const c of cases) {
         statement:'Aprovações documentais não ativam a engine nem autorizam envios.',
       });
       if(input.action==='commercial-readiness')return response({ok:true,readOnly:true,dispatchAuthorized:false,channels:['whatsapp','email','crm','onboarding','billing'].map(channel=>({channel,owner:'legacy',legacyPaused:false,releaseAttested:false,eligibleForControlledQueue:false})),runtime:{mode:'disabled',emergencyStop:true,workspaceActive:false}});
+      if(input.action==='release-gates')return response({ok:true,readOnly:true,dispatchAuthorized:false,releaseReady:false,global:['legal','playbook','rollback','security','authenticated_e2e'],channels:{crm:['single_owner'],email:['single_owner'],whatsapp:['consent_policy'],onboarding:['single_owner'],billing:['financial_webhook']}});
       if(input.action==='sdr-semantic-list')return response({ok:true,readOnly:true,dispatchAuthorized:false,knowledge:[],dictionaries:[],selected:null,role:'admin'});
       if(input.action==='simulate')return response({ok:true,dryRun:true,simulationOnly:true,dispatchAuthorized:false,persisted:false,result:{shadowOnly:true,dispatchAuthorized:false,state:'completed',trace:[{nodeId:'77777777-7777-4777-8777-777777777777',type:'trigger',status:'evaluated'}],plannedActions:[],issues:[]}});
       if(input.action==='runtime')return response({ok:true,readOnly:true,runtime:{workspaceActive:false,mode:'disabled',emergencyStop:true,updatedAt:new Date().toISOString(),flows:0,publishedVersions:0,pendingEvents:0,executions:0,actionRows:0,waitingTimers:0,dueTimers:0,cancelledTimers:0,queuedActions:0,leasedActions:0,uncertainActions:0,sentActions:0,dispatchAuthorized:false}});
@@ -106,6 +107,7 @@ for (const c of cases) {
     await page.screenshot({path:'qa-results/oryneo-automations-'+c.name+'.png',fullPage:false});
     await page.getByRole('button',{name:'Salvar rascunho'}).click();
     await page.getByText(/Nenhum disparo executado/i).waitFor({timeout:10000});
+    await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:'Mais opções'}).click();
     await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Templates e canais/}).click();
     await page.getByRole('heading',{name:'Templates e canais'}).waitFor();
     await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Execuções e diagnóstico/}).click();

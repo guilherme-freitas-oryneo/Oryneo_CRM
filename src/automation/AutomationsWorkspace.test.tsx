@@ -20,7 +20,8 @@ describe('Automações: interação visual isolada', () => {
     const user = userEvent.setup();
     render(<AutomationsWorkspace userId={userId}/>);
     const navigation = screen.getByRole('navigation', { name: 'Áreas de automações' });
-    expect(within(navigation).getAllByRole('button')).toHaveLength(7);
+    expect(within(navigation).getAllByRole('button')).toHaveLength(5);
+    await user.click(within(navigation).getByRole('button', { name: 'Mais opções' }));
     await user.click(within(navigation).getByRole('button', { name: /Inteligência SDR/ }));
     expect(screen.getByRole('region', { name: 'Inteligência e intenções do SDR' })).toBeInTheDocument();
     await user.click(within(navigation).getByRole('button', { name: /Execuções e diagnóstico/ }));
@@ -195,6 +196,7 @@ describe('Automações: interação visual isolada', () => {
   it('exibe propriedade dos canais somente em leitura e sem ação de cutover',async()=>{
     const user=userEvent.setup();
     render(<AutomationsWorkspace userId={userId}/>);
+    await user.click(screen.getByRole('button',{name:'Mais opções'}));
     await user.click(screen.getByRole('button',{name:/Templates e canais/}));
     expect(screen.getByRole('region',{name:'Proprietários das integrações comerciais'})).toBeInTheDocument();
     expect(screen.getByText(/Nenhum disparo está autorizado por esta tela/)).toBeInTheDocument();
