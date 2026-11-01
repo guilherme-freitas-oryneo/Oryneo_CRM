@@ -9,6 +9,7 @@ import { ConditionRuleEditor } from './ConditionRuleEditor';
 import { duplicateDraftNode,fitGraphView,importDraftJson,moveSelectedNodes,removeEdgeById,removeSelectedNodes,routeBranchLabel,viewportToGraph } from './editorCommands';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
+import { buildCrmReviewStarter } from './safeStarterActionPlans';
 import { SIMULATION_CASES, buildSimulationCase, type SimulationCaseId } from './simulationCases';
 import './automations-workspace.css';
 import './commercial-readiness.css';
@@ -219,9 +220,11 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
     setNotice('Editor isolado: nenhum fluxo está conectado a disparos reais.');
   };
   const create = (kind: FlowKind) => open(connectedDraft(kind));
-  const createFromStarter = (starterId: Parameters<typeof buildStarterFlow>[0]) => {
-    open(buildStarterFlow(starterId));
-    setNotice('Modelo editável, sem disparos. Revise consentimento e integrações antes de publicar.');
+  const createFromStarter = (starterId: Parameters<typeof buildStarterFlow>[0], reviewTask=false) => {
+    open(reviewTask ? buildCrmReviewStarter(starterId) : buildStarterFlow(starterId));
+    setNotice(reviewTask
+      ? 'Modelo de revisão CRM: tarefa interna em rascunho. Nenhum envio ou alteração comercial foi autorizado.'
+      : 'Modelo editável, sem disparos. Revise consentimento e integrações antes de publicar.');
   };
   const openRemote = async (flowId: string) => {
     if (!workspace) return;
@@ -590,6 +593,15 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
               title={starter.note} onClick={()=>createFromStarter(starter.id)}>
               <span className="ory-auto-flow-icon"><GitBranch size={20}/></span>
               <span><strong>{starter.name}</strong><small>Modelo editável · sem envio · aprovação necessária</small></span>
+              <ArrowRight size={17}/>
+            </button>
+          ))}
+          {STARTER_FLOWS.filter(starter=>starter.kind===tab).map(starter=>(
+            <button className="ory-auto-flow-card" key={'review-'+starter.id}
+              title={'Criar variante com tarefa CRM interna, sem mensagens: '+starter.name}
+              onClick={()=>createFromStarter(starter.id,true)}>
+              <span className="ory-auto-flow-icon"><ShieldCheck size={20}/></span>
+              <span><strong>{starter.name}</strong><small>Revisão CRM · rascunho · nenhuma mensagem</small></span>
               <ArrowRight size={17}/>
             </button>
           ))}
