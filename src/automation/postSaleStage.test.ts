@@ -19,7 +19,7 @@ describe('Separação comercial e pós-venda sem perda',()=>{
   expect(commercialStageList(original,[],false)).toEqual(original);
  });
  it('oculta exclusivamente a antiga coluna vazia depois da migração',()=>{
-  expect(commercialStageList(original,[],true).map(x=>x.data.name)).toEqual(['Ganha','Perdida']);
+  expect(commercialStageList(original,[],true,true).map(x=>x.data.name)).toEqual(['Ganha','Perdida']);
  });
  it('reexibe a coluna legada quando existe oportunidade histórica',()=>{
   const d=deal('a',LEGACY_IMPLEMENTATION_STAGE_ID);
