@@ -8,7 +8,7 @@
 ## Linha de base imutável da régua
 
 - `docs/automation/ZIP_CHECKPOINT_MASTER_20261031.md` e `qa/acceptance/checkpoint-master-20261031.json`.
-- 7 fases, 70 critérios imutáveis; 54/70 = **77,14% estimados**.
+- 7 fases, 70 critérios imutáveis; **baseline histórico 54/70 = 77,14%**; **revalidação F5.7 em 01/11: 54,5/70 = 77,86%**. Veja o log de delta e evidências no checkpoint mestre.
 - `qa/acceptance/verify-checkpoint-oryneo.mjs` agora recalcula a porcentagem a partir dos 70 valores. Não bloqueia avanços futuros no valor original e confronta os itens com o Markdown.
 - `qa/acceptance/verify-stage5.mjs` importa esse verificador na suíte de aceitação existente.
 - **Não alterar a pontuação por simples escrita de código draft.** Somente mover cada item com nova evidência e registrar `antes -> depois` + SHA + ambiente + teste.
@@ -41,7 +41,7 @@ A função legada `crm_schedule_implementation_automation` contém referência r
 - [CRM v2 #41262337986](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41262337986): **success**, commit anterior.
 - [Pix #41262338035](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41262338035): **success**, commit anterior.
 - [Browser CRM v2.1 #41262387036](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41262387036): **success** após correção da action `release-gates`.
-- Esses resultados não são automaticamente transferíveis para o último commit. Antes de qualquer merge, verificar os **cinco workflows no SHA final** e executar novamente as verificações se necessário.
+- Esses resultados não são automaticamente transferíveis para o último commit. Antes de qualquer merge, verificar os **seis workflows no SHA final** e executar novamente as verificações se necessário.
 
 ## Gates comprovadamente NÃO satisfeitos
 
@@ -57,4 +57,27 @@ A função legada `crm_schedule_implementation_automation` contém referência r
 
 ## Continuidade em outra conversa
 
-Ler este documento, o checkpoint mestre e o relatório `docs/automation/RELEASE_ACTUAL_STATE_20261031.md`. Verificar commit de `main`, SHA do PR #82, cinco CI do HEAD e flags do Supabase. Retomar pela primeira lacuna real (integrações live por adaptador; bridge implantação; oito jornadas; homologação). Não regressar percentuais sem evidência de falha concreta. Não copiar históricos de CI como teste do HEAD.
+Ler este documento, o checkpoint mestre e o relatório `docs/automation/RELEASE_ACTUAL_STATE_20261031.md`. Verificar commit de `main`, SHA do PR #82, seis CI do HEAD e flags do Supabase. Retomar pela primeira lacuna real (integrações live por adaptador; bridge implantação; oito jornadas; homologação). Não regressar percentuais sem evidência de falha concreta. Não copiar históricos de CI como teste do HEAD.
+
+## Revalidação incremental — 01/11/2026
+
+**Critério F5.7: 0 → 0,5** (parcial, e somente esse). Novo score auditável: **54,5/70 = 77,86%**. Aumentou porque:
+- `src/automation/safeStarterActionPlans.ts`: oito variantes opcionais, todas com tarefa interna CRM, preservam fluxos originais.
+- `src/automation/AutomationsWorkspace.tsx`: seleção explícita `Revisão CRM · rascunho · nenhuma mensagem` no editor.
+- `src/automation/safeStarterJourneyMatrix.test.ts`: 8 jornadas com sucesso controlado, bloqueio e evento incorreto; sem efeitos externos.
+- `src/automation/runtimeReadiness.ts`: aviso por tipo de nó para não confundir editor com execução live; testes específicos.
+- [Suíte de automações #41263764954](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41263764954) e [Browser CRM v2.1 #41263764960](https://github.com/guilherme-freitas-oryneo/Oryneo_CRM/actions/runs/41263764960): **success no mesmo SHA de código `8e1469775321f01feae630829f68375bf3b88626`**. A porcentagem da régua foi atualizada em commits documentais posteriores, portanto verificar o último HEAD antes de promover.
+
+**Não concluído:** os outros 69 itens permanecem com a pontuação anterior; F5.7 não é 1,0 porque faltam fluxos completos, envios autorizados e E2E. A engine não foi ligada.
+
+### Gates reais consultados no Supabase, somente leitura
+
+`public.automation_release_missing_gates(workspace_id,channel)` reporta:
+- Globais: `legal`, `playbook`, `rollback`, `security`, `authenticated_e2e`.
+- CRM: `provider_verified`, `consent_policy`, `single_owner`.
+- E-mail: os três controles acima + `mailbox_verified`.
+- WhatsApp: `provider_verified`, `consent_policy`, `single_owner`.
+- Onboarding: `provider_verified`, `consent_policy`, `single_owner`.
+- Faturamento: `provider_verified`, `consent_policy`, `single_owner`, `financial_webhook`, `terms_accepted`.
+
+Nenhuma dessas aprovações foi criada artificialmente. Não manipular `automation_release_attestations` para desbloquear um fluxo sem os comprovantes necessários.
