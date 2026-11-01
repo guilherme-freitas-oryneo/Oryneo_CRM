@@ -155,3 +155,18 @@ Deno.test('estorno entre claim e envio suprime e-mail de implantação',async()=
  assert.deepEqual(failures,['IMPLEMENTATION_PAYMENT_REVOKED']);
  assert.equal(intakeConfirmationStateForError(failures[0]),'suppressed');
 });
+Deno.test('falha ao consultar pagamento não envia e permanece recuperável',async()=>{
+ let transported=false;
+ const failures:string[]=[];
+ const deps: IntakeConfirmationDependencies={
+  claimDue:()=>Promise.resolve([{...job,jobType:'implementation_started_email'}]),
+  isImplementationStillPaid:()=>Promise.reject(Error('INTAKE_CONFIRMATION_DB')),
+  send:()=>{transported=true;throw Error('UNEXPECTED_SEND');},
+  markSent:()=>Promise.reject(Error('UNEXPECTED_SENT')),
+  markFailed:(_id,code)=>{failures.push(code);return Promise.resolve();},
+ };
+ assert.deepEqual(await processIntakeConfirmationJobs(deps),{claimed:1,sent:0,failed:1});
+ assert.equal(transported,false);
+ assert.deepEqual(failures,['INTAKE_CONFIRMATION_SEND']);
+ assert.equal(intakeConfirmationStateForError(failures[0]),'failed');
+});
