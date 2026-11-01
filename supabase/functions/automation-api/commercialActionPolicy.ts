@@ -68,8 +68,13 @@ export function reviewCommercialAction(e:CommercialEvidence):CommercialDecision{
   if(e.actionType==='whatsapp_template'&&e.metaTemplateApprovedAndComponentsVerified!==true)
    return denied('META_TEMPLATE_UNVERIFIED');
  }
- if(e.actionType==='email'&&e.mailRecipientVerified!==true)
-  return denied('MAIL_RECIPIENT_UNVERIFIED');
+ if(e.actionType==='email'){
+  if(e.mailRecipientVerified!==true)return denied('MAIL_RECIPIENT_UNVERIFIED');
+  // A verified address is not proof of consent. Fail closed for unknown
+  // consent/opt-out; preflight still cannot authorize delivery.
+  if(e.optedOut!==false)return denied('OPTED_OUT');
+  if(e.consentVerified!==true)return denied('CONSENT_REQUIRED');
+ }
  if(e.actionType==='crm_stage_change'&&e.canonicalStageIsAllowed!==true)
   return denied('CANONICAL_STAGE_UNKNOWN');
  return {
