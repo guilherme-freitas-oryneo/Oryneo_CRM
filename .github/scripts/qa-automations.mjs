@@ -68,7 +68,14 @@ for (const c of cases) {
     await page.getByRole('heading',{name:'Automações'}).waitFor({timeout:10000});
     await page.getByText('Motor em parada de emergência',{exact:true}).waitFor({timeout:10000});
     await page.getByRole('navigation',{name:'Áreas de automações'}).getByRole('button',{name:/Fluxos do pipeline/}).click();
-    // The eight starter journeys are drafts only and cannot authorize sends.
+    // Review variants add a CRM task but must remain non-emitting drafts.
+    await page.getByRole('button',{name:/Nova oportunidade.*Revisão CRM/i}).click();
+    await page.getByRole('textbox',{name:'Nome do fluxo'}).waitFor();
+    await page.locator('.ory-auto-node').filter({hasText:'Tarefa interna de revisão'}).waitFor();
+    if(!await page.getByTitle('Publicação disponível após engine homologada').isDisabled())
+      throw Error('CRM review starter unexpectedly enabled publishing');
+    await page.getByRole('button',{name:'Voltar à lista'}).click();
+    // The original eight starter journeys remain unchanged zero-action drafts.
     await page.getByRole('button',{name:/Nova oportunidade.*Modelo editável/i}).click();
     const starterName=page.getByRole('textbox',{name:'Nome do fluxo'});
     await starterName.waitFor();
