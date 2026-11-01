@@ -98,3 +98,10 @@
 ## Current checkpoint (01/11/2026)
 
 PR #83 is on `main`; PR #82 remains a draft. This branch merges both and passes 568 Vitest tests and `npm run build`. Hosted Supabase remains `disabled`/`emergency_stop=true`, with 8 drafts, 0 published, 0 executions, 0 attestations, and all five channel owners `legacy`. No live dispatch or cutover is authorized by this plan alone.
+
+### Evidence update: 01/11/2026
+
+- Static Meta templates: `metaTemplateRequest`, `templateBindings` and the Meta worker now agree that an approved BODY with zero placeholders needs no synthetic parameter; 17 targeted Deno tests and the production build passed. The hosted registry currently has 44 approved templates, all with 1–4 parameters, so this is forward compatibility and does **not** increase the 70-item score.
+- Deno package resolution is pinned in `deno.lock`. The first PR #84 Edge check failed while resolving a newly published transitive Rollup binary under Deno's minimum age policy; a frozen local check passed with the pinned older version, and the subsequent Edge check passed in GitHub Actions.
+- The live post-sale read-only probe still finds one hard-coded reference to the `Implantação` stage, two `won` stages, zero active deals in `Implantação`, and zero delivery projects. No migration or stage mutation was performed.
+- A fresh Drive search found the existing terms **minuta v0.9** and the 19 October internal legal release matrix; it found no newer approved terms under the ORYNEO terms query. The legal gate remains open.
