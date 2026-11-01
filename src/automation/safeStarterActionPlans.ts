@@ -21,7 +21,7 @@ const REVIEW_TASKS: Readonly<Record<StarterFlowId,SafeTask>> = {
   conversational_sdr: {title:'Revisar contexto da conversa e necessidade de handoff',dueOffsetMinutes:60},
 };
 
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function buildCrmReviewStarter(
   starterId:StarterFlowId,
   newId:()=>string=()=>crypto.randomUUID(),
