@@ -38,6 +38,19 @@ for (const c of cases) {
       if(input.action==='templates')return response({ok:true,templates:[]});
       if(input.action==='catalog')return response({ok:true,catalog:{stages:[],templates:[],knowledge:[],dictionaries:[]},readOnly:true});
       if(input.action==='executions')return response({ok:true,executions:[]});
+      // PR #81 introduced a strictly read-only release matrix.
+      // Model the real response contract, never claim ready or authorize send.
+      if(input.action==='release-gates')return response({
+        ok:true,readOnly:true,dispatchAuthorized:false,
+        global:['RUNTIME_DISABLED','EMERGENCY_STOP'],
+        channels:{
+          crm:['OWNER_LEGACY'],email:['OWNER_LEGACY'],
+          whatsapp:['OWNER_LEGACY'],onboarding:['OWNER_LEGACY'],
+          billing:['OWNER_LEGACY'],
+        },
+        releaseReady:false,
+        statement:'Aprovações documentais não ativam a engine nem autorizam envios.',
+      });
       if(input.action==='commercial-readiness')return response({ok:true,readOnly:true,dispatchAuthorized:false,channels:['whatsapp','email','crm','onboarding','billing'].map(channel=>({channel,owner:'legacy',legacyPaused:false,releaseAttested:false,eligibleForControlledQueue:false})),runtime:{mode:'disabled',emergencyStop:true,workspaceActive:false}});
       if(input.action==='sdr-semantic-list')return response({ok:true,readOnly:true,dispatchAuthorized:false,knowledge:[],dictionaries:[],selected:null,role:'admin'});
       if(input.action==='simulate')return response({ok:true,dryRun:true,simulationOnly:true,dispatchAuthorized:false,persisted:false,result:{shadowOnly:true,dispatchAuthorized:false,state:'completed',trace:[{nodeId:'77777777-7777-4777-8777-777777777777',type:'trigger',status:'evaluated'}],plannedActions:[],issues:[]}});
