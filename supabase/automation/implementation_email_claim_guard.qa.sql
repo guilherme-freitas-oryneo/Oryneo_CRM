@@ -25,7 +25,6 @@ CREATE TRIGGER crm_schedule_implementation_automation AFTER UPDATE ON public.crm
 CREATE FUNCTION public.automation_enqueue_legacy_implementation_on_paid_delivery() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;
 CREATE TRIGGER automation_queue_implementation_on_paid_delivery AFTER INSERT ON public.crm_delivery_projects FOR EACH ROW EXECUTE FUNCTION public.automation_enqueue_legacy_implementation_on_paid_delivery();
 
-\i supabase/migrations/20261101194432_guard_implementation_email_after_refund.sql
 \i supabase/migrations/20261102001901_bind_implementation_email_to_order.sql
 
 INSERT INTO public.crm_records(id,kind,data) VALUES
