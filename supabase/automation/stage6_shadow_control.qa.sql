@@ -3,6 +3,13 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
+-- Earlier delivery-protocol QA deliberately leaves an uncertain synthetic row.
+-- Remove it only inside this rolled-back transaction to model production's
+-- already-proven empty live queue.
+DELETE FROM public.automation_action_outbox
+  WHERE workspace_id=(SELECT id FROM public.automation_workspaces WHERE slug='oryneo-crm')
+    AND state='uncertain';
+
 CREATE TEMP TABLE qa_shadow_owner_before AS
   SELECT workspace_id,channel,owner FROM public.automation_channel_ownership;
 CREATE TEMP TABLE qa_shadow_outbox_before AS
@@ -31,6 +38,18 @@ BEGIN
       jsonb_build_object('ok',true,'dispatchAuthorized',false,'qa','isolated'));
   END LOOP;
 END $freeze$;
+
+-- Independent earlier QA cases can leave a frozen version unselected or a
+-- synthetic flow armed. Normalize only the disposable transaction.
+WITH latest AS (
+  SELECT DISTINCT ON (workspace_id,flow_id) workspace_id,flow_id,id
+  FROM public.automation_flow_versions WHERE status='published'
+  ORDER BY workspace_id,flow_id,version DESC
+)
+UPDATE public.automation_flows f SET enabled=false,published_version_id=latest.id
+FROM latest,public.automation_workspaces w
+WHERE f.workspace_id=latest.workspace_id AND f.id=latest.flow_id
+  AND w.id=f.workspace_id AND w.slug='oryneo-crm';
 
 DO $qa$
 DECLARE
