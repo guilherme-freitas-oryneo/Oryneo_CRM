@@ -1,6 +1,6 @@
 /**
- * ORYNEO shadow-only durable worker. NEVER DEPLOY OR SCHEDULE before the
- * isolated SQL migration, verified secrets and environment gates are approved.
+ * ORYNEO shadow-only durable worker. The database runtime gate and existing
+ * rotated cron credential must both pass before any canonical event is read.
  *
  * No Meta, e-mail, Stripe, CRM mutation or provider calls exist in this module.
  * It acknowledges plans as metadata with all action outbox rows blocked.
@@ -9,14 +9,12 @@ import { createClient } from 'npm:@supabase/supabase-js@2.90.1';
 import { planServerShadowCompiled } from '../automation-api/shadowEngine.ts';
 import { loadTrustedReferences } from '../automation-api/trustedReferences.ts';
 import { loadShadowCanonicalContext } from '../automation-api/shadowContext.ts';
-import { isCanonicalUuid, validWorkerToken, workerIsConfigured } from './workerGuards.ts';
+import { isCanonicalUuid } from './workerGuards.ts';
 import { shadowFailureCode } from './failurePolicy.ts';
 
 const projectUrl=Deno.env.get('SUPABASE_URL')||'';
 const serviceRole=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
-const workspaceId=Deno.env.get('AUTOMATION_SHADOW_WORKSPACE_ID')||'';
-const workerSecret=Deno.env.get('AUTOMATION_SHADOW_WORKER_SECRET')||'';
-const enabled=Deno.env.get('AUTOMATION_SHADOW_WORKER_ENABLED')==='true';
+const workspaceSlug=Deno.env.get('AUTOMATION_WORKSPACE_SLUG')||'oryneo-crm';
 const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{
   status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'},
 });
@@ -29,16 +27,22 @@ type VersionRow={id:string;graph_json:unknown;status:string};
 
 Deno.serve(async request=>{
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
-  if(!workerIsConfigured({enabled,projectUrl,serviceRole,workspaceId,workerSecret}))
+  if(!projectUrl||!serviceRole)
     return json({error:'Shadow worker disabled'},503);
-  if(!validWorkerToken(request.headers.get('x-oryneo-shadow-secret')||'',workerSecret))
-    return json({error:'Access denied'},401);
 
-  // Client creation happens ONLY after all configuration/secret gates pass.
-  // Missing hosted secrets cannot crash the module at import time.
+  // Reuse the existing rotated cron credential instead of introducing a
+  // second hosted secret. The RPC compares the supplied value server-side.
   const db=createClient(projectUrl,serviceRole,{
     auth:{persistSession:false,autoRefreshToken:false},
   });
+  const token=request.headers.get('x-oryneo-cron')||'';
+  const verified=await db.rpc('crm_mail_verify_cron',{p_token:token});
+  if(verified.error||verified.data!==true)return json({error:'Access denied'},401);
+  const workspace=await db.from('automation_workspaces').select('id')
+    .eq('slug',workspaceSlug).maybeSingle();
+  if(workspace.error||!workspace.data?.id)
+    return json({error:'Shadow workspace unavailable'},503);
+  const workspaceId=workspace.data.id;
   const settings=await db.from('automation_runtime_settings')
     .select('mode,emergency_stop').eq('workspace_id',workspaceId).maybeSingle();
   if(settings.error||settings.data?.mode!=='shadow'||settings.data.emergency_stop!==false)
