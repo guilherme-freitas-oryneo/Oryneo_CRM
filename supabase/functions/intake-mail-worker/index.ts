@@ -107,8 +107,16 @@ const confirmationDependencies: IntakeConfirmationDependencies = {
     if (result.error) throw new Error('INTAKE_CONFIRMATION_DB');
     return (result.data ?? []).map((row: { request_id: string; deal_id: string; data: Record<string, unknown> }) => ({
       requestId: row.request_id, dealId: row.deal_id, data: row.data,
+      orderId: typeof row.data._automation_order_id === 'string' ? row.data._automation_order_id : null,
       jobType: parseAutomationEmailType(row.data._automation_job_type),
     }));
+  },
+  async isImplementationStillPaid(orderId, dealId) {
+    const result = await client.from('crm_billing_orders').select('id')
+      .eq('id', orderId).eq('deal_id', dealId).eq('status', 'paid')
+      .eq('billing_environment', 'live').not('paid_at', 'is', null).limit(1);
+    if (result.error) throw new Error('INTAKE_CONFIRMATION_DB');
+    return Boolean(result.data?.length);
   },
   async send(input) {
     const compose: ComposeInput = { mailboxId: await activeMailboxId(), ...input };
