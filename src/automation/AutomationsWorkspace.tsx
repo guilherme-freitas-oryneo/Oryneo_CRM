@@ -9,6 +9,7 @@ import { ConditionRuleEditor } from './ConditionRuleEditor';
 import { duplicateDraftNode,fitGraphView,importDraftJson,moveSelectedNodes,removeEdgeById,removeSelectedNodes,routeBranchLabel,viewportToGraph } from './editorCommands';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
+import { buildCrmReviewStarter } from './safeStarterActionPlans';
 import { SIMULATION_CASES, buildSimulationCase, type SimulationCaseId } from './simulationCases';
 import './automations-workspace.css';
 import './commercial-readiness.css';
@@ -223,8 +224,8 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   };
   const create = (kind: FlowKind) => open(connectedDraft(kind));
   const createFromStarter = (starterId: Parameters<typeof buildStarterFlow>[0]) => {
-    open(buildStarterFlow(starterId));
-    setNotice('Modelo editável, sem disparos. Revise consentimento e integrações antes de publicar.');
+    open(buildCrmReviewStarter(starterId));
+    setNotice('Jornada de revisão interna em rascunho. Nenhuma mensagem ou alteração de etapa foi autorizada.');
   };
   const openRemote = async (flowId: string) => {
     if (!workspace) return;
@@ -602,7 +603,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
             <button className="ory-auto-flow-card" key={'starter-'+starter.id}
               title={starter.note} onClick={()=>createFromStarter(starter.id)}>
               <span className="ory-auto-flow-icon"><GitBranch size={20}/></span>
-              <span><strong>{starter.name}</strong><small>Modelo editável · sem envio · aprovação necessária</small></span>
+              <span><strong>{starter.name}</strong><small>Jornada operacional · revisão interna · sem envio</small></span>
               <ArrowRight size={17}/>
             </button>
           ))}

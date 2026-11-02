@@ -43,6 +43,17 @@ describe('Automações: interação visual isolada', () => {
     expect(screen.getByRole('textbox', { name: 'Nome do fluxo' })).toHaveValue('Novo fluxo do pipeline');
   });
 
+  it('abre cada modelo como jornada operacional com tarefa interna e sem envio', async()=>{
+    const user=userEvent.setup();
+    render(<AutomationsWorkspace userId={userId}/>);
+    await user.click(screen.getByRole('button',{name:/Fluxos do pipeline/}));
+    await user.click(screen.getByRole('button',{name:/Nova oportunidade.*Jornada operacional/i}));
+    expect(screen.getByRole('textbox',{name:'Nome do fluxo'})).toHaveValue('Nova oportunidade');
+    expect(screen.getByText('Tarefa interna de revisão')).toBeInTheDocument();
+    expect(screen.getByText(/Nenhuma mensagem ou alteração de etapa foi autorizada/)).toBeInTheDocument();
+    expect(screen.getByTitle('Publicação disponível após engine homologada')).toBeDisabled();
+  });
+
   it('simula sem enviar mensagens ou publicar versões', async () => {
     const user = userEvent.setup();
     render(<AutomationsWorkspace userId={userId}/>);
