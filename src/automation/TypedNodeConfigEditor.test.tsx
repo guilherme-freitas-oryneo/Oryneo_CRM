@@ -7,6 +7,8 @@ import type { NodeReferenceCatalog } from './api';
 const catalog:NodeReferenceCatalog={
   stages:[{id:'stage-1',name:'Diagnóstico pendente'}],
   templates:[{id:'approved-verified',name:'oryneo_welcome_v3',variable_numbers:['1','2']}],
+  emailTemplates:[{id:'email-1',name:'Diagnóstico inicial'}],
+  replyTexts:[{id:'diagnostico_inicio_v1',name:'diagnostico_inicio_v1'}],
   knowledge:[],
   dictionaries:[],
 };
@@ -42,6 +44,26 @@ describe('Automações: inspetor tipado sem efeitos',()=>{
       bindings:{'1':'opportunity.plan'},
     });
     expect(screen.queryByRole('option',{name:'billing.credit_card'})).not.toBeInTheDocument();
+  });
+  it('seleciona apenas textos e e-mails aprovados pelo catálogo do servidor',()=>{
+    const onReply=vi.fn();
+    const {unmount}=render(<TypedNodeConfigEditor
+      node={node('whatsapp_reply',{text_ref:''})} catalog={catalog} onChange={onReply}/>);
+    fireEvent.change(screen.getByRole('combobox',{name:'Texto aprovado'}),{
+      target:{value:'diagnostico_inicio_v1'},
+    });
+    expect(onReply).toHaveBeenCalledWith({text_ref:'diagnostico_inicio_v1'});
+    unmount();
+    const onEmail=vi.fn();
+    render(<TypedNodeConfigEditor node={node('email',{
+      template_id:'',recipient_field:'opportunity.email',
+    })} catalog={catalog} onChange={onEmail}/>);
+    fireEvent.change(screen.getByRole('combobox',{name:'Template de e-mail aprovado'}),{
+      target:{value:'email-1'},
+    });
+    expect(onEmail).toHaveBeenCalledWith({
+      template_id:'email-1',recipient_field:'opportunity.email',
+    });
   });
   it('um template não cadastrado permanece visível como não homologado, nunca como aprovado',()=>{
     const onChange=vi.fn();

@@ -24,6 +24,7 @@ type Event={inbox_id:string;source:string;event_id:string;event_type:string;
 type Flow={id:string;published_version_id:string;enabled:boolean};
 type Version={id:string;graph_json:unknown;status:string};
 type PendingContinuation={action_id:string;execution_id:string;node_id:string};
+type DueWait={wait_id:string;execution_id:string;node_id:string;claim_token:string};
 const failureCode=(error:unknown):string=>{
  const code=error instanceof Error?error.message:'';
  if(code==='LIVE_CONTEXT_UNAVAILABLE')return code;
@@ -97,16 +98,17 @@ Deno.serve(async request=>{
      source:event.source,eventId:event.event_id,eventType:event.event_type,
      context:canonical,
     },refs).catch(()=>{throw Error('LIVE_GRAPH_REJECTED');});
-    // Only a CRM task or stage change can reach the action outbox.
-    // All message, e-mail, billing, AI and ambiguous wait branches fail closed.
+    // Only actions with a reviewed dormant executor may reach the outbox.
+    // AI, billing writes and all unknown node types remain fail closed.
     if(decision.plannedActions.some(x=>
-      x.type!=='crm_stage_change'&&x.type!=='crm_task'))
+      !['crm_stage_change','crm_task','whatsapp_template','whatsapp_reply','email']
+       .includes(x.type)))
       throw Error('LIVE_GRAPH_REJECTED');
     if(!decision.activationKey||decision.state==='blocked')
       throw Error('LIVE_GRAPH_REJECTED');
     plans.push({flowVersionId:version.id,decision});
    }
-   const committed=await db.rpc('automation_live_crm_finish',{
+   const committed=await db.rpc('automation_live_engine_finish',{
     p_workspace_id:workspaceId,p_inbox_id:event.inbox_id,
     p_lease_token:event.lease_token,p_plans:plans,
    });
@@ -127,6 +129,47 @@ Deno.serve(async request=>{
     else if(fail.data==='quarantined')quarantined++;
    }catch{unresolved++;}
   }
+ }
+ // Resume due waits through the same immutable compiler. SQL owns the lease,
+ // rechecks reply cancellation and performs the final release preflight.
+ // A worker crash leaves the wait reclaimable; it never repeats a provider call.
+ let waitsResumed=0,waitFailures=0;
+ await db.rpc('automation_live_wait_recover',{p_workspace_id:workspaceId,p_limit:20});
+ const dueWaits=await db.rpc('automation_live_wait_claim',{
+  p_workspace_id:workspaceId,p_limit:10,
+ });
+ if(dueWaits.error||!Array.isArray(dueWaits.data))
+  return response({error:'Durable wait claim unavailable',processed,unresolved,quarantined},503);
+ for(const wait of dueWaits.data as DueWait[]){
+  try{
+   const ex=await db.from('automation_executions')
+    .select('id,flow_version_id,inbox_id,state').eq('workspace_id',workspaceId)
+    .eq('id',wait.execution_id).maybeSingle();
+   if(ex.error||ex.data?.state!=='waiting')throw Error('LIVE_VERSION_DRIFT');
+   const [inbox,version]=await Promise.all([
+    db.from('automation_event_inbox').select('source,event_id,event_type,context_refs,state')
+     .eq('workspace_id',workspaceId).eq('id',ex.data.inbox_id).maybeSingle(),
+    db.from('automation_flow_versions').select('id,graph_json,status')
+     .eq('workspace_id',workspaceId).eq('id',ex.data.flow_version_id).maybeSingle(),
+   ]);
+   if(inbox.error||version.error||inbox.data?.state!=='processed'
+     ||version.data?.status!=='published')throw Error('LIVE_VERSION_DRIFT');
+   const context=await loadShadowCanonicalContext(db,inbox.data.event_type,inbox.data.context_refs)
+    .catch(()=>{throw Error('LIVE_CONTEXT_UNAVAILABLE');});
+   const decision=await planServerShadowCompiled(version.data.graph_json,{
+    workspaceId,flowVersionId:version.data.id,source:inbox.data.source,
+    eventId:inbox.data.event_id,eventType:inbox.data.event_type,context,
+   },refs,{nodeId:wait.node_id,port:'timeout'})
+    .catch(()=>{throw Error('LIVE_GRAPH_REJECTED');});
+   if(!decision.activationKey||decision.state==='blocked')throw Error('LIVE_GRAPH_REJECTED');
+   const finished=await db.rpc('automation_live_wait_finish',{
+    p_workspace_id:workspaceId,p_wait_id:wait.wait_id,
+    p_claim_token:wait.claim_token,p_decision:decision,
+   });
+   if(finished.error||finished.data?.ok!==true
+     ||finished.data?.dispatchAuthorized!==false)throw Error('LIVE_COMMIT_UNAVAILABLE');
+   waitsResumed++;
+  }catch{waitFailures++;}
  }
  // Continue already acknowledged CRM actions without repeating their side
  // effects. Sent receipts survive worker crashes. Duplicate compilers are
@@ -168,11 +211,13 @@ Deno.serve(async request=>{
      },refs,{nodeId:item.node_id,port:'out'})
      .catch(()=>{throw Error('LIVE_GRAPH_REJECTED');});
    if(!decision.activationKey
-      ||!['completed','awaiting_server_outcome'].includes(decision.state)
+      ||!['completed','waiting','awaiting_server_outcome'].includes(decision.state)
       ||decision.plannedActions.some(a=>
         a.type!=='crm_stage_change'&&a.type!=='crm_task'))
      throw Error('LIVE_GRAPH_REJECTED');
-   const acknowledged=await db.rpc('automation_live_crm_continue',{
+   const rpc=decision.state==='waiting'
+    ?'automation_live_crm_continue_wait':'automation_live_crm_continue';
+   const acknowledged=await db.rpc(rpc,{
      p_workspace_id:workspaceId,p_execution_id:item.execution_id,
      p_previous_action_id:item.action_id,p_decision:decision,
    });
@@ -190,5 +235,6 @@ Deno.serve(async request=>{
  }
  return response({ok:true,source:'canonical_crm',processed,unresolved,
   quarantined,continued,continuationFailures,
+  waitsResumed,waitFailures,
   externalMessagesSent:0,paymentsCreated:0,dispatchAuthorized:false});
 });

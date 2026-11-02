@@ -3,6 +3,7 @@ import { inspectServerGraph, type TrustedReferences } from '../automation-api/gr
 const id = (part: number) => '00000000-0000-4000-8000-' + String(part).padStart(12,'0');
 const refs: TrustedReferences = {
   eventTypes:['opportunity.created'],stageIds:[],templateIds:[],knowledgeIds:[],dictionaryIds:[],
+  emailTemplateIds:[],replyTextRefs:[],
 };
 const valid = (): any => ({
   id:id(1),name:'Pipeline sem efeitos',kind:'pipeline',status:'draft',version:1,schema_version:'1.0.0',
@@ -75,7 +76,28 @@ Deno.test('effect actions require reviewed policy and verified references',()=>{
   expect(inspectServerGraph(a,official).ok,'Explicit typed bindings unexpectedly rejected');
   const b=valid();b.nodes[1].type='email';b.nodes[1].ports=['in','out','error'];
   b.edges[1].source_port='out';b.edges[2].source_port='error';
-  expect(codes(b).includes('ACTION_ADAPTER_NOT_HOMOLOGATED'),'email blocked until adapter audited');
+  expect(codes(b).includes('EMAIL_TEMPLATE_NOT_VERIFIED'),'email without approved template must remain blocked');
+});
+
+Deno.test('accepts only approved email templates with canonical recipient fields',()=>{
+  const x=valid();x.nodes[1].type='email';x.nodes[1].ports=['in','out','error'];
+  x.nodes[1].config={template_id:id(71),recipient_field:'opportunity.email'};
+  x.edges[1].source_port='out';x.edges[2].source_port='error';
+  expect(codes(x).includes('EMAIL_TEMPLATE_NOT_VERIFIED'),'unknown e-mail template accepted');
+  const approved=inspectServerGraph(x,{...refs,emailTemplateIds:[id(71)]});
+  expect(approved.ok,'approved e-mail template rejected: '+JSON.stringify(approved.issues));
+  x.nodes[1].config.recipient_field='billing.customer_email';
+  expect(codes(x,{...refs,emailTemplateIds:[id(71)]}).includes('EMAIL_RECIPIENT_FIELD_INVALID'),
+    'arbitrary recipient field accepted');
+});
+
+Deno.test('accepts only approved bounded WhatsApp reply references',()=>{
+  const x=valid();x.kind='sdr';x.nodes[1].type='whatsapp_reply';
+  x.nodes[1].ports=['in','out','error'];x.nodes[1].config={text_ref:'diagnostico_inicio_v1'};
+  x.edges[1].source_port='out';x.edges[2].source_port='error';
+  expect(codes(x).includes('WA_REPLY_NOT_VERIFIED'),'unknown reply reference accepted');
+  const approved=inspectServerGraph(x,{...refs,replyTextRefs:['diagnostico_inicio_v1']});
+  expect(approved.ok,'approved reply reference rejected: '+JSON.stringify(approved.issues));
 });
 Deno.test('rejects unspecified event types or extra node ports',()=>{
   const a=valid();a.nodes[0].config={event_type:'stripe.charge_anything'};

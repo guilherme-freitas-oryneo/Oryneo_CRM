@@ -19,6 +19,8 @@ export type TrustedReferences = {
   stageIds: readonly string[];
   templateIds: readonly string[];
   templateVariables?: Readonly<Record<string,readonly string[]>>;
+  emailTemplateIds?: readonly string[];
+  replyTextRefs?: readonly string[];
   knowledgeIds: readonly string[];
   dictionaryIds: readonly string[];
 };
@@ -135,6 +137,19 @@ export function inspectServerGraph(raw: unknown, refs: TrustedReferences): Graph
         for(const issue of bind.issues)add(issue,p+'.config.bindings');
       }
     }
+    if (n.type==='whatsapp_reply') {
+      if (!only(n.config,['text_ref']) || !text(n.config.text_ref,128)
+        || !refs.replyTextRefs?.includes(String(n.config.text_ref)))
+        add('WA_REPLY_NOT_VERIFIED',p);
+    }
+    if (n.type==='email') {
+      if (!only(n.config,['template_id','recipient_field'])
+        || !uuid(n.config.template_id)
+        || !refs.emailTemplateIds?.includes(String(n.config.template_id)))
+        add('EMAIL_TEMPLATE_NOT_VERIFIED',p);
+      if (!['lead.email','opportunity.email'].includes(String(n.config.recipient_field)))
+        add('EMAIL_RECIPIENT_FIELD_INVALID',p);
+    }
     if (n.type==='crm_task' && (!only(n.config,['title','due_offset_minutes'])
       || !text(n.config.title,160) || !int(n.config.due_offset_minutes,1,43200)))
       add('TASK_CONFIG_INVALID',p);
@@ -148,7 +163,7 @@ export function inspectServerGraph(raw: unknown, refs: TrustedReferences): Graph
       || typeof n.config.min_confidence!=='number' || n.config.min_confidence<0.5
       || n.config.min_confidence>0.99)) add('INTENT_NOT_VERIFIED',p);
     // Never accept an action type without a reviewed adapter policy.
-    if (descriptor.effect && !['whatsapp_template','crm_stage_change','crm_task'].includes(String(n.type))) {
+    if (descriptor.effect && !['whatsapp_template','whatsapp_reply','email','crm_stage_change','crm_task'].includes(String(n.type))) {
       add('ACTION_ADAPTER_NOT_HOMOLOGATED',p);
     }
     if (n.type==='ai_generate') add('AI_POLICY_NOT_HOMOLOGATED',p);

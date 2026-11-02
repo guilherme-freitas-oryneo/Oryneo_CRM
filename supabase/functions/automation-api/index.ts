@@ -99,6 +99,29 @@ Deno.serve(async request => {
   const member = grant as Membership;
   const canEdit = ['editor', 'publisher', 'admin'].includes(member.role);
 
+  if(action==='consent-status'){
+    if(!validUuid(body.subjectId))return reply({error:'Referência de consentimento inválida.'},400);
+    const {data,error}=await db.rpc('automation_consent_status',{
+      p_workspace_id:workspaceId,p_subject_id:body.subjectId,
+    });
+    return error?reply({error:'Consentimentos indisponíveis.'},503)
+      :reply({ok:true,readOnly:true,consents:data||[]});
+  }
+  if(action==='consent-revoke'){
+    if(!['publisher','admin'].includes(member.role))
+      return reply({error:'Revogação restrita ao publicador ou administrador.'},403);
+    if(!validUuid(body.subjectId)||!['email','whatsapp'].includes(String(body.channel))
+      ||typeof body.purpose!=='string'||body.purpose.length<3||body.purpose.length>64
+      ||typeof body.reason!=='string'||body.reason.trim().length<3||body.reason.length>160)
+      return reply({error:'Revogação de consentimento inválida.'},400);
+    const {data,error}=await db.rpc('automation_consent_revoke',{
+      p_workspace_id:workspaceId,p_channel:body.channel,p_subject_id:body.subjectId,
+      p_purpose:body.purpose,p_reason:body.reason.trim(),p_actor_id:actor,
+    });
+    return error?reply({error:'Não foi possível revogar o consentimento.'},503)
+      :reply({ok:true,revoked:data===true});
+  }
+
   // Stage 4: immutable semantic source inventory and explicitly versioned
   // draft edits. These endpoints NEVER activate the SDR or call Meta.
   if (action === 'sdr-semantic-list') {
@@ -273,17 +296,22 @@ Deno.serve(async request => {
   // Authorized read-only choices for typed node inspectors. Never send the
   // whole commercial record or unverified template components to the browser.
   if (action === 'catalog') {
-    const [stages,templates,knowledge,dictionaries]=await Promise.all([
+    const [stages,templates,emailTemplates,replyTexts,knowledge,dictionaries]=await Promise.all([
       db.from('crm_records').select('id,data').eq('kind','stage').eq('deleted',false).limit(100),
       db.from('automation_template_registry')
         .select('id,template_name,provider_status,parameter_schema,language')
         .eq('workspace_id',workspaceId).limit(200),
+      db.from('automation_email_template_registry').select('id,name')
+        .eq('workspace_id',workspaceId).eq('status','approved').limit(200),
+      db.from('automation_sdr_reply_registry').select('text_ref')
+        .eq('workspace_id',workspaceId).eq('status','approved').limit(200),
       db.from('automation_knowledge_release').select('id,release_version')
         .eq('workspace_id',workspaceId).eq('status','published').limit(100),
       db.from('automation_intent_dictionary').select('id,release_version')
         .eq('workspace_id',workspaceId).eq('status','published').limit(100),
     ]);
-    if(stages.error||templates.error||knowledge.error||dictionaries.error)
+    if(stages.error||templates.error||emailTemplates.error||replyTexts.error
+      ||knowledge.error||dictionaries.error)
       return reply({error:'Catálogo canônico indisponível.'},503);
     return reply({ok:true,catalog:{
       stages:(stages.data||[]).map(x=>({id:x.id,name:
@@ -294,6 +322,8 @@ Deno.serve(async request => {
           &&!Array.isArray(t.parameter_schema)
           &&t.parameter_schema.components_verified===true)
         .map(t=>({id:t.id,name:t.template_name,variable_numbers: t.parameter_schema.variable_numbers})),
+      emailTemplates:(emailTemplates.data||[]).map(t=>({id:t.id,name:t.name})),
+      replyTexts:(replyTexts.data||[]).map(t=>({id:t.text_ref,name:t.text_ref})),
       knowledge:(knowledge.data||[]).map(x=>({id:x.id,name:'Conhecimento v'+x.release_version})),
       dictionaries:(dictionaries.data||[]).map(x=>({id:x.id,name:'Intenções v'+x.release_version})),
     },readOnly:true});
@@ -304,6 +334,7 @@ Deno.serve(async request => {
   if (action === 'runtime') {
     const [settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
       runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts,
+      liveWaitingCounts,liveLeasedCounts,liveCancelledCounts,
       queuedActions,leasedActions,uncertainActions,sentActions,
       failedEvents,failedExecutions,deadLetterActions] = await Promise.all([
       db.from('automation_runtime_settings').select('mode,emergency_stop,updated_at')
@@ -326,6 +357,12 @@ Deno.serve(async request => {
         .eq('workspace_id',workspaceId).eq('state','due'),
       db.from('automation_wait_timers').select('id',{head:true,count:'exact'})
         .eq('workspace_id',workspaceId).eq('state','cancelled'),
+      db.from('automation_live_waits').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','waiting'),
+      db.from('automation_live_waits').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).eq('state','leased'),
+      db.from('automation_live_waits').select('id',{head:true,count:'exact'})
+        .eq('workspace_id',workspaceId).in('state',['cancelled','dead_letter']),
       db.from('automation_action_outbox').select('id',{head:true,count:'exact'})
         .eq('workspace_id',workspaceId).eq('state','queued'),
       db.from('automation_action_outbox').select('id',{head:true,count:'exact'})
@@ -343,6 +380,7 @@ Deno.serve(async request => {
     ]);
     if ([settings, workspaceState, flowCounts, publishedCounts, inboxCounts,
       runningCounts, actionCounts,waitingCounts,dueCounts,cancelledCounts,
+      liveWaitingCounts,liveLeasedCounts,liveCancelledCounts,
       queuedActions,leasedActions,uncertainActions,sentActions,
       failedEvents,failedExecutions,deadLetterActions].some(r => r.error) ||
       !settings.data || !workspaceState.data)
@@ -357,9 +395,9 @@ Deno.serve(async request => {
       pendingEvents:inboxCounts.count||0,
       executions:runningCounts.count||0,
       actionRows:actionCounts.count||0,
-      waitingTimers:waitingCounts.count||0,
-      dueTimers:dueCounts.count||0,
-      cancelledTimers:cancelledCounts.count||0,
+      waitingTimers:(waitingCounts.count||0)+(liveWaitingCounts.count||0),
+      dueTimers:(dueCounts.count||0)+(liveLeasedCounts.count||0),
+      cancelledTimers:(cancelledCounts.count||0)+(liveCancelledCounts.count||0),
       queuedActions:queuedActions.count||0,
       leasedActions:leasedActions.count||0,
       uncertainActions:uncertainActions.count||0,
@@ -408,7 +446,7 @@ Deno.serve(async request => {
   if (action === 'execution-detail') {
     if (!validUuid(body.executionId))
       return reply({error:'Execução inválida.'},400);
-    const [header,nodes,actions,waits]=await Promise.all([
+    const [header,nodes,actions,waits,liveWaits]=await Promise.all([
       db.from('automation_executions')
         .select('id,flow_version_id,state,started_at,finished_at')
         .eq('workspace_id',workspaceId).eq('id',body.executionId).maybeSingle(),
@@ -424,13 +462,17 @@ Deno.serve(async request => {
         .select('id,node_id,state,reason_code,due_at,created_at,updated_at')
         .eq('workspace_id',workspaceId).eq('execution_id',body.executionId)
         .order('created_at',{ascending:true}).limit(100),
+      db.from('automation_live_waits')
+        .select('id,node_id,state,reason_code,due_at,created_at,updated_at')
+        .eq('workspace_id',workspaceId).eq('execution_id',body.executionId)
+        .order('created_at',{ascending:true}).limit(100),
     ]);
-    if([header,nodes,actions,waits].some(r=>r.error))
+    if([header,nodes,actions,waits,liveWaits].some(r=>r.error))
       return reply({error:'Diagnóstico indisponível.'},503);
     if(!header.data)return reply({error:'Execução não encontrada.'},404);
     return reply({ok:true,readOnly:true,sanitized:true,dispatchAuthorized:false,
       execution:header.data,nodes:nodes.data||[],
-      actions:actions.data||[],timers:waits.data||[]});
+      actions:actions.data||[],timers:[...(waits.data||[]),...(liveWaits.data||[])]});
   }
 
   // Authenticated preflight reads canonical references on the server.
