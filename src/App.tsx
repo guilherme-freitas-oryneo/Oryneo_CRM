@@ -3,7 +3,7 @@ import { commercialStageList } from './automation/postSaleStage';
 import { lazy,Suspense,useCallback,useEffect,useRef,useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { Search,Plus,Columns3,ChevronDown,ArrowUpRight,Undo2,RefreshCw,LogOut,Building2,CalendarDays,GripVertical,Check,ArrowRight,X,SlidersHorizontal,Mail,FlaskConical,MessageCircle,Bot,BookOpen,Workflow } from 'lucide-react';
-import { supabase,getBoard,mutate,undo,errorText,money,matches,type RecordRow,type StageRow,type DealRow,type Stage,type Deal } from './data';
+import { supabase,getBoard,getPostSaleBridgeStatus,mutate,undo,errorText,money,matches,type RecordRow,type StageRow,type DealRow,type Stage,type Deal } from './data';
 import { Login,Spinner,Actions,More,Modal,StageEditor,DealEditor,type Action } from './components';
 import {DealDetails} from './DealDetails';
 import {Activities} from './Activities';
@@ -24,6 +24,7 @@ export default function App(){
 }
 function Board({session}:{session:Session}){
  const [rows,setRows]=useState<RecordRow[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[loadError,setLoadError]=useState('');
+ const [postSaleBridgeVerified,setPostSaleBridgeVerified]=useState(false);
  const [query,setQuery]=useState(''),[stageQueries,setStageQueries]=useState<Record<string,string>>({}),[outcome,setOutcome]=useState('all'),[actionFilter,setActionFilter]=useState('all');
  const [view,setView]=useState<'pipeline'|'activities'|'mail'|'whatsapp'|'playbook'|'settings'|'automations'|'qa'>(()=>new URLSearchParams(window.location.search).has('qa_return')?'qa':'pipeline'),[mailMounted,setMailMounted]=useState(false);
  const [editor,setEditor]=useState<Editor|null>(null),[deleting,setDeleting]=useState<RecordRow|null>(null),[moveDeal,setMoveDeal]=useState<DealRow|null>(null),[detailId,setDetailId]=useState<string|null>(null);
@@ -31,11 +32,10 @@ function Board({session}:{session:Session}){
  const queryRef=useRef<HTMLInputElement>(null),busyRef=useRef(false),fetchRef=useRef(0);
  const stages=rows.filter(r=>r.kind==='stage') as StageRow[];stages.sort((a,b)=>a.data.position-b.data.position||a.id.localeCompare(b.id));
  const deals=(rows.filter(r=>r.kind==='deal') as DealRow[]).sort((a,b)=>b.created_at.localeCompare(a.created_at));
- // A gated display-only split: the old implantation stage remains in DB.
- // Do not enable until the paid-delivery bridge migration is deployed.
- const commercialStages=commercialStageList(stages,deals,import.meta.env.VITE_ORYNEO_POSTSALE_SPLIT==='true');
+ // Display only: disabling the verified bridge immediately restores the legacy column.
+ const commercialStages=commercialStageList(stages,deals,postSaleBridgeVerified);
  const detailDeal=deals.find(d=>d.id===detailId);
- const refresh=useCallback(async(silent=false)=>{const req=++fetchRef.current;if(!silent)setLoading(true);try{const result=await getBoard();if(req===fetchRef.current){setRows(result);setLoadError('');setSynced(new Date())}}catch(e){if(req===fetchRef.current)setLoadError(errorText(e))}finally{if(req===fetchRef.current)setLoading(false)}},[]);
+ const refresh=useCallback(async(silent=false)=>{const req=++fetchRef.current;if(!silent)setLoading(true);try{const [result,bridgeVerified]=await Promise.all([getBoard(),getPostSaleBridgeStatus()]);if(req===fetchRef.current){setRows(result);setPostSaleBridgeVerified(bridgeVerified);setLoadError('');setSynced(new Date())}}catch(e){if(req===fetchRef.current){setPostSaleBridgeVerified(false);setLoadError(errorText(e))}}finally{if(req===fetchRef.current)setLoading(false)}},[]);
  useEffect(()=>{
   void refresh();
   let realtimeTimer:ReturnType<typeof setTimeout>|undefined;
@@ -43,10 +43,13 @@ function Board({session}:{session:Session}){
    if(realtimeTimer)clearTimeout(realtimeTimer);
    realtimeTimer=setTimeout(()=>{if(!busyRef.current)void refresh(true)},120);
   }).subscribe();
+  const bridgeChannel=supabase.channel?.(`crm-postsale-${session.user.id}`).on('postgres_changes',{event:'*',schema:'public',table:'crm_postsale_bridge_settings'},()=>{
+   if(!busyRef.current)void refresh(true);
+  }).subscribe();
   const interval=setInterval(()=>{if(document.visibilityState==='visible'&&!busyRef.current)void refresh(true)},30000);
   const focus=()=>{if(!busyRef.current)void refresh(true)};
   window.addEventListener('focus',focus);
-  return()=>{if(realtimeTimer)clearTimeout(realtimeTimer);clearInterval(interval);window.removeEventListener('focus',focus);if(channel)void supabase.removeChannel(channel)};
+  return()=>{if(realtimeTimer)clearTimeout(realtimeTimer);clearInterval(interval);window.removeEventListener('focus',focus);if(channel)void supabase.removeChannel(channel);if(bridgeChannel)void supabase.removeChannel(bridgeChannel)};
  },[refresh,session.user.id]);
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(null),toast.error?10000:4500);return()=>clearTimeout(t)},[toast]);
  const perform=async(action:()=>Promise<string|void>,message:string,close=true,isUndo=false)=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);try{const op=await action();setOperation(isUndo?null:op||null);setToast({message});if(close){setEditor(null);setDeleting(null);setMoveDeal(null)}await refresh(true)}catch(e){setToast({message:errorText(e),error:true});await refresh(true)}finally{busyRef.current=false;setBusy(false)}};

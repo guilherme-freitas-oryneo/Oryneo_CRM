@@ -13,7 +13,7 @@ vi.mock('./data', () => ({
     getSession: vi.fn(() => Promise.resolve({ data: { session: { user: { id: 'user-1', email: 'gestor@oryneo.com.br' } } } })),
     onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })), signOut: vi.fn(() => Promise.resolve({ error: null })),
   },channel:vi.fn(()=>{const channel={on:vi.fn((_type:string,_filter:unknown,handler:()=>void)=>{realtime.handler=handler;return channel}),subscribe:vi.fn(()=>channel)};return channel}),removeChannel:vi.fn() },
-  getBoard: vi.fn(() => Promise.resolve([])), mutate: vi.fn(), undo: vi.fn(), errorText: (error: unknown) => String(error),
+  getBoard: vi.fn(() => Promise.resolve([])), getPostSaleBridgeStatus: vi.fn(() => Promise.resolve(false)), mutate: vi.fn(), undo: vi.fn(), errorText: (error: unknown) => String(error),
   money: () => 'R$ 0,00', matches: () => true,
 }));
 

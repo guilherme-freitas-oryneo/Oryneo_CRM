@@ -25,6 +25,9 @@ describe('Separação comercial e pós-venda sem perda',()=>{
   const d=deal('a',LEGACY_IMPLEMENTATION_STAGE_ID);
   expect(commercialStageList(original,[d],true)).toEqual(original);
  });
+ it('reexibe a coluna legada imediatamente quando a ponte é desligada',()=>{
+  expect(commercialStageList(original,[],false)).toEqual(original);
+ });
  it('não altera stage_id, objetos de entrada nem resultados comerciais',()=>{
   const copy=structuredClone(original),d=deal('a','11111111-1111-4111-8111-111111111111');
   commercialStageList(original,[d],true);
