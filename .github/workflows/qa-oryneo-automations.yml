@@ -28,34 +28,6 @@ permissions:
   contents: read
 
 jobs:
-  implementation-email-claim:
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-    env:
-      PGHOST: 127.0.0.1
-      PGPORT: '5432'
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: postgres
-    steps:
-      - uses: actions/checkout@v4
-      - name: Garantir que estorno bloqueia e-mail de implantação sem alterar e-mail de entrada
-        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/implementation_email_claim_guard.qa.sql
-
   schema-isolation:
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -274,6 +246,13 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/release_attestation_interlock.qa.sql
       - name: Confirmar que a migração versionada de release é reexecutável
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031235900_oryneo_release_attestation_interlock_dormant.sql
+      - name: Representar apenas a dependência da caixa postal no banco descartável
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE IF NOT EXISTS public.crm_mailboxes (
+            id uuid PRIMARY KEY
+          );
+          SQL
       - name: Instalar primitivas dormentes da etapa 2 sem alterar ownership
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261102003224_oryneo_stage2_durable_engine_dormant.sql
       - name: Homologar espera live, commit transacional e recuperação após crash

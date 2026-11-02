@@ -24,6 +24,8 @@ BEGIN
  INSERT INTO public.automation_workspaces(id,slug,active) VALUES(w,'stage2-live-wait',true);
  INSERT INTO public.automation_runtime_settings(workspace_id,mode,emergency_stop)
   VALUES(w,'live',false);
+ INSERT INTO public.crm_wa_conversations(id,mode,opted_out,consent_granted)
+  VALUES(convo,'sdr_active',false,true);
  INSERT INTO public.automation_flows(id,workspace_id,slug,name,kind,enabled)
   VALUES(flow,w,'stage2-wait','Stage 2 wait','pipeline',false);
  INSERT INTO public.automation_flow_versions(id,workspace_id,flow_id,version,schema_version,
