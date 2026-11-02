@@ -16,6 +16,7 @@ DECLARE
  wa_inbox uuid:='23000000-0000-4000-8000-000000000015';wa_execution uuid:='23000000-0000-4000-8000-000000000016';
  wa_node text:='23000000-0000-4000-8000-000000000017';wa_action uuid:='23000000-0000-4000-8000-000000000018';
  email_claim record;wa_claim record;consent_visible boolean;consent_revoked boolean;consent_audited boolean;
+ gate_name text;channel_scope text;
 BEGIN
  IF has_function_privilege('authenticated','public.automation_email_claim(uuid,integer)','EXECUTE')
   OR has_function_privilege('authenticated','public.automation_whatsapp_claim_reply(uuid,integer)','EXECUTE')
@@ -26,10 +27,28 @@ BEGIN
  PERFORM set_config('request.jwt.claim.sub',actor::text,true);
  INSERT INTO public.automation_workspace_members(workspace_id,user_id,role,granted_by)
  VALUES(w,actor,'admin',actor);
+ FOREACH gate_name IN ARRAY ARRAY['legal','playbook','rollback','security','authenticated_e2e'] LOOP
+  INSERT INTO public.automation_release_attestations(workspace_id,scope,gate,evidence_sha256,
+   evidence_ref,reviewed_by,reviewed_at,expires_at)
+  VALUES(w,'global',gate_name,repeat('9',64),'https://example.test/stage2/release-evidence',
+   actor,clock_timestamp(),clock_timestamp()+interval '1 day');
+ END LOOP;
+ FOREACH channel_scope IN ARRAY ARRAY['email','whatsapp'] LOOP
+  FOREACH gate_name IN ARRAY ARRAY['provider_verified','consent_policy','single_owner'] LOOP
+   INSERT INTO public.automation_release_attestations(workspace_id,scope,gate,evidence_sha256,
+    evidence_ref,reviewed_by,reviewed_at,expires_at)
+   VALUES(w,channel_scope,gate_name,repeat('8',64),'https://example.test/stage2/channel-evidence',
+    actor,clock_timestamp(),clock_timestamp()+interval '1 day');
+  END LOOP;
+ END LOOP;
+ INSERT INTO public.automation_release_attestations(workspace_id,scope,gate,evidence_sha256,
+  evidence_ref,reviewed_by,reviewed_at,expires_at)
+ VALUES(w,'email','mailbox_verified',repeat('7',64),
+  'https://example.test/stage2/mailbox-evidence',actor,clock_timestamp(),clock_timestamp()+interval '1 day');
  INSERT INTO public.automation_runtime_settings(workspace_id,mode,emergency_stop) VALUES(w,'live',false);
  INSERT INTO public.automation_channel_ownership(workspace_id,channel,owner,legacy_dispatch_paused_at,release_approved_at,release_id)
- VALUES(w,'email','new_engine',clock_timestamp(),clock_timestamp(),'qa-email'),
-  (w,'whatsapp','new_engine',clock_timestamp(),clock_timestamp(),'qa-wa');
+ VALUES(w,'email','new_engine',clock_timestamp(),clock_timestamp(),'qa-email-stage2'),
+  (w,'whatsapp','new_engine',clock_timestamp(),clock_timestamp(),'qa-whatsapp-stage2');
  INSERT INTO public.crm_mailboxes(id) VALUES(mailbox);
  INSERT INTO public.automation_email_provider_bindings(workspace_id,mailbox_id,verified_by,verified_at,
   release_approved_by,release_approved_at,enabled)
