@@ -11,6 +11,7 @@ import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
 import { STARTER_FLOWS, buildStarterFlow } from './starterFlows';
 import { buildCrmReviewStarter } from './safeStarterActionPlans';
 import { SIMULATION_CASES, buildSimulationCase, type SimulationCaseId } from './simulationCases';
+import {assessFlowOperationalReadiness} from './runtimeReadiness';
 import './automations-workspace.css';
 import './commercial-readiness.css';
 import {SdrIntelligencePanel} from './SdrIntelligencePanel.tsx';
@@ -210,6 +211,8 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   }),[current]);
   const selected = current?.nodes.find(node => node.id === selectedId) || null;
   const validation = useMemo(() => current ? validateFlow(current) : null, [current]);
+  const flowOperationalReadiness=useMemo(() => current
+    ? assessFlowOperationalReadiness(current) : null,[current]);
   const controlShadow=async(enable:boolean)=>{
     if(!workspace||workspace.role!=='admin')return;
     setSyncBusy(true);setSyncError('');
@@ -633,6 +636,10 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
         <div className="ory-auto-editor-toolbar">
           <div className="ory-auto-editor-name"><button aria-label="Voltar à lista" onClick={()=>{setOpenId(null);setHistory(null)}}><ArrowRight size={17} style={{transform:'rotate(180deg)'}}/></button>
             <input aria-label="Nome do fluxo" value={current.name} maxLength={160} onChange={e => commit({ok:true,graph:{...current,name:e.target.value}})}/><span className="ory-auto-draft">RASCUNHO · V{current.version}</span>
+            {flowOperationalReadiness&&<span className="ory-auto-draft" role="status"
+              title="Indicador informativo; permissões reais são validadas no servidor.">
+              {flowOperationalReadiness.message}
+            </span>}
           </div>
           <div className="ory-auto-editor-actions">
             <button title="Organizar nós automaticamente" onClick={()=>commit(autoLayoutFlow(current))}><Layers3 size={16}/>Organizar</button>
