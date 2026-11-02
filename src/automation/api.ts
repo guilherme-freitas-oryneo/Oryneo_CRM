@@ -155,6 +155,27 @@ export async function loadRemoteAutomationRuntime(
   return result.runtime;
 }
 
+export type ShadowControlResult={
+  mode:'disabled'|'shadow';emergencyStop:boolean;workspaceActive:boolean;
+  shadowOnly:true;dispatchAuthorized:false;publishedFlows?:number;alreadyRunning?:boolean;
+};
+/**
+ * Freezes validated drafts and controls observation-only homologation.
+ * The backend preserves legacy channel ownership and never authorizes dispatch.
+ */
+export async function setRemoteShadowHomologation(
+  workspaceId:string,enable:boolean,
+):Promise<{result:ShadowControlResult;publishedFlows:number}> {
+  const response=await invoke<{
+    ok:true;result:ShadowControlResult;shadowOnly:true;
+    publishedFlows:number;dispatchAuthorized:false;
+  }>({action:'shadow-control',workspaceId,enable});
+  if(response.shadowOnly!==true||response.dispatchAuthorized!==false
+    ||response.result.dispatchAuthorized!==false)
+    throw new Error('Controle de homologação sem garantias de segurança.');
+  return {result:response.result,publishedFlows:response.publishedFlows||0};
+}
+
 
 export type ServerShadowPreview={
   shadowOnly:true;

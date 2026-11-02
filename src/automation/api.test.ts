@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { listRemoteAutomationTemplates, listRemoteAutomationExecutions, loadAutomationWorkspaces, loadRemoteReleaseGates, saveRemoteAutomationDraft } from './api';
+import { listRemoteAutomationTemplates, listRemoteAutomationExecutions, loadAutomationWorkspaces, loadRemoteReleaseGates, saveRemoteAutomationDraft, setRemoteShadowHomologation } from './api';
 import type { FlowDefinition } from './flowDefinition';
 
 const invoke = vi.hoisted(() => vi.fn());
@@ -60,5 +60,22 @@ describe('automations draft client contract', () => {
     expect(await listRemoteAutomationTemplates(workspaceId)).toHaveLength(1);
     expect(await listRemoteAutomationExecutions(workspaceId)).toEqual([]);
     expect(invoke.mock.calls.every(([,arg]) => ['templates','executions'].includes(arg.body.action))).toBe(true);
+  });
+  it('starts only a server-confirmed non-emitting shadow homologation', async()=>{
+    invoke.mockResolvedValue({data:{ok:true,shadowOnly:true,dispatchAuthorized:false,
+      publishedFlows:8,result:{mode:'shadow',emergencyStop:false,workspaceActive:true,
+        shadowOnly:true,dispatchAuthorized:false,publishedFlows:8}},error:null});
+    const result=await setRemoteShadowHomologation(workspaceId,true);
+    expect(result.publishedFlows).toBe(8);
+    expect(invoke).toHaveBeenCalledWith('automation-api',{
+      body:{action:'shadow-control',workspaceId,enable:true},
+    });
+  });
+  it('rejects a shadow response that claims dispatch permission',async()=>{
+    invoke.mockResolvedValue({data:{ok:true,shadowOnly:true,dispatchAuthorized:false,
+      publishedFlows:0,result:{mode:'shadow',emergencyStop:false,workspaceActive:true,
+        shadowOnly:true,dispatchAuthorized:true}},error:null});
+    await expect(setRemoteShadowHomologation(workspaceId,true))
+      .rejects.toThrow('garantias de segurança');
   });
 });

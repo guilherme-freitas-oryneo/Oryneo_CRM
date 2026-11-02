@@ -1,6 +1,6 @@
 /**
- * ORYNEO Automations draft API.
- * Deliberately excludes publish, event ingestion and outbound execution.
+ * ORYNEO Automations control API.
+ * Publication only freezes disabled snapshots; outbound execution is excluded.
  * Service-key DB access is always preceded by live JWT verification, CRM
  * membership and workspace role checks. Never trust client-supplied actor IDs.
  */
@@ -509,6 +509,95 @@ Deno.serve(async request => {
     } catch {
       return reply({error:'Referências canônicas indisponíveis para validação.'},503);
     }
+  }
+
+  /**
+   * One-click, shadow-only homologation. The server freezes every current
+   * draft after canonical validation and only then asks the database to start
+   * observation. No flow is enabled and no channel ownership is transferred.
+   */
+  if (action === 'shadow-control') {
+    if (member.role !== 'admin')
+      return reply({error:'Administrador obrigatório para controlar a homologação.'},403);
+    if (typeof body.enable !== 'boolean')
+      return reply({error:'Estado da homologação inválido.'},400);
+    if (!body.enable) {
+      const stopped=await db.rpc('automation_shadow_control',{
+        p_workspace_id:workspaceId,p_actor_id:actor,p_enable:false,
+      });
+      if(stopped.error){const mapped=errorCode(stopped.error.code);return reply(mapped.body,mapped.status);}
+      return reply({ok:true,result:stopped.data,shadowOnly:true,
+        publishedFlows:0,dispatchAuthorized:false});
+    }
+
+    const settings=await db.from('automation_runtime_settings')
+      .select('mode,emergency_stop').eq('workspace_id',workspaceId).maybeSingle();
+    if(settings.error||!settings.data)
+      return reply({error:'Estado de segurança indisponível.'},503);
+    if(settings.data.mode==='shadow'&&settings.data.emergency_stop===false){
+      const current=await db.rpc('automation_shadow_control',{
+        p_workspace_id:workspaceId,p_actor_id:actor,p_enable:true,
+      });
+      if(current.error){const mapped=errorCode(current.error.code);return reply(mapped.body,mapped.status);}
+      return reply({ok:true,result:current.data,shadowOnly:true,
+        publishedFlows:0,dispatchAuthorized:false});
+    }
+    if(settings.data.mode!=='disabled'||settings.data.emergency_stop!==true)
+      return reply({error:'A preparação exige motor desabilitado e parada de emergência.'},409);
+
+    const flows=await db.from('automation_flows')
+      .select('id,kind,revision,published_version_id').eq('workspace_id',workspaceId)
+      .order('created_at',{ascending:true}).limit(30);
+    if(flows.error||!flows.data?.length)
+      return reply({error:'Fluxos canônicos indisponíveis para homologação.'},503);
+    const refs=await loadTrustedReferences(db,workspaceId).catch(()=>null);
+    if(!refs)return reply({error:'Referências canônicas indisponíveis.'},503);
+    const prepared:Array<{flowId:string;revision:number;graph:Graph;
+      validation:ReturnType<typeof inspectServerGraph>;compiledHash:string}>=[];
+    for(const flow of flows.data){
+      const version=await db.from('automation_flow_versions')
+        .select('id,graph_json').eq('workspace_id',workspaceId).eq('flow_id',flow.id)
+        .eq('status','draft').order('version',{ascending:false}).limit(1).maybeSingle();
+      if(version.error)return reply({error:'Falha ao consultar rascunhos canônicos.'},503);
+      if(!version.data){
+        if(!flow.published_version_id)
+          return reply({error:'Há fluxo sem rascunho ou versão congelada.',code:'PREFLIGHT_FAILED'},422);
+        continue;
+      }
+      const graph=graphFrom(version.data.graph_json);
+      if(!graph||graph.id!==flow.id||graph.kind!==flow.kind)
+        return reply({error:'Há rascunho inconsistente.',code:'PREFLIGHT_FAILED'},422);
+      let validation=inspectServerGraph(graph,refs);
+      let compiledHash='';
+      if(validation.ok){
+        const compiled=await compileExecutionGraph({...graph,status:'published'},refs);
+        if(!compiled.ok)validation={...validation,ok:false,issues:compiled.issues};
+        else compiledHash=compiled.compiled.graphHash;
+      }
+      if(!validation.ok)return reply({
+        error:`O fluxo “${graph.name}” possui bloqueios de publicação.`,
+        validation,code:'PREFLIGHT_FAILED',
+      },422);
+      prepared.push({flowId:flow.id,revision:Number(flow.revision),graph,validation,compiledHash});
+    }
+    // Every draft passed before the first immutable write. A conflict is safe:
+    // runtime stays disabled and a retry skips snapshots already frozen.
+    for(const item of prepared){
+      const released=await db.rpc('automation_publish_disabled',{
+        p_workspace_id:workspaceId,p_actor_id:actor,p_flow_id:item.flowId,
+        p_expected_revision:item.revision,p_graph:item.graph,
+        p_validation:{ok:true,issues:[],dispatchAuthorized:false,
+          preflight:'server',compiledPlanHash:item.compiledHash,
+          nodeCount:item.validation.nodeCount,edgeCount:item.validation.edgeCount},
+      });
+      if(released.error){const mapped=errorCode(released.error.code);return reply(mapped.body,mapped.status);}
+    }
+    const started=await db.rpc('automation_shadow_control',{
+      p_workspace_id:workspaceId,p_actor_id:actor,p_enable:true,
+    });
+    if(started.error){const mapped=errorCode(started.error.code);return reply(mapped.body,mapped.status);}
+    return reply({ok:true,result:started.data,shadowOnly:true,
+      publishedFlows:prepared.length,dispatchAuthorized:false});
   }
 
   /**

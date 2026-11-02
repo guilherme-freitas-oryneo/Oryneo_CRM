@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, BookOpen, CirclePlay, Clock3, FileJson, GitBra
 import { connectPorts, reconnectEdge, createHistory, insertNodeOnEdge, moveNode, autoLayoutFlow, recordEdit, redoEdit, removeNode, undoEdit, type DraftHistory } from './graphEditing';
 import { nodePalette, NODE_REGISTRY, type NodeFamily } from './nodeRegistry';
 import { simulateFlow, validateFlow, type FlowDefinition, type FlowKind, type FlowNode, type NodeKind } from './flowDefinition';
-import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, loadRemoteAutomationExecutionDetail, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime,loadRemoteCommercialReadiness,loadRemoteReleaseGates,type ReleaseGateStatus, type CommercialReadiness, type ServerShadowPreview, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution, type AutomationExecutionDetail } from './api';
+import { loadAutomationWorkspaces, listRemoteAutomationFlows, loadRemoteAutomationFlow, saveRemoteAutomationDraft, listRemoteAutomationTemplates, listRemoteAutomationExecutions, loadRemoteAutomationExecutionDetail, validateRemoteAutomationDraft, freezeRemoteAutomationVersion, simulateRemoteAutomationDraft, loadRemoteNodeCatalog, loadRemoteAutomationRuntime,setRemoteShadowHomologation,loadRemoteCommercialReadiness,loadRemoteReleaseGates,type ReleaseGateStatus, type CommercialReadiness, type ServerShadowPreview, type AutomationRuntimeStatus, type NodeReferenceCatalog, type WorkspaceGrant, type RemoteFlow, type AutomationTemplate, type AutomationExecution, type AutomationExecutionDetail } from './api';
 import { ConditionRuleEditor } from './ConditionRuleEditor';
 import { duplicateDraftNode,fitGraphView,importDraftJson,moveSelectedNodes,removeEdgeById,removeSelectedNodes,routeBranchLabel,viewportToGraph } from './editorCommands';
 import { TypedNodeConfigEditor } from './TypedNodeConfigEditor';
@@ -148,6 +148,7 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   const [lastRemoteJson, setLastRemoteJson] = useState<Record<string,string>>({});
   const [syncError, setSyncError] = useState('');
   const [syncBusy, setSyncBusy] = useState(false);
+  const [shadowConfirm,setShadowConfirm]=useState(false);
   useEffect(() => {
     if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(userId)) return;
     let cancelled = false;
@@ -209,6 +210,25 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
   }),[current]);
   const selected = current?.nodes.find(node => node.id === selectedId) || null;
   const validation = useMemo(() => current ? validateFlow(current) : null, [current]);
+  const controlShadow=async(enable:boolean)=>{
+    if(!workspace||workspace.role!=='admin')return;
+    setSyncBusy(true);setSyncError('');
+    try{
+      const result=await setRemoteShadowHomologation(workspace.id,enable);
+      const [runtime,flows,executions]=await Promise.all([
+        loadRemoteAutomationRuntime(workspace.id),listRemoteAutomationFlows(workspace.id),
+        listRemoteAutomationExecutions(workspace.id),
+      ]);
+      setRuntimeStatus(runtime);setRemoteFlows(flows);setRemoteExecutions(executions);
+      setRemoteRevision(Object.fromEntries(flows.map(flow=>[flow.id,flow.revision])));
+      setNotice(enable
+        ?`Homologação iniciada com ${result.publishedFlows} novo(s) snapshot(s). Nenhum envio foi autorizado.`
+        :'Homologação encerrada. Motor novamente em parada de emergência.');
+      setShadowConfirm(false);
+    }catch(error){
+      setSyncError(error instanceof Error?error.message:'Não foi possível alterar a homologação.');
+    }finally{setSyncBusy(false);}
+  };
   const commit = (change: ReturnType<typeof moveNode>) => {
     if (!history) return;
     if (!change.ok) { setNotice('A operação não foi aplicada: ' + change.code); return; }
@@ -792,7 +812,33 @@ export function AutomationsWorkspace({ userId }: { userId: string }) {
           <div><span>Fluxos no workspace</span><strong>{runtimeStatus?.flows ?? remoteFlows.length}</strong><small>{runtimeStatus ? `${runtimeStatus.publishedVersions} versões congeladas · ${runtimeStatus.mode}` : 'Motor sem telemetria confirmada'}</small></div>
           <div><span>Templates Meta sincronizados</span><strong>{metaTemplates.length||'—'}</strong><small>Envios exigem status e consentimento válidos no momento do disparo</small></div>
           <div><span>Execuções do novo motor</span><strong>{remoteExecutions.length}</strong><small>{runtimeStatus?.emergencyStop?'Ativação bloqueada':'Consulte os critérios de liberação'}</small></div>
-        </div><details className="ory-auto-technical"><summary>Indicadores técnicos e critérios de liberação</summary><div className="ory-auto-stat-grid">
+        </div>
+        <section className="ory-auto-shadow-control" aria-label="Homologação segura das automações">
+          <div><span className="ory-auto-overline">HOMOLOGAÇÃO SEGURA</span>
+            <h3>{runtimeStatus?.mode==='shadow'?'Observação em andamento':'Pronto para observar os fluxos'}</h3>
+            <p>Analisa eventos reais e registra o percurso dos fluxos. Não envia WhatsApp ou e-mail,
+              não altera o pipeline, não cria cobranças e mantém todos os canais no sistema atual.</p>
+          </div>
+          <div className="ory-auto-shadow-actions">
+            <span className={runtimeStatus?.mode==='shadow'?'running':'stopped'}>
+              {runtimeStatus?.mode==='shadow'?'MODO SOMBRA ATIVO':'SEM EFEITO OPERACIONAL'}</span>
+            {workspace?.role==='admin'&&runtimeStatus?.mode!=='live'&&<>
+              {!shadowConfirm?<button type="button" disabled={syncBusy||!runtimeStatus}
+                onClick={()=>setShadowConfirm(true)}>
+                {runtimeStatus?.mode==='shadow'?'Encerrar homologação':'Preparar e iniciar homologação'}
+              </button>:<div className="ory-auto-shadow-confirm" role="group" aria-label="Confirmar homologação">
+                <p>{runtimeStatus?.mode==='shadow'
+                  ?'Encerrar a observação agora? Os registros já coletados serão preservados.'
+                  :'O servidor validará e congelará os rascunhos antes de iniciar a observação sem disparos.'}</p>
+                <button type="button" className="primary" disabled={syncBusy}
+                  onClick={()=>void controlShadow(runtimeStatus?.mode!=='shadow')}>
+                  {syncBusy?'Processando…':'Confirmar'}</button>
+                <button type="button" disabled={syncBusy} onClick={()=>setShadowConfirm(false)}>Cancelar</button>
+              </div>}
+            </>}
+          </div>
+        </section>
+        <details className="ory-auto-technical"><summary>Indicadores técnicos e critérios de liberação</summary><div className="ory-auto-stat-grid">
           <div><span>Rascunhos locais</span><strong>{drafts.length}</strong><small>Backups neste dispositivo</small></div>
           <div><span>Eventos pendentes</span><strong>{runtimeStatus?.pendingEvents ?? '—'}</strong><small>Observação autorizada do servidor</small></div>
           <div><span>Registros de ação</span><strong>{runtimeStatus?.actionRows ?? '—'}</strong><small>{runtimeStatus?.emergencyStop ? 'Bloqueados pela parada de emergência' : 'Consulte a política ativa'}</small></div>

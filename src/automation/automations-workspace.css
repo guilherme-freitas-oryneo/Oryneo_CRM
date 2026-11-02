@@ -248,3 +248,18 @@
 @media(prefers-reduced-motion:reduce){
  .ory-auto-node,.ory-auto-node-body,.ory-auto-connections path{transition:none!important;animation:none!important}
 }
+
+.ory-auto-shadow-control{display:flex;align-items:center;justify-content:space-between;gap:28px;margin:18px 20px 22px;padding:22px 24px;border:1px solid #d9e5ed;border-radius:10px;background:#fbfcfd}
+.ory-auto-shadow-control h3{margin:5px 0 7px;font-size:15px;color:#263d53}
+.ory-auto-shadow-control p{max-width:690px;margin:0;color:#65798b;font-size:11px;line-height:1.65}
+.ory-auto-shadow-actions{display:flex;flex-direction:column;align-items:flex-end;gap:10px;min-width:225px}
+.ory-auto-shadow-actions>span{font-size:9px;font-weight:800;letter-spacing:.08em;padding:5px 8px;border-radius:999px}
+.ory-auto-shadow-actions>span.stopped{color:#66798b;background:#eef2f5}
+.ory-auto-shadow-actions>span.running{color:#17695e;background:#e5f4ef}
+.ory-auto-shadow-actions button{min-height:35px;border:1px solid #b8c9d8;border-radius:7px;background:white;color:#315675;padding:8px 13px;font-size:10px;font-weight:700;cursor:pointer}
+.ory-auto-shadow-actions button:disabled{opacity:.5;cursor:not-allowed}
+.ory-auto-shadow-confirm{max-width:280px;padding:12px;border:1px solid #dce6ee;border-radius:8px;background:#fff;text-align:right}
+.ory-auto-shadow-confirm p{font-size:10px;line-height:1.5;margin:0 0 9px}
+.ory-auto-shadow-confirm button{margin-left:6px}
+.ory-auto-shadow-confirm button.primary{color:#fff;background:#315f88;border-color:#315f88}
+@media(max-width:720px){.ory-auto-shadow-control{align-items:stretch;flex-direction:column}.ory-auto-shadow-actions{align-items:stretch;min-width:0}.ory-auto-shadow-confirm{max-width:none;text-align:left}.ory-auto-shadow-confirm button{margin:5px 6px 0 0}}
