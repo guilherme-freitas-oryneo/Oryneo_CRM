@@ -18,16 +18,21 @@ const EVENTS = [
 export async function loadTrustedReferences(
   db: QueryClient, workspaceId: string,
 ): Promise<TrustedReferences> {
-  const [stages,templates,knowledge,dictionaries]=await Promise.all([
+  const [stages,templates,emailTemplates,replyTexts,knowledge,dictionaries]=await Promise.all([
     db.from('crm_records').select('id').eq('kind','stage').eq('deleted',false).limit(100),
     db.from('automation_template_registry')
       .select('id,provider_status,parameter_schema').eq('workspace_id',workspaceId).limit(200),
+    db.from('automation_email_template_registry')
+      .select('id').eq('workspace_id',workspaceId).eq('status','approved').limit(200),
+    db.from('automation_sdr_reply_registry')
+      .select('text_ref').eq('workspace_id',workspaceId).eq('status','approved').limit(200),
     db.from('automation_knowledge_release')
       .select('id').eq('workspace_id',workspaceId).eq('status','published').limit(100),
     db.from('automation_intent_dictionary')
       .select('id').eq('workspace_id',workspaceId).eq('status','published').limit(100),
   ]);
-  if(stages.error||templates.error||knowledge.error||dictionaries.error)
+  if(stages.error||templates.error||emailTemplates.error||replyTexts.error
+    ||knowledge.error||dictionaries.error)
     throw new Error('CANONICAL_REFERENCES_UNAVAILABLE');
   const verified=(templates.data||[]).filter((t:{
     id:string;provider_status:string;parameter_schema:unknown;
@@ -49,6 +54,8 @@ export async function loadTrustedReferences(
     templateVariables:Object.fromEntries(verified.map((t:{id:string;parameter_schema:{
       variable_numbers:string[];
     }})=>[t.id,t.parameter_schema.variable_numbers])),
+    emailTemplateIds:(emailTemplates.data||[]).map((x:{id:string})=>x.id),
+    replyTextRefs:(replyTexts.data||[]).map((x:{text_ref:string})=>x.text_ref),
     knowledgeIds:(knowledge.data||[]).map((x:{id:string})=>x.id),
     dictionaryIds:(dictionaries.data||[]).map((x:{id:string})=>x.id),
   };

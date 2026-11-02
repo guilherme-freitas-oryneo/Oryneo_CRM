@@ -110,13 +110,13 @@ export function TypedNodeConfigEditor({node,catalog,onChange}:Props){
       <small>O servidor exige a origem explícita de cada variável. Não são criados valores presumidos.</small>
     </div>;
     case 'whatsapp_reply':return <div className="ory-auto-typed-config">
-      {input('text_ref','Referência do texto aprovado',256)}
-      <small>Envios livres exigem janela válida e revisão do adaptador antes da ativação.</small>
+      {reference('text_ref','Texto aprovado',catalog?.replyTexts)}
+      <small>A execução exige consentimento atual, atendimento SDR e janela válida de 24 horas.</small>
     </div>;
     case 'email':return <div className="ory-auto-typed-config">
-      {input('template_id','Identificador do template de e-mail',36)}
+      {reference('template_id','Template de e-mail aprovado',catalog?.emailTemplates)}
       {choice('recipient_field','Origem do destinatário',['lead.email','opportunity.email'])}
-      <small>Somente templates registrados no backend poderão ser publicados.</small>
+      <small>O destinatário e o consentimento da finalidade são revalidados imediatamente antes do envio.</small>
     </div>;
     case 'crm_stage_change':return <div className="ory-auto-typed-config">
       {reference('target_stage_id','Etapa comercial de destino',catalog?.stages)}
@@ -136,7 +136,7 @@ export function TypedNodeConfigEditor({node,catalog,onChange}:Props){
     case 'wait':return <div className="ory-auto-typed-config">
       {integer('duration_minutes','Tempo de espera (minutos)',1,43200,60)}
       {boolean('cancel_on_reply','Cancelar espera quando houver resposta')}
-      <small>Espera durável somente após implantação do scheduler e homologação de cancelamento.</small>
+      <small>A espera é persistida e cancelada por resposta, opt-out, takeover ou revogação de release.</small>
     </div>;
     case 'human_handoff':return <div className="ory-auto-typed-config">
       {input('reason_code','Código do motivo de transferência',64)}

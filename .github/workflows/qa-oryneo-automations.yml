@@ -18,6 +18,8 @@ on:
       - 'supabase/functions/automation-shadow-worker/**'
       - 'supabase/functions/automation-commercial-crm-worker/**'
       - 'supabase/functions/automation-meta-template-worker/**'
+      - 'supabase/functions/automation-email-worker/**'
+      - 'supabase/functions/automation-whatsapp-reply-worker/**'
       - 'supabase/functions/tests/automation_*'
       - '.github/workflows/qa-oryneo-automations.yml'
   workflow_dispatch:
@@ -244,6 +246,14 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/automation/release_attestation_interlock.qa.sql
       - name: Confirmar que a migração versionada de release é reexecutável
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031235900_oryneo_release_attestation_interlock_dormant.sql
+      - name: Instalar primitivas dormentes da etapa 2 sem alterar ownership
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261102003224_oryneo_stage2_durable_engine_dormant.sql
+      - name: Homologar espera live, commit transacional e recuperação após crash
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/automation/stage2_live_wait_engine.qa.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/automation/stage2_engine_commit.qa.sql
+      - name: Homologar e-mail e resposta WhatsApp com consentimento revogável
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/stage2_channel_executors.qa.sql
 
   failure-policy:
     runs-on: ubuntu-latest
@@ -261,6 +271,8 @@ jobs:
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-commercial-crm-worker/index.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-live-crm-plan-worker/index.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-meta-template-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-email-worker/index.ts
+          deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/automation-whatsapp-reply-worker/index.ts
           deno check --min-dep-age=0 --node-modules-dir=auto supabase/functions/whatsapp-ai-worker/index.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_intelligence_stage4_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_sdr_meta_stage4_test.ts
@@ -273,6 +285,7 @@ jobs:
           deno test --min-dep-age=0 supabase/functions/tests/automation_template_bindings_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_meta_template_request_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_meta_transport_test.ts
+          deno test --min-dep-age=0 supabase/functions/tests/automation_email_template_render_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_meta_canonical_context_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_shadow_engine_test.ts
           deno test --min-dep-age=0 supabase/functions/tests/automation_action_policy_test.ts

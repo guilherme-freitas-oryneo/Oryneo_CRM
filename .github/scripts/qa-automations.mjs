@@ -36,7 +36,7 @@ for (const c of cases) {
       if(input.action==='workspaces')return response({ok:true,workspaces:[{id:workspaceId,slug:'oryneo-crm',role:'admin',active:false}]});
       if(input.action==='list')return response({ok:true,flows:[]});
       if(input.action==='templates')return response({ok:true,templates:[]});
-      if(input.action==='catalog')return response({ok:true,catalog:{stages:[],templates:[],knowledge:[],dictionaries:[]},readOnly:true});
+      if(input.action==='catalog')return response({ok:true,catalog:{stages:[],templates:[],emailTemplates:[],replyTexts:[],knowledge:[],dictionaries:[]},readOnly:true});
       if(input.action==='executions')return response({ok:true,executions:[]});
       if(input.action==='commercial-readiness')return response({ok:true,readOnly:true,dispatchAuthorized:false,channels:['whatsapp','email','crm','onboarding','billing'].map(channel=>({channel,owner:'legacy',legacyPaused:false,releaseAttested:false,eligibleForControlledQueue:false})),runtime:{mode:'disabled',emergencyStop:true,workspaceActive:false}});
       if(input.action==='release-gates')return response({ok:true,readOnly:true,dispatchAuthorized:false,releaseReady:false,global:['legal','playbook','rollback','security','authenticated_e2e'],channels:{crm:['single_owner'],email:['single_owner'],whatsapp:['consent_policy'],onboarding:['single_owner'],billing:['financial_webhook']}});
