@@ -103,8 +103,11 @@ BEGIN
  VALUES(channel,true,'1322421900964911','28794700556857948');
  INSERT INTO public.crm_wa_conversations(id,channel_id,mode,opted_out,consent_granted,last_inbound_at)
  VALUES(conversation,channel,'sdr_active',false,true,clock_timestamp()-interval '25 hours');
- INSERT INTO public.automation_whatsapp_provider_bindings(workspace_id,crm_channel_id,phone_number_id,enabled)
- VALUES(w,channel,'1322421900964911',true);
+ INSERT INTO public.automation_whatsapp_provider_bindings(workspace_id,crm_channel_id,
+  whatsapp_account_id,messaging_account_id,phone_number_id,verified_by,verified_at,
+  release_approved_by,release_approved_at,enabled)
+ VALUES(w,channel,'28794700556857948','28794700556857948','1322421900964911',
+  actor,clock_timestamp()-interval '2 minutes',actor,clock_timestamp()-interval '1 minute',true);
  INSERT INTO public.automation_sdr_reply_registry(workspace_id,text_ref,body_text,status,content_sha256,approved_by,approved_at)
  VALUES(w,'diagnostico_inicio_v1','Oi! Vamos começar seu diagnóstico?','approved',repeat('e',64),actor,clock_timestamp());
  INSERT INTO public.automation_flows(id,workspace_id,slug,name,kind,enabled)
