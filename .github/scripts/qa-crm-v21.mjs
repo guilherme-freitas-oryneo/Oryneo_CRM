@@ -38,6 +38,7 @@ for(const [engine,name] of [[chromium,'chromium'],[chromium,'chromium-mobile'],[
   if(path.endsWith('/auth/v1/user'))return respond(session.user);
   if(path.endsWith('/auth/v1/token'))return respond(session);
   if(path.includes('/rest/v1/crm_members'))return respond([{user_id:userId}]);
+  if(path.includes('/rest/v1/crm_postsale_bridge_settings'))return respond([]);
   if(path.includes('/rest/v1/crm_records'))return respond(rows);
   if(path.includes('/rest/v1/crm_companies'))return respond([]);
   if(path.includes('/rest/v1/crm_events'))return respond([]);

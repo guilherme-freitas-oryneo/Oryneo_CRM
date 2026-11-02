@@ -27,6 +27,12 @@ export async function getBoard(){
  for(let start=0;;start+=1000){const {data,error}=await supabase.from('crm_records').select('*').eq('deleted',false).order('id').range(start,start+999);if(error)throw error;rows.push(...data);if(data.length<1000)break;}
  return rows;
 }
+export async function getPostSaleBridgeStatus(){
+ const {data,error}=await supabase.from('crm_postsale_bridge_settings')
+  .select('enabled,verified_at').eq('id',true).maybeSingle();
+ if(error)return false;
+ return data?.enabled===true&&typeof data.verified_at==='string'&&data.verified_at.length>0;
+}
 export async function mutate(row:{id:string;kind:'stage'|'deal';data:Stage|Deal;revision:number},deleted=false){
  const {data,error}=await supabase.rpc('crm_mutate',{p_id:row.id,p_kind:row.kind,p_data:row.data,p_revision:row.revision,p_deleted:deleted});if(error)throw error;return data as string;
 }

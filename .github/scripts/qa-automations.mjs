@@ -29,6 +29,7 @@ for (const c of cases) {
     const response=(payload,status=200)=>route.fulfill({status,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(payload)});
     if(path.endsWith('/auth/v1/user'))return response(session.user);
     if(path.endsWith('/auth/v1/token'))return response(session);
+    if(path.includes('/rest/v1/crm_postsale_bridge_settings'))return response([]);
     if(path.includes('/rest/v1/crm_records'))return response([]);
     if(path.includes('/rest/v1/crm_members'))return response([{user_id:userId}]);
     if(path.endsWith('/functions/v1/automation-api')){

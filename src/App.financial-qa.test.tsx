@@ -24,6 +24,7 @@ vi.mock('./data', () => ({
     functions: { invoke: vi.fn() },
   },
   getBoard: vi.fn(() => Promise.resolve([])),
+  getPostSaleBridgeStatus: vi.fn(() => Promise.resolve(false)),
   mutate: vi.fn(),
   undo: vi.fn(),
   errorText: (error: unknown) => String(error),
