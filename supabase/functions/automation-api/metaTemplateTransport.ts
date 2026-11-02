@@ -61,3 +61,31 @@ export async function sendVerifiedTemplate(
   return {kind:'uncertain',code:'META_OUTCOME_UNKNOWN'};
  }
 }
+
+export async function sendVerifiedText(
+ requester:Requester,token:string,phoneNumberId:string,
+ input:{recipient:string;text:string},
+):Promise<DeliveryOutcome>{
+ if(!/^[0-9]{8,24}$/.test(phoneNumberId)||!token
+  ||!/^[0-9]{8,20}$/.test(input.recipient)
+  ||typeof input.text!=='string'||input.text.length<1||input.text.length>4096
+  ||/\0/.test(input.text))throw Error('META_REPLY_INPUT_INVALID');
+ try{
+  const result=await requester(graph+phoneNumberId+'/messages',{
+   method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+   body:JSON.stringify({messaging_product:'whatsapp',recipient_type:'individual',
+    to:input.recipient,type:'text',text:{preview_url:false,body:input.text}}),
+   signal:AbortSignal.timeout(15000),
+  });
+  const body=await result.json().catch(()=>null);
+  const rawId=body&&typeof body==='object'
+   ?(body as {messages?:Array<{id?:unknown}>}).messages?.[0]?.id:null;
+  if(result.ok&&providerReceipt(rawId))return {kind:'accepted',receipt:rawId};
+  if(result.ok)return {kind:'uncertain',code:'META_OUTCOME_UNKNOWN'};
+  const providerError=body&&typeof body==='object'
+   &&typeof (body as {error?:{code?:unknown}}).error?.code==='number';
+  if(result.status>=400&&result.status<500&&providerError&&!rawId)
+   return {kind:'definitive_rejection',code:'META_REJECTED'};
+  return {kind:'uncertain',code:'META_OUTCOME_UNKNOWN'};
+ }catch{return {kind:'uncertain',code:'META_OUTCOME_UNKNOWN'};}
+}

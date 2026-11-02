@@ -112,6 +112,8 @@ export type CatalogChoice={id:string;name:string;variable_numbers?:string[]};
 export type NodeReferenceCatalog={
   stages:CatalogChoice[];
   templates:CatalogChoice[];
+  emailTemplates:CatalogChoice[];
+  replyTexts:CatalogChoice[];
   knowledge:CatalogChoice[];
   dictionaries:CatalogChoice[];
 };

@@ -81,3 +81,7 @@ Ler este documento, o checkpoint mestre e o relatório `docs/automation/RELEASE_
 - Faturamento: `provider_verified`, `consent_policy`, `single_owner`, `financial_webhook`, `terms_accepted`.
 
 Nenhuma dessas aprovações foi criada artificialmente. Não manipular `automation_release_attestations` para desbloquear um fluxo sem os comprovantes necessários.
+
+## Etapa 2 isolada — 02/11/2026
+
+O motor durável, as esperas live e os adaptadores dormentes de e-mail e resposta WhatsApp estão documentados em `STAGE2_DURABLE_ENGINE_EVIDENCE_20261102.md`. A evidência local cobre fencing, concorrência, cancelamento por resposta, recuperação de crash, consentimento por finalidade, takeover, janela Meta e ausência de retry cego. O runtime e todos os owners continuam inalterados; por isso a pontuação permanece **54,5/70 = 77,86%**.

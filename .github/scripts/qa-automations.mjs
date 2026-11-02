@@ -36,7 +36,7 @@ for (const c of cases) {
       if(input.action==='workspaces')return response({ok:true,workspaces:[{id:workspaceId,slug:'oryneo-crm',role:'admin',active:false}]});
       if(input.action==='list')return response({ok:true,flows:[]});
       if(input.action==='templates')return response({ok:true,templates:[]});
-      if(input.action==='catalog')return response({ok:true,catalog:{stages:[],templates:[],knowledge:[],dictionaries:[]},readOnly:true});
+      if(input.action==='catalog')return response({ok:true,catalog:{stages:[],templates:[],emailTemplates:[],replyTexts:[],knowledge:[],dictionaries:[]},readOnly:true});
       if(input.action==='executions')return response({ok:true,executions:[]});
       // PR #81 introduced a strictly read-only release matrix.
       // Model the real response contract, never claim ready or authorize send.

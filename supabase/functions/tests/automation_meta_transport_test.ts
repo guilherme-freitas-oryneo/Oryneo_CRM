@@ -1,4 +1,4 @@
-import {freshApprovedTemplate,sendVerifiedTemplate,type Requester}
+import {freshApprovedTemplate,sendVerifiedTemplate,sendVerifiedText,type Requester}
  from '../automation-api/metaTemplateTransport.ts';
 const check=(v:unknown,m:string)=>{if(!v)throw Error(m)};
 const config={recipient:'5521999887766',name:'oryneo_meta_qa_v3',
@@ -72,4 +72,19 @@ Deno.test('static template transport sends exact no-variable payload once',async
   locale:'pt_BR',values:[],expectedCount:0,
  });
  check(result.kind==='accepted'&&calls===1,'static template send was not accepted once');
+});
+Deno.test('free-form reply sends one bounded text request and requires receipt',async()=>{
+ let calls=0;
+ const send:Requester=async(_url,init)=>{calls++;
+  const body=JSON.parse(String(init?.body));
+  check(body.messaging_product==='whatsapp'&&body.type==='text','wrong reply envelope');
+  check(body.to==='5521999887766'&&body.text.body==='Olá, como posso ajudar?',
+   'reply content changed');
+  return new Response(JSON.stringify({messages:[{id:'wamid.synthetic.reply'}]}),{status:200});
+ };
+ const result=await sendVerifiedText(send,'fake-token','123456789123456',{
+  recipient:'5521999887766',text:'Olá, como posso ajudar?',
+ });
+ check(result.kind==='accepted'&&result.receipt==='wamid.synthetic.reply'&&calls===1,
+  'reply was retried or receipt lost');
 });
