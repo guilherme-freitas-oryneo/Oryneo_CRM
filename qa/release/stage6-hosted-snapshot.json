@@ -1,0 +1,95 @@
+{
+  "schema": "oryneo-stage6-hosted-snapshot-v1",
+  "projectRef": "ucikrafwfzamxvweuvgk",
+  "sourceCommit": "4601b875a70174b6e1ab3419bb7fee98b9e0faf6",
+  "capturedAt": "2026-11-02T18:35:43.624114+00:00",
+  "captureMethod": "supabase-read-only-sql",
+  "workspace": {
+    "id": "6c75c821-36d1-44a7-9448-726f98ed5f92",
+    "slug": "oryneo-crm",
+    "active": false
+  },
+  "runtime": {
+    "mode": "disabled",
+    "emergencyStop": true
+  },
+  "channelOwners": {
+    "billing": "legacy",
+    "crm": "legacy",
+    "email": "legacy",
+    "onboarding": "legacy",
+    "whatsapp": "legacy"
+  },
+  "counts": {
+    "activeAttestations": 0,
+    "activeWaits": 0,
+    "enabledFlows": 0,
+    "executions": 0,
+    "liveQueue": 0,
+    "publishedVersions": 0
+  },
+  "globalMissingGates": [
+    "global:legal",
+    "global:playbook",
+    "global:rollback",
+    "global:security",
+    "global:authenticated_e2e"
+  ],
+  "channelMissingGates": {
+    "billing": [
+      "global:legal",
+      "global:playbook",
+      "global:rollback",
+      "global:security",
+      "global:authenticated_e2e",
+      "billing:provider_verified",
+      "billing:consent_policy",
+      "billing:single_owner",
+      "billing:financial_webhook",
+      "billing:terms_accepted"
+    ],
+    "crm": [
+      "global:legal",
+      "global:playbook",
+      "global:rollback",
+      "global:security",
+      "global:authenticated_e2e",
+      "crm:provider_verified",
+      "crm:consent_policy",
+      "crm:single_owner"
+    ],
+    "email": [
+      "global:legal",
+      "global:playbook",
+      "global:rollback",
+      "global:security",
+      "global:authenticated_e2e",
+      "email:provider_verified",
+      "email:consent_policy",
+      "email:single_owner",
+      "email:mailbox_verified"
+    ],
+    "onboarding": [
+      "global:legal",
+      "global:playbook",
+      "global:rollback",
+      "global:security",
+      "global:authenticated_e2e",
+      "onboarding:provider_verified",
+      "onboarding:consent_policy",
+      "onboarding:single_owner"
+    ],
+    "whatsapp": [
+      "global:legal",
+      "global:playbook",
+      "global:rollback",
+      "global:security",
+      "global:authenticated_e2e",
+      "whatsapp:provider_verified",
+      "whatsapp:consent_policy",
+      "whatsapp:single_owner"
+    ]
+  },
+  "decision": "NO_GO_LIVE",
+  "reason": "Independent release attestations and authenticated provider canaries are absent."
+}
