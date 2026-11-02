@@ -8,24 +8,29 @@ CREATE TEMP TABLE qa_shadow_owner_before AS
 CREATE TEMP TABLE qa_shadow_outbox_before AS
   SELECT id,state FROM public.automation_action_outbox;
 
--- Freeze the disposable starter drafts so the control can prove that it rejects
--- mutable input. Production freezing is done by the API's server preflight.
-UPDATE public.automation_flow_versions v SET
-  graph_json=jsonb_set(v.graph_json,'{status}','"published"'::jsonb,false),
-  status='published',published_at=clock_timestamp()
-FROM public.automation_flows f,public.automation_workspaces w
-WHERE v.flow_id=f.id AND v.workspace_id=f.workspace_id
-  AND f.workspace_id=w.id AND w.slug='oryneo-crm' AND v.status='draft';
-
-WITH latest AS (
-  SELECT DISTINCT ON (v.workspace_id,v.flow_id) v.workspace_id,v.flow_id,v.id
-  FROM public.automation_flow_versions v
-  WHERE v.status='published' ORDER BY v.workspace_id,v.flow_id,v.version DESC
-)
-UPDATE public.automation_flows f SET enabled=false,published_version_id=latest.id
-FROM public.automation_workspaces w,latest
-WHERE f.workspace_id=w.id AND f.workspace_id=latest.workspace_id
-  AND f.id=latest.flow_id AND w.slug='oryneo-crm';
+-- Freeze the disposable starter drafts through the same immutable database
+-- primitive used by the API. Production supplies the real server preflight.
+DO $freeze$
+DECLARE w uuid; actor uuid; item record;
+BEGIN
+  SELECT id INTO w FROM public.automation_workspaces WHERE slug='oryneo-crm';
+  SELECT m.user_id INTO actor FROM public.automation_workspace_members m
+  JOIN public.crm_members c ON c.user_id=m.user_id
+  WHERE m.workspace_id=w AND m.role='admin' LIMIT 1;
+  UPDATE public.automation_runtime_settings SET mode='disabled',emergency_stop=true
+    WHERE workspace_id=w;
+  UPDATE public.automation_workspaces SET active=false WHERE id=w;
+  FOR item IN
+    SELECT f.id,f.revision,v.graph_json FROM public.automation_flows f
+    JOIN LATERAL (SELECT graph_json FROM public.automation_flow_versions
+      WHERE workspace_id=f.workspace_id AND flow_id=f.id AND status='draft'
+      ORDER BY version DESC LIMIT 1) v ON true
+    WHERE f.workspace_id=w
+  LOOP
+    PERFORM public.automation_publish_disabled(w,actor,item.id,item.revision,item.graph_json,
+      jsonb_build_object('ok',true,'dispatchAuthorized',false,'qa','isolated'));
+  END LOOP;
+END $freeze$;
 
 DO $qa$
 DECLARE
