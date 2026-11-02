@@ -13,6 +13,7 @@ const job: IntakeConfirmationJob = {
   jobType: 'lead_received_email',
   requestId: '11111111-1111-4111-8111-111111111111',
   dealId: '22222222-2222-4222-8222-222222222222',
+  orderId: null,
   data: {
     contact: 'Marina Souza',
     email: 'marina@example.com',
@@ -129,8 +130,10 @@ Deno.test('início de implantação: template oficial não afirma pagamento nem 
 });
 Deno.test('worker distingue automações na mesma fila sem alterar destinatário',async()=>{
  const captured: Array<{subject:string;to:unknown}>=[];
+ const verified: Array<{orderId:string;dealId:string}>=[];
  const deps: IntakeConfirmationDependencies = {
-   claimDue:()=>Promise.resolve([{...job,jobType:'implementation_started_email'}]),
+   claimDue:()=>Promise.resolve([{...job,jobType:'implementation_started_email',orderId:'33333333-3333-4333-8333-333333333333'}]),
+   isImplementationStillPaid:(orderId,dealId)=>{verified.push({orderId,dealId});return Promise.resolve(true)},
    send:(input)=>{captured.push({subject:input.subject,to:input.to});return Promise.resolve({internetMessageId:'<impl@oryneo.com.br>',alreadyAccepted:false})},
    markSent:()=>Promise.resolve(),
    markFailed:()=>Promise.reject(new Error('should not fail')),
@@ -138,4 +141,53 @@ Deno.test('worker distingue automações na mesma fila sem alterar destinatário
  assert.deepEqual(await processIntakeConfirmationJobs(deps),{claimed:1,sent:1,failed:0});
  assert.equal(captured[0].subject,'Implantação iniciada · ORYNEO');
  assert.deepEqual(captured[0].to,[{name:'Marina Souza',address:'marina@example.com'}]);
+ assert.deepEqual(verified,[{orderId:'33333333-3333-4333-8333-333333333333',dealId:job.dealId}]);
+});
+Deno.test('estorno entre claim e envio suprime e-mail de implantação',async()=>{
+ let transported=false;
+ const failures:string[]=[];
+ const deps: IntakeConfirmationDependencies={
+  claimDue:()=>Promise.resolve([{...job,jobType:'implementation_started_email',orderId:'33333333-3333-4333-8333-333333333333'}]),
+  isImplementationStillPaid:()=>Promise.resolve(false),
+  send:()=>{transported=true;throw Error('UNEXPECTED_SEND');},
+  markSent:()=>Promise.reject(Error('UNEXPECTED_SENT')),
+  markFailed:(_id,code)=>{failures.push(code);return Promise.resolve();},
+ };
+ assert.deepEqual(await processIntakeConfirmationJobs(deps),{claimed:1,sent:0,failed:1});
+ assert.equal(transported,false);
+ assert.deepEqual(failures,['IMPLEMENTATION_PAYMENT_REVOKED']);
+ assert.equal(intakeConfirmationStateForError(failures[0]),'suppressed');
+});
+Deno.test('falha ao consultar pagamento não envia e permanece recuperável',async()=>{
+ let transported=false;
+ const failures:string[]=[];
+ const deps: IntakeConfirmationDependencies={
+  claimDue:()=>Promise.resolve([{...job,jobType:'implementation_started_email',orderId:'33333333-3333-4333-8333-333333333333'}]),
+  isImplementationStillPaid:()=>Promise.reject(Error('INTAKE_CONFIRMATION_DB')),
+  send:()=>{transported=true;throw Error('UNEXPECTED_SEND');},
+  markSent:()=>Promise.reject(Error('UNEXPECTED_SENT')),
+  markFailed:(_id,code)=>{failures.push(code);return Promise.resolve();},
+ };
+ assert.deepEqual(await processIntakeConfirmationJobs(deps),{claimed:1,sent:0,failed:1});
+ assert.equal(transported,false);
+ assert.deepEqual(failures,['INTAKE_CONFIRMATION_SEND']);
+ assert.equal(intakeConfirmationStateForError(failures[0]),'failed');
+});
+
+Deno.test('implantação sem vínculo a um pedido específico é suprimida antes do transporte',async()=>{
+ let transported=false;
+ let verified=false;
+ const failures:string[]=[];
+ const deps: IntakeConfirmationDependencies={
+  claimDue:()=>Promise.resolve([{...job,jobType:'implementation_started_email',orderId:null}]),
+  isImplementationStillPaid:()=>{verified=true;return Promise.resolve(true)},
+  send:()=>{transported=true;throw Error('UNEXPECTED_SEND');},
+  markSent:()=>Promise.reject(Error('UNEXPECTED_SENT')),
+  markFailed:(_id,code)=>{failures.push(code);return Promise.resolve();},
+ };
+ assert.deepEqual(await processIntakeConfirmationJobs(deps),{claimed:1,sent:0,failed:1});
+ assert.equal(verified,false);
+ assert.equal(transported,false);
+ assert.deepEqual(failures,['IMPLEMENTATION_ORDER_INVALID']);
+ assert.equal(intakeConfirmationStateForError(failures[0]),'suppressed');
 });
