@@ -10,6 +10,7 @@ on:
       - 'qa/automation-editor*'
       - 'qa/automation-editor/**'
       - 'qa/acceptance/**'
+      - 'qa/release/**'
       - 'supabase/functions/automation-api/**'
       - 'supabase/functions/_shared/sdr/**'
       - 'supabase/functions/_shared/whatsapp/aiJobProcessor.ts'
@@ -369,9 +370,13 @@ jobs:
           node-version: '22'
       - name: Verificar rastreabilidade estrita 47/47 e limites de homologação isolada
         run: node qa/acceptance/verify-stage5.mjs
+      - name: Verificar a decisão fail-closed da etapa final
+        run: node qa/release/verify-stage6.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: oryneo-stage5-47-case-evidence
-          path: qa/acceptance/report/stage5-evidence.json
+          name: oryneo-stage6-release-evidence
+          path: |
+            qa/acceptance/report/stage5-evidence.json
+            qa/acceptance/report/stage6-release-evidence.json
           retention-days: 20
