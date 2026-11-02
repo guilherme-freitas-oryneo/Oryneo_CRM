@@ -8,8 +8,11 @@ import type {DealRow,StageRow} from '../data';
 export const LEGACY_IMPLEMENTATION_STAGE_ID='a623469a-34c8-4c21-9a44-7e20cc7df502';
 export function commercialStageList(
   stages:readonly StageRow[],deals:readonly DealRow[],splitEnabled:boolean,
+  paidDeliveryBridgeVerified=false,
 ):StageRow[]{
- if(!splitEnabled)return [...stages];
+ // A frontend flag alone must never hide the legacy stage while its
+ // paid-delivery automation still depends on that stage's identity.
+ if(!splitEnabled||!paidDeliveryBridgeVerified)return [...stages];
  const hasLegacyDeal=deals.some(d=>!d.deleted&&d.data.stage_id===LEGACY_IMPLEMENTATION_STAGE_ID);
  return stages.filter(s=>s.id!==LEGACY_IMPLEMENTATION_STAGE_ID||hasLegacyDeal);
 }

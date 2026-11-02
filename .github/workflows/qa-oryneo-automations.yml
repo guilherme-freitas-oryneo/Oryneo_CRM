@@ -26,6 +26,34 @@ permissions:
   contents: read
 
 jobs:
+  implementation-email-claim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Garantir que estorno bloqueia e-mail de implantação sem alterar e-mail de entrada
+        run: psql -v ON_ERROR_STOP=1 -f supabase/automation/implementation_email_claim_guard.qa.sql
+
   schema-isolation:
     runs-on: ubuntu-latest
     timeout-minutes: 12
