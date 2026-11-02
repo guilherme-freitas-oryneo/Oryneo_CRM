@@ -39,3 +39,13 @@ Deno.test('no fake placeholder fallback or oversized rendered text',()=>{
  catch{denied=true}
  requireTrue(denied,'oversized message allowed');
 });
+Deno.test('fresh static Meta body remains exact without variable interpolation',()=>{
+ const staticExpected={...expected,variable_numbers:[]};
+ const staticLive={...live,components:[{type:'BODY',text:'Olá! Podemos ajudar?'}]};
+ const proof=inspectFreshMetaApproval(staticLive,staticExpected);
+ requireTrue(proof.approved,'static template freshness rejected');
+ if(proof.approved){
+  requireTrue(renderVerifiedMetaTemplate(proof.body,[],[])==='Olá! Podemos ajudar?',
+   'static body changed during rendering');
+ }
+});

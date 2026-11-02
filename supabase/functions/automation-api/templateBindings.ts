@@ -34,6 +34,7 @@ export function resolveTemplateBindings(
 ): {ok:true;values:string[]}|{ok:false;code:string}{
   const result=validateTemplateBindings(bindings,expected);
   if(!result.ok)return {ok:false,code:result.issues[0]};
+  if(expected.length===0)return {ok:true,values:[]};
   if(!bindings||typeof bindings!=='object'||Array.isArray(bindings))
     return {ok:false,code:'BINDINGS_REQUIRED'};
   const b=bindings as Record<string,string>;

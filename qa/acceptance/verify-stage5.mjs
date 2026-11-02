@@ -3,6 +3,7 @@
  * with production E2E proof: this tool validates 47 case references and exports
  * a machine-readable index of test assertions executed by the CI suite.
  */
+import './verify-checkpoint-oryneo.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {resolve,sep} from 'node:path';

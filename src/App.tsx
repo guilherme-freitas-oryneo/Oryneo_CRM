@@ -33,7 +33,9 @@ function Board({session}:{session:Session}){
  const deals=(rows.filter(r=>r.kind==='deal') as DealRow[]).sort((a,b)=>b.created_at.localeCompare(a.created_at));
  // A gated display-only split: the old implantation stage remains in DB.
  // Do not enable until the paid-delivery bridge migration is deployed.
- const commercialStages=commercialStageList(stages,deals,import.meta.env.VITE_ORYNEO_POSTSALE_SPLIT==='true');
+ const commercialStages=commercialStageList(stages,deals,
+  import.meta.env.VITE_ORYNEO_POSTSALE_SPLIT==='true',
+  import.meta.env.VITE_ORYNEO_POSTSALE_BRIDGE_VERIFIED==='true');
  const detailDeal=deals.find(d=>d.id===detailId);
  const refresh=useCallback(async(silent=false)=>{const req=++fetchRef.current;if(!silent)setLoading(true);try{const result=await getBoard();if(req===fetchRef.current){setRows(result);setLoadError('');setSynced(new Date())}}catch(e){if(req===fetchRef.current)setLoadError(errorText(e))}finally{if(req===fetchRef.current)setLoading(false)}},[]);
  useEffect(()=>{

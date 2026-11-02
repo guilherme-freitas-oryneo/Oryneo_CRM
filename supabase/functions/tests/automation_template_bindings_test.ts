@@ -31,3 +31,10 @@ Deno.test('bad Meta component index snapshot cannot publish',()=>{
  assert(!validateTemplateBindings({'1':'opportunity.plan'},['0']).ok,'zero index accepted');
  assert(!validateTemplateBindings({'1':'opportunity.plan'},['100']).ok,'oversized variable number accepted');
 });
+Deno.test('approved static template resolves with no invented bindings',()=>{
+ assert(validateTemplateBindings(undefined,[]).ok,'static template rejected by validation');
+ const result=resolveTemplateBindings(undefined,[],{});
+ assert(result.ok&&result.values.length===0,'static template must resolve to no parameters');
+ assert(!validateTemplateBindings({'1':'opportunity.plan'},[]).ok,
+  'extra binding on static template accepted');
+});
