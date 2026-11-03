@@ -66,6 +66,14 @@ describe('Automações: interação visual isolada', () => {
     expect(screen.getByText(/Editor de preparação · sem merge, deploy ou ativação de fluxos/)).toBeInTheDocument();
   });
 
+  it('informa quando um fluxo aberto é somente estrutural', async () => {
+    const user = userEvent.setup();
+    render(<AutomationsWorkspace userId={userId}/>);
+    await user.click(screen.getByRole('button', { name: /Fluxos do pipeline/ }));
+    await user.click(screen.getByRole('button', { name: /Novo fluxo/i }));
+    expect(screen.getByText('Fluxo estrutural: ainda não contém uma ação executável.')).toBeInTheDocument();
+  });
+
   it('insere condição conectada pelo menu de botão direito do nó', async () => {
     const user=userEvent.setup();
     render(<AutomationsWorkspace userId={userId}/>);
