@@ -1,0 +1,247 @@
+TERMOS GERAIS DE CONTRATAÇÃO E USO DOS SERVIÇOS ORYNEO
+
+Minuta jurídica de trabalho v0.9 • 19 de outubro de 2026 • NÃO PUBLICAR NEM VINCULAR AO CHECKOUT ANTES DA APROVAÇÃO
+
+CONTRATADA: ORYNEO LTDA, CNPJ nº 52.773.804/0001-27, com sede e endereço de atendimento a confirmar por documento cadastral oficial antes da publicação, doravante denominada “ORYNEO”. A grafia e correspondência cadastral da razão social ainda dependem de comprovação documental. Canal comercial informado: contato@oryneo.com.br, sujeito a validação operacional.
+
+CONTRATANTE: pessoa física ou jurídica identificada no cadastro, na proposta comercial e/ou no pedido de contratação individual. Quando representante de pessoa jurídica, o aceitante declara possuir poderes suficientes para vinculá-la e responde pela veracidade dessa declaração nos limites da lei.
+
+AVISO DE STATUS: esta versão é uma minuta para análise comercial, técnica e jurídica, não constitui oferta pública nem deve ser apresentada como instrumento contratual vigente. Campos, prazos e regras que dependem de validação não foram inventados. A versão definitiva somente terá efeito quando aprovada, disponibilizada integralmente e aceita em contratação identificada.
+
+1. Objeto, natureza e documentos integrantes
+
+1.1. Estes Termos disciplinam a contratação de serviços tecnológicos e profissionais ofertados pela ORYNEO: acesso não exclusivo à plataforma CRM no modelo software como serviço (SaaS), recursos de automação e inteligência artificial quando contratados e habilitados, implantação, e, apenas se expressamente incluídos no pedido, serviços de landing page e gestão de tráfego pago.
+
+1.2. A descrição exata do objeto de cada contratação será formada por estes Termos, pelo quadro-resumo do pedido/checkout, pela proposta individual aceita (se houver), pelos anexos aplicáveis e pelas condições específicas do serviço contratado. Materiais publicitários não prevalecem sobre compromisso específico, salvo quando constituírem oferta vinculante nos termos da lei.
+
+1.3. Em caso de divergência, prevalecem: (i) normas legais cogentes e direitos irrenunciáveis; (ii) condições específicas expressas e identificadas na proposta/pedido para escopo, quantidades, preço, início e prazo; (iii) aditivos específicos; (iv) estes Termos; e (v) políticas complementares regularmente incorporadas, sempre com interpretação que preserve transparência, boa-fé e os direitos legalmente assegurados.
+
+1.4. A contratação não abrange recursos, integrações, resultados, capacitações, equipamentos, verba de publicidade ou serviços não discriminados na oferta individual. Qualquer inclusão depende de aceite específico de escopo, preço e, quando aplicável, impacto no ciclo de cobrança.
+
+2. Definições
+
+2.1. “Plataforma” é o ambiente ORYNEO disponibilizado conforme o plano ativo; “Conta” é a organização contratante e seus usuários autorizados; “Usuário” é a pessoa habilitada pelo administrador do contratante; “Conteúdo do Cliente” compreende informações, documentos, mensagens, leads, arquivos e configurações inseridos legitimamente por ele; “Pedido” é o quadro-resumo com serviços, valores, impostos incidentes informados, recorrências e dados da contratação; “Integração” é conexão com serviço de terceiro; “Dados Pessoais” têm o significado legal da LGPD.
+
+3. Oferta, contratação eletrônica e comprovação do aceite
+
+3.1. Antes da confirmação, o contratante deverá ter oportunidade efetiva de examinar os Termos completos, corrigir eventuais erros de dados, consultar preço total e despesas adicionais, escolher o ciclo disponível e conhecer limitações relevantes.
+
+3.2. O aceite ocorrerá por manifestação afirmativa, não pré-selecionada, vinculada ao pedido e à versão integral exibida dos Termos. O registro eletrônico poderá incluir data e horário, versão/hash do documento, identificador do pedido, usuário/representante autenticado, evidências técnicas razoavelmente necessárias e comprovante do evento, respeitados minimização e proteção de dados.
+
+3.3. O aceite contratual, a autorização para cobrança recorrente, a confirmação do pagamento e a liberação operacional do ambiente são eventos distintos. Nenhuma mensagem de interface deve sugerir que uma compra pendente esteja paga ou que a implantação já tenha sido concluída.
+
+3.4. A ORYNEO disponibilizará confirmação da contratação e cópia reproduzível do conjunto de condições aceitas por canal acessível ao contratante. A validade probatória do aceite eletrônico seguirá a legislação brasileira aplicável e não pressupõe, como regra geral, certificado ICP-Brasil obrigatório para toda contratação privada.
+
+4. Planos, licenciamento e limites operacionais
+
+4.1. A licença de acesso ao CRM é limitada, onerosa, temporária enquanto vigente a assinatura, não exclusiva, intransferível e destinada exclusivamente às atividades legítimas do contratante, observados os usuários e recursos contratados.
+
+4.2. As modalidades comerciais atualmente identificadas no código são Start, Growth e Scale, com ciclos mensal ou anual. Recursos, quotas, perfis de acesso, funcionalidades, automações, armazenamento, consumo de IA e limites de uso somente serão exigíveis se descritos objetivamente na oferta/pedido aplicável; esta minuta não presume franquias ou SLA não confirmados.
+
+4.3. Mudanças materiais de recursos do plano que prejudiquem o contratado exigem comunicação adequada e tratamento compatível com o pedido, a lei e eventual direito de resolução. Aprimoramentos de segurança e correções podem ocorrer durante a vigência sem alteração indevida do objeto contratado.
+
+5. Serviços opcionais: landing page e gestão de tráfego
+
+5.1. LANDING PAGE: quando adquirida, compreende apenas as entregas descritas no pedido e no briefing aprovado. Quantidade de páginas, textos, ajustes, integrações, hospedagem, domínio, manutenção, publicação, entrega de arquivos e propriedade/licença dos materiais customizados dependem de especificação expressa. A ORYNEO não assume custeio nem gestão do domínio do contratante sem previsão contratual.
+
+5.2. TRÁFEGO PAGO: quando contratado, a gestão é serviço distinto da assinatura CRM e, conforme o catálogo técnico atual, pode envolver período inicial de três meses e renovação trimestral independente. A verba destinada diretamente às plataformas de anúncios é separada da remuneração de gestão e não está incluída, salvo oferta expressa em contrário.
+
+5.3. Contas publicitárias, meios de pagamento da mídia, acessos administrativos, materiais autorizados, políticas das plataformas e eventual aprovação de criativos são responsabilidades especificadas entre as partes na proposta. A ORYNEO não garante volume de leads, venda, lucro, posição em leilões de anúncios ou aprovação por terceiros; deverá, porém, empregar diligência profissional, transparência e prestar as entregas assumidas.
+
+5.4. Alterações fora do escopo, revisões adicionais, integrações não previstas ou nova campanha podem exigir orçamento e aceite prévios. A ausência de aceite não autoriza cobrança unilateral.
+
+6. Implantação, dependências e disponibilização
+
+6.1. A implantação compreende apenas as atividades previstas no plano ou proposta aceita. Seu início poderá depender de confirmação de pagamento, reunião inicial, fornecimento de informações, autorização de acessos e conclusão dos requisitos técnicos informados.
+
+6.2. A ORYNEO informará marcos, entregáveis, dependências e prazo individual confirmado no instrumento comercial ou comunicação de implantação. O prazo não será presumido com base em peças publicitárias ou funcionalidades ainda não homologadas.
+
+6.3. Atrasos decorrentes de pendências comprovadamente imputáveis ao contratante serão comunicados com registro das dependências e replanejamento proporcional. A ORYNEO permanece responsável pelos atrasos ou falhas sob seu controle.
+
+6.4. O acesso produtivo só será considerado liberado depois de criado o ambiente autorizado, verificadas permissões e disponibilizadas orientações de uso por canal legítimo. E-mails de boas-vindas e confirmações financeiras não equivalem, por si, à entrega completa.
+
+7. Obrigações da ORYNEO
+
+7.1. Prestar os serviços contratados com diligência e boa-fé; esclarecer limites e pré-requisitos; disponibilizar canais de suporte efetivamente oferecidos; adotar controles razoáveis de segurança compatíveis com riscos; respeitar confidencialidade; manter trilha de alterações relevantes e executar o tratamento de dados conforme a LGPD e as instruções lícitas aplicáveis.
+
+7.2. Comunicar de modo transparente incidentes relevantes, indisponibilidades materialmente significativas, mudanças contratuais e situações que afetem a continuidade. Não prometer disponibilidade integral, prazo fixo de suporte ou backups com periodicidade não validada e não contratada.
+
+7.3. Não utilizar Conteúdo do Cliente para fins próprios incompatíveis com as finalidades informadas, inclusive treinamento de modelos de IA externos, sem base legal e autorização/arranjo contratual adequados.
+
+8. Obrigações do contratante e seus usuários
+
+8.1. Fornecer dados corretos, manter poderes de representação e permissões, pagar valores aceitos, utilizar a Plataforma licitamente, gerenciar usuários, autenticação e credenciais, preservar sigilo dos acessos e comunicar uso indevido ou incidentes detectados.
+
+8.2. O contratante deverá comprovar base legal para coletar, importar, armazenar ou contatar leads; respeitar regras de opt-in/opt-out, privacidade, comunicação publicitária e canais como WhatsApp; não enviar mensagens não autorizadas ou conteúdo proibido; e atender solicitações de titulares conforme o papel de controlador que efetivamente desempenhar.
+
+8.3. O contratante não é responsável por falhas de segurança, defeitos da plataforma ou descumprimentos exclusivamente atribuíveis à ORYNEO. A distribuição de responsabilidades observará a conduta, o nexo causal, a culpa quando aplicável e normas cogentes.
+
+9. WhatsApp, APIs, serviços externos e dependências
+
+9.1. Funcionalidades que dependam de WhatsApp, Meta, provedores de IA, serviços de e-mail, registro de domínios, hospedagem, gateways e redes de anúncios poderão estar sujeitas a limites de API, tarifas de terceiros, revisão, bloqueios, indisponibilidades e termos específicos desses fornecedores.
+
+9.2. O contratante somente utilizará credenciais, números, contas publicitárias e dados para os quais tenha autorização. Integrações e canais devem ser habilitados conforme os recursos efetivamente homologados. A ORYNEO deverá informar dependências críticas e não poderá atribuir automaticamente a terceiros toda falha que decorra de integração sob sua responsabilidade.
+
+9.3. O uso da marca WhatsApp ou de provedores externos não representa parceria, certificação ou endosso oficial, salvo declaração comprovável e expressamente autorizada.
+
+10. Inteligência artificial e automações
+
+10.1. Quando incluídos na contratação, recursos de IA podem sugerir textos, classificar informações, apoiar atendimentos e executar tarefas dentro de permissões e configurações disponíveis; sua existência e alcance dependerão do plano e da habilitação real.
+
+10.2. Saídas de IA podem apresentar imprecisões, omissões ou interpretações inadequadas. O contratante deverá exercer revisão e supervisão humana proporcional ao risco e não usar respostas automatizadas como único fundamento de decisões com efeitos jurídicos significativos, concessão de crédito, saúde ou outros contextos sensíveis sem controles adequados.
+
+10.3. A ORYNEO deve informar funções automatizadas, limites relevantes, tratamento de dados envolvidos e opções de intervenção quando cabíveis. Não é permitido atribuir à IA autonomia ou ações que o sistema não implementou. O contratante não deverá inserir dados sensíveis ou confidenciais em funcionalidades inadequadas à finalidade e à base legal.
+
+11. Preços, documentação fiscal e cobranças
+
+11.1. Preços e composição são os efetivamente exibidos e aceitos no Pedido. O total inicial pode agregar assinatura do ciclo escolhido, taxa de implantação e adicionais avulsos. O valor da próxima cobrança, a periodicidade e a independência entre assinaturas deverão ser destacados antes do aceite.
+
+11.2. A assinatura mensal, quando contratada, é cobrada por ciclo mensal; a anual, por ciclo anual, conforme o Pedido. A gestão de tráfego, se incluída, poderá ter cobrança inicial antecipada de três meses e renovação a cada três meses, conforme proposta e pedido. Cobrança recorrente de tráfego não se confunde com cobrança do CRM nem com verba de anúncios.
+
+11.3. Taxa de implantação e landing page avulsa são cobranças únicas somente quando efetivamente contratadas. Cobranças de terceiros, consumo excedente e serviços extras exigem informação transparente e base contratual específica; não serão lançados unilateralmente.
+
+11.4. O processamento de pagamentos poderá ocorrer por prestador especializado, sujeito às regras técnicas do meio escolhido. Informação de sessão iniciada ou transação pendente não comprova liquidação; a ORYNEO confirmará pagamentos por meio de eventos financeiros verificados.
+
+11.5. Documentos fiscais legalmente exigidos serão emitidos conforme a operação, regime tributário e legislação aplicáveis. Recibos, invoices ou comprovantes da plataforma de pagamento não substituem automaticamente nota fiscal de serviço.
+
+11.6. Reajustes ou mudanças de preço aplicáveis a renovações futuras dependerão de critério, periodicidade, aviso e aceite ou possibilidade de encerramento quando legal/contratualmente necessários. Não se admite alteração retroativa de preço já contratado sem fundamento válido.
+
+12. Vigência, renovação e mudança de plano
+
+12.1. A vigência começa na data indicada na contratação ou evento de ativação expressamente identificado. Serviços de assinatura renovam-se nos ciclos exibidos no Pedido enquanto a contratação estiver ativa, salvo cancelamento ou previsão específica. O cliente deve ser informado sobre a renovação e poder gerir o vínculo pelas formas disponibilizadas.
+
+12.2. Alterações de plano, periodicidade, número de usuários e complementos serão formalizadas com informação sobre data de vigência, preço, diferenças, créditos, débitos proporcionais quando aplicáveis, e impacto em funcionalidades. A ORYNEO não poderá presumir aceite para novos serviços remunerados.
+
+13. Inadimplência, suspensão e restabelecimento
+
+13.1. Diante de pagamento não aprovado ou vencido, a ORYNEO poderá enviar aviso ao responsável e disponibilizar meios de regularização válidos, distinguindo cobrança em processamento de inadimplência confirmada.
+
+13.2. Qualquer suspensão por inadimplência observará notificação, prazo de regularização razoável e proporcional, preservando direitos legais, dados e possibilidade de acesso a informações indispensáveis para resolução ou exportação quando cabível. Prazos exatos e condições de suspensão deverão ser definidos antes da aprovação final, sem inferir regras ainda não implantadas.
+
+13.3. O restabelecimento dependerá da regularização financeira e dos controles de segurança, sem cobrança de multa ou taxa não informada e aceita.
+
+14. Cancelamento, arrependimento e reembolso
+
+14.1. O contratante poderá solicitar o cancelamento pelos canais disponibilizados na contratação e no portal, quando existente, com confirmação rastreável. O pedido deve esclarecer se encerra apenas a renovação futura ou também os serviços em curso, inclusive contratos autônomos de tráfego e demais complementos.
+
+14.2. Nos contratos regidos pelo CDC em que seja aplicável o direito de arrependimento, será respeitado o prazo legal de sete dias contado conforme a lei, com devolução dos valores devidos e atendimento facilitado. A contratação por pessoa jurídica não exclui nem atrai automaticamente o CDC: a incidência dependerá do caso concreto.
+
+14.3. Fora das hipóteses de reembolso legalmente obrigatório, valores de ciclos antecipados, implantação já executada e serviços personalizados obedecerão às condições específicas válidas e informadas antes da contratação, consideradas a execução efetiva, a boa-fé e a vedação de retenção desproporcional. Nenhuma cláusula significa renúncia antecipada a direitos irrenunciáveis.
+
+14.4. Reembolso autorizado será comunicado de forma distinta da data em que o crédito aparecerá no extrato do cliente, pois a liquidação depende do emissor e do meio de pagamento. O cancelamento de assinatura não implica, por si só, estorno de cobrança já processada.
+
+15. Titularidade intelectual e entregas personalizadas
+
+15.1. A ORYNEO ou seus licenciantes permanecem titulares dos sistemas, marca, interfaces, códigos, fluxos gerais, documentação, métodos, componentes reutilizáveis e demais ativos preexistentes da Plataforma. A contratação concede licença de utilização, não cessão desses ativos.
+
+15.2. O contratante preserva direitos sobre seus próprios conteúdos, marcas e bases legítimas. Materiais desenvolvidos sob encomenda, como landing pages e criativos, terão regime de cessão ou licença especificado na proposta, distinguindo arquivos entregáveis, elementos de terceiros, fontes licenciadas e ferramentas preexistentes da ORYNEO.
+
+15.3. Nenhuma parte pode reproduzir, comercializar, divulgar ou explorar indevidamente propriedade intelectual da outra. Uso de marcas em portfólio, casos de sucesso ou publicidade depende de autorização específica, salvo uso estritamente necessário para executar o contrato e permitido por lei.
+
+16. Dados pessoais, LGPD e papéis das partes
+
+16.1. Quanto aos dados de leads, contatos, funcionários, mensagens e arquivos tratados pela ORYNEO estritamente em nome do contratante, este normalmente definirá finalidades e meios essenciais como controlador, e a ORYNEO atuará como operadora, conforme a atividade concreta. Quanto a cadastro comercial, cobrança, prevenção à fraude, segurança e cumprimento de obrigações próprias, a ORYNEO poderá atuar como controladora independente. Não se presume um papel único para todos os tratamentos.
+
+16.2. Cada parte observará a LGPD, as bases legais adequadas, necessidade e transparência, os direitos dos titulares e as medidas proporcionais de segurança. Instruções do controlador devem ser documentadas, lícitas e tecnicamente possíveis. A ORYNEO não se obriga a executar instruções ilícitas.
+
+16.3. O Anexo II contém o Acordo de Tratamento de Dados, que integra os Termos apenas quando preenchidas as informações essenciais de escopo, categorias de titulares/dados, retenção, subprocessadores, meios de transferência e instruções aplicáveis. Onde houver transferência internacional sujeita à Resolução ANPD nº 19/2024, não se presume conformidade mediante texto adaptado: deve ser adotado mecanismo válido, inclusive cláusulas-padrão integralmente reproduzidas quando for esse o fundamento.
+
+17. Confidencialidade
+
+17.1. As partes protegerão informações comerciais, técnicas, estratégicas e dados confidenciais da outra parte acessados em função do contrato, utilizando-os somente para finalidades legítimas de execução ou obrigação legal. A obrigação alcança empregados e prestadores autorizados, com controles proporcionais.
+
+17.2. Não serão tratadas como confidenciais informações comprovadamente públicas sem violação, obtidas licitamente de terceiro sem restrição ou desenvolvidas independentemente. Divulgações legalmente exigidas serão limitadas ao necessário e comunicadas previamente quando lícito e possível.
+
+18. Segurança da informação e incidentes
+
+18.1. A ORYNEO manterá medidas técnicas e administrativas compatíveis com os riscos do serviço, incluindo, conforme aplicável e implementado, controle de acesso, isolamento lógico de clientes, gestão de credenciais, logs, atualização de componentes e procedimentos de resposta a incidentes.
+
+18.2. A ORYNEO comunicará ao contratante sem demora injustificada incidentes de segurança confirmados que afetem dados pessoais sob instrução deste e fornecerá elementos disponíveis para avaliação de riscos, mitigação e comunicações legalmente devidas. O controlador cumprirá os prazos regulatórios próprios; a comunicação da ORYNEO ao controlador deverá permitir a observância desses prazos.
+
+18.3. As partes cooperarão na apuração, contenção e correção. A ORYNEO não promete ausência absoluta de incidentes ou infalibilidade, mas tal ressalva não exclui seus deveres de segurança, diligência ou responsabilidades previstas em lei.
+
+19. Disponibilidade, manutenção e suporte
+
+19.1. A ORYNEO envidará esforços tecnicamente diligentes para disponibilizar os serviços contratados, respeitadas dependências informadas, janelas de manutenção, falhas de terceiros e circunstâncias extraordinárias devidamente comprovadas. Níveis mínimos de serviço, horários, prioridades, tempos de resposta, créditos e exclusões só serão exigíveis se expressamente definidos em oferta/anexo aceito.
+
+19.2. Interrupções materiais de sua responsabilidade serão tratadas com medidas de correção e comunicação proporcionais. Não se afasta o direito do cliente às soluções legais cabíveis por inadimplemento ou defeito do serviço.
+
+20. Conteúdo, extração, conservação e encerramento
+
+20.1. Ao fim do vínculo, deverão ser informados de maneira clara os procedimentos de acesso remanescente, solicitação de exportação, formato razoavelmente disponível, verificação de legitimidade do solicitante, retenção indispensável e descarte/anonimização conforme base legal e obrigações aplicáveis.
+
+20.2. A ORYNEO não realizará exportação indiscriminada a solicitante não autenticado e poderá exigir validação proporcional para preservar dados de terceiros. A efetiva disponibilidade de exportação automática, seus formatos e prazos de atendimento deverão ser confirmados tecnicamente antes de compromisso público; enquanto não homologada, a solicitação será tratada por procedimento seguro e documentado.
+
+20.3. Nenhuma disposição autoriza eliminação imediata que contrarie dever de conservação, ordem legítima ou direito de portabilidade e acesso aplicável. Tampouco constitui autorização de retenção indefinida: a ORYNEO adotará prazos e critérios documentados e proporcionais.
+
+21. Uso aceitável e medidas preventivas
+
+21.1. São proibidos: spam e disparos em massa sem base legítima; fraude, phishing, engenharia social, falsidade ideológica, coleta irregular de dados, acesso não autorizado, violação de propriedade intelectual, inserção deliberada de código malicioso, exploração de vulnerabilidades, evasão de limites de uso, utilização ilícita de credenciais ou serviços de terceiros e conteúdo ilegal.
+
+21.2. Havendo indícios objetivos de uso que imponha risco sério a pessoas, dados, infraestrutura ou terceiros, a ORYNEO poderá aplicar medida preventiva proporcional ao risco, incluindo limitação temporária, preservação de provas pertinentes e orientação de regularização, observada comunicação quando possível e garantia de revisão de medida indevida.
+
+22. Responsabilidade, reparação e equilíbrio
+
+22.1. Cada parte responderá por descumprimentos que lhe sejam imputáveis na extensão prevista no contrato e na lei, considerado o nexo causal, danos comprovados, dever de mitigação e repartição legal de responsabilidades. Não há exoneração de responsabilidade por dolo, culpa grave quando insuscetível de limitação, violação de direitos irrenunciáveis ou hipóteses em que a lei proíba restrição.
+
+22.2. Eventual limitação monetária de responsabilidade contratual B2B deverá ser fixada em negociação/revisão jurídica posterior, com critérios objetivos e exclusões adequadas para incidentes de dados, violação de confidencialidade, propriedade intelectual, danos pessoais e deveres cogentes. Nenhum teto numérico é estabelecido nesta minuta para evitar cláusula arbitrária.
+
+22.3. Indenizações relacionadas a infração por conteúdo ou instrução do contratante dependerão de conduta imputável, causalidade, participação processual e garantias de defesa; não serão automáticas nem cobrirão falhas exclusivamente causadas pela ORYNEO.
+
+23. Caso fortuito, força maior e continuidade
+
+23.1. Eventos extraordinários fora do controle razoável das partes serão avaliados nos termos da lei, com comunicação tempestiva, medidas de continuidade proporcionais e retomada das atividades quando possível. Dificuldades ordinárias de gestão, falta de planejamento ou falhas previsíveis de prestadores não se qualificam automaticamente como força maior.
+
+24. Mudanças contratuais e versionamento
+
+24.1. Cada versão aprovada será identificada por data, número e documento íntegro reproduzível. Alterações meramente redacionais poderão ser publicadas com transparência; alterações materiais em escopo, preço, direitos ou deveres exigirão aviso apropriado e, quando necessário, concordância expressa ou opção de encerramento sem penalidade abusiva.
+
+24.2. A versão aplicável a uma contratação será aquela associada ao aceite comprovado, ressalvadas alterações válidas posteriormente pactuadas e normas cogentes supervenientes. Não haverá substituição silenciosa do texto aceito por versão retroativa.
+
+25. Atendimento, comunicações e notificações
+
+25.1. Canal geral indicado: contato@oryneo.com.br, sujeito à validação de efetiva operação de atendimento antes da publicação. Endereço físico da sede, canal de privacidade, condições de suporte e endereço oficial para notificações formais devem ser completados com dados comprovados no texto definitivo.
+
+25.2. Avisos contratuais importantes serão expedidos por meio que permita rastreabilidade, para o endereço de contato válido informado pelo contratante, sem impor a este exclusivamente o ônus de descobrir alterações. Comunicações marketing e transacionais obedecerão a seus regimes legais próprios.
+
+26. Legislação aplicável e solução de disputas
+
+26.1. Aplica-se a legislação brasileira. As partes buscarão solução consensual pelo canal de suporte antes de judicialização, sem condicionar a tutela judicial ao esgotamento de procedimento interno.
+
+26.2. A cláusula de foro deverá respeitar competência legal e direitos de consumidores quando aplicáveis. Não se impõe arbitragem compulsória ao consumidor nem renúncia prévia de acesso ao Judiciário. Para eventual contratação estritamente empresarial com negociação efetiva, foro ou resolução privada poderão ser definidos em instrumento específico válido.
+
+27. Disposições finais
+
+27.1. Nulidade de disposição isolada não comprometerá as demais quando preservados objeto, equilíbrio e finalidade lícita. Tolerância pontual não constitui renúncia geral de direito. Cessão do contrato e troca de prestador responsável dependerão de respeito à lei, informações e direitos do contratante.
+
+27.2. Estes Termos não estabelecem vínculo trabalhista, societário, representação comercial ou exclusividade entre as partes, salvo disposição expressa e válida em contrato específico.
+
+27.3. A contratação definitiva exigirá: identificação cadastrada e endereço do fornecedor; íntegra acessível antes do aceite; pedido individual; confirmação reproduzível; mecanismos de cancelamento; e homologação dos fluxos financeiros e operacionais declarados.
+
+ANEXO I — Quadro-resumo individual de contratação (modelo)
+
+Este quadro não substitui o Pedido concreto; serve apenas de padrão e deve ser preenchido pelo checkout/proposta sem valores fictícios. Identificação do contratante e representante; proposta e versão; plano Start/Growth/Scale; ciclo mensal/anual; funcionalidades/franquias contratadas; valor da assinatura por ciclo; taxa única de implantação; landing page avulsa, se houver; gestão de tráfego inicial e renovação trimestral, se houver; verba de mídia separada; preço total hoje; valor/data ou critério da próxima renovação; prazos e marcos de implantação; canais de atendimento; condições individuais adicionais; versão dos Termos; data/identificador do aceite.
+
+ANEXO II — Acordo de Tratamento de Dados (DPA) — minuta estrutural
+
+A. Papéis e objeto: o contratante será controlador dos dados pessoais cujo tratamento determinar no CRM; a ORYNEO será operadora na extensão em que tratar esses dados por conta e sob instrução lícita daquele. A ORYNEO poderá ser controladora independente de dados de faturamento, relacionamento comercial, segurança e obrigações próprias.
+
+B. Categorias e titulares: poderão compreender usuários empresariais, colaboradores, leads e clientes dos contratantes, contatos de campanhas, dados cadastrais, registros de interações e mensagens, estritamente conforme funcionalidades habilitadas. A matriz final de categorias, natureza, frequência, finalidades, países, duração e dados sensíveis permitidos deverá ser preenchida a partir do inventário de tratamento real e acordado.
+
+C. Instruções: a operadora só processará dados para entregar o serviço e conforme instruções documentadas compatíveis com o contrato, ressalvadas imposições legais, com informação ao controlador quando lícito. A operadora informará instrução que pareça ilícita, sem executar uso manifestamente irregular.
+
+D. Segurança e acesso: controles proporcionais à atividade, mínimo privilégio, confidencialidade do pessoal autorizado, isolamento de clientes, monitoramento e políticas de conservação. Medidas concretas e compromissos de auditoria serão descritos em anexo técnico após validação de implementação.
+
+E. Suboperadores: fornecedores de infraestrutura, envio de e-mail, pagamentos, integrações e IA somente poderão tratar dados nos limites compatíveis com as finalidades e requisitos legais; sua identificação, finalidade e países envolvidos deverão constar de lista atualizada antes da contratação. Obrigações de proteção equivalentes deverão ser incorporadas nos instrumentos pertinentes.
+
+F. Transferências internacionais: somente mediante base legal, transparência e mecanismo válido do art. 33 da LGPD. Quando dependerem de cláusulas-padrão ANPD, as cláusulas oficiais deverão ser integralmente incorporadas em documento próprio, sem adaptações ou supressões.
+
+G. Direitos e incidentes: a operadora auxiliará o controlador de modo proporcional e tempestivo para responder direitos de titulares, auditorias legítimas e incidentes. O controlador conduzirá comunicações regulatórias que lhe competirem; a operadora fornecerá informações disponíveis sem demora injustificada, de modo a viabilizar prazos legais.
+
+H. Término e retenção: após o fim da prestação, acesso, devolução, exportação, retenção e eliminação obedecerão ao escopo técnico comprovado, às instruções legítimas, à lei e às salvaguardas contra divulgação a terceiros. Devem ser fixados formatos e prazos de solicitação antes da versão final.
+
+I. Responsabilidade: observará a LGPD, o Código Civil, demais leis aplicáveis e contribuições causais das partes, sem exoneração absoluta de responsabilidade nem apropriação de dados do contratante.
+
+ANEXO III — Política de Uso Aceitável — redação-base
+
+São usos incompatíveis: comunicações ilegais ou abusivas, envio de spam, importação de dados sem autorização, contorno de bloqueios de plataformas, engenharia social e fraude, práticas discriminatórias ilegais, acesso a contas alheias, criação intencional de risco cibernético, revenda não autorizada da Plataforma, manipulação deliberada das métricas de cobrança, infrações à privacidade e propriedade intelectual. A ORYNEO deve aplicar medidas proporcionais e explicáveis e permitir contestação de medidas indevidas.
