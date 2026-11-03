@@ -11,12 +11,17 @@ import { loadTrustedReferences } from '../automation-api/trustedReferences.ts';
 import { loadShadowCanonicalContext } from '../automation-api/shadowContext.ts';
 import { isCanonicalUuid } from './workerGuards.ts';
 import { shadowFailureCode } from './failurePolicy.ts';
+import { shadowSafeState } from './safeState.ts';
 
 const projectUrl=Deno.env.get('SUPABASE_URL')||'';
 const serviceRole=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
 const workspaceSlug=Deno.env.get('AUTOMATION_WORKSPACE_SLUG')||'oryneo-crm';
 const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{
   status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'},
+});
+const safeShadowResult=(state:{code:string})=>json({
+  ok:true,shadowOnly:true,dispatchAuthorized:false,processed:0,
+  inactive:true,reasonCode:state.code,
 });
 type Claimed={
   inbox_id:string;source:string;event_id:string;event_type:string;
@@ -28,7 +33,8 @@ type VersionRow={id:string;graph_json:unknown;status:string};
 Deno.serve(async request=>{
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   if(!projectUrl||!serviceRole)
-    return json({error:'Shadow worker disabled'},503);
+    return json({ok:true,shadowOnly:true,dispatchAuthorized:false,processed:0,
+      inactive:true,reasonCode:'SHADOW_WORKER_UNCONFIGURED'});
 
   // Reuse the existing rotated cron credential instead of introducing a
   // second hosted secret. The RPC compares the supplied value server-side.
@@ -56,7 +62,10 @@ Deno.serve(async request=>{
   const ingested=await db.rpc('automation_shadow_ingest_crm',{
     p_workspace_id:workspaceId,p_batch_limit:50,
   });
-  if(ingested.error)return json({error:'Unable to ingest canonical CRM events'},503);
+  if(ingested.error){
+    const safe=shadowSafeState(ingested.error);
+    return safe?safeShadowResult(safe):json({error:'Unable to ingest canonical CRM events'},503);
+  }
   const ingestedWa=await db.rpc('automation_shadow_ingest_whatsapp',{
     p_workspace_id:workspaceId,p_batch_limit:50,
   });
